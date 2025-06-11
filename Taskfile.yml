@@ -1,0 +1,28 @@
+version: "3"
+
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+
+output: prefixed
+
+tasks:
+  watch-frontend:
+    desc: Start the frontend development server
+    dir: frontend
+    cmds:
+      - cmd: kill -9 $(lsof -t -i:5173)
+        ignore_error: true
+      - pnpm install
+      - pnpm run dev
+      - cmd: kill -9 $(lsof -t -i:5173)
+        ignore_error: true
+
+  watch-backend:
+    desc: Start the backend development server
+    dir: backend
+    cmds:
+      - cmd: kill -9 $(lsof -t -i:3000)
+        ignore_error: true
+      - bun install
+      - bun run dev
+      - cmd: kill -9 $(lsof -t -i:3000)
+        ignore_error: true
