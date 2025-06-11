@@ -3,14 +3,12 @@ import type { PageLoad } from './$types';
 interface Tag {
   id: string;
   tag: string;
-  description: string | null;
   viewCount: number;
-  flags: number;
   fanslyCreatedAt: Date;
-  isTracked: boolean;
   lastCheckedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
+  rank?: number | null;
 }
 
 interface TagsResponse {

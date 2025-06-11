@@ -6,11 +6,9 @@ export const tags = sqliteTable(
   {
     id: text('id').primaryKey(),
     tag: text('tag').notNull().unique(),
-    description: text('description'),
     viewCount: integer('view_count').notNull(),
-    flags: integer('flags').default(0),
+    rank: integer('rank'), // Global rank based on view count
     fanslyCreatedAt: integer('fansly_created_at', { mode: 'timestamp' }).notNull(),
-    isTracked: integer('is_tracked', { mode: 'boolean' }).default(true).notNull(),
     lastCheckedAt: integer('last_checked_at', { mode: 'timestamp' }),
     createdAt: integer('created_at', { mode: 'timestamp' })
       .default(sql`CURRENT_TIMESTAMP`)
@@ -22,6 +20,8 @@ export const tags = sqliteTable(
   (table) => {
     return {
       tagIdx: index('tag_idx').on(table.tag),
+      viewCountIdx: index('view_count_idx').on(table.viewCount),
+      rankIdx: index('rank_idx').on(table.rank),
     };
   }
 );
@@ -35,9 +35,6 @@ export const tagHistory = sqliteTable(
       .references(() => tags.id),
     viewCount: integer('view_count').notNull(),
     change: integer('change').notNull(), // Change from previous value
-    recordedAt: integer('recorded_at', { mode: 'timestamp' })
-      .default(sql`CURRENT_TIMESTAMP`)
-      .notNull(),
     createdAt: integer('created_at', { mode: 'timestamp' })
       .default(sql`CURRENT_TIMESTAMP`)
       .notNull(),

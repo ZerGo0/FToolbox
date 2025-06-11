@@ -127,11 +127,8 @@ app.post('/request', async (c) => {
         .values({
           id: fanslyTag.id,
           tag: fanslyTag.tag,
-          description: fanslyTag.description,
           viewCount: fanslyTag.viewCount,
-          flags: fanslyTag.flags,
           fanslyCreatedAt: new Date(fanslyTag.createdAt),
-          isTracked: true,
           lastCheckedAt: new Date(),
         })
         .returning();
@@ -146,7 +143,6 @@ app.post('/request', async (c) => {
         tagId: newTag.id,
         viewCount: newTag.viewCount,
         change: 0, // Initial entry has no change
-        recordedAt: new Date(),
       });
 
       // Update request status
@@ -155,7 +151,19 @@ app.post('/request', async (c) => {
         .set({ status: 'completed', updatedAt: new Date() })
         .where(eq(tagRequests.id, request.id));
 
-      return c.json({ message: 'Tag added successfully', tag: newTag });
+      // Calculate rank for the new tag
+      const higherRankedCount = await db
+        .select()
+        .from(tags)
+        .where(gte(tags.viewCount, newTag.viewCount))
+        .then((rows) => rows.length);
+
+      await db.update(tags).set({ rank: higherRankedCount }).where(eq(tags.id, newTag.id));
+
+      return c.json({
+        message: 'Tag added successfully',
+        tag: { ...newTag, rank: higherRankedCount },
+      });
     } else {
       // Update request status to failed
       await db

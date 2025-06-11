@@ -14,7 +14,17 @@ Fanslytagstats is a full-stack web application with a SvelteKit frontend and Bun
 
 ### Backend (Bun)
 
-**ALWAYS** run `pnpm check && pnpm lint` after making changes
+**ALWAYS** run `bun check && bun lint` after making changes
+
+## Database Migrations
+
+**IMPORTANT**: Always use Drizzle to generate migrations. NEVER write manual SQL migration files.
+
+Use the following command to generate migrations after schema changes:
+
+```bash
+bun drizzle-kit generate
+```
 
 ## Architecture
 

@@ -4,7 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "bun run index.ts",
+    "dev": "bun --watch run index.ts",
     "check": "tsc --noEmit",
     "lint": "prettier --write . --cache | { grep -v '(unchanged)' || true; } && eslint . --cache"
   },

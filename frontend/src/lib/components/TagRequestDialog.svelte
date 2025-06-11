@@ -69,12 +69,12 @@
   <DialogTrigger>
     <Button>
       <Plus class="mr-2 h-4 w-4" />
-      Request Tag
+      Add Tag
     </Button>
   </DialogTrigger>
   <DialogContent>
     <DialogHeader>
-      <DialogTitle>Request New Tag</DialogTitle>
+      <DialogTitle>Add New Tag</DialogTitle>
       <DialogDescription>
         Enter a Fansly tag name to start tracking its statistics.
       </DialogDescription>
@@ -112,7 +112,7 @@
       <DialogFooter class="mt-6">
         <Button type="button" variant="outline" onclick={() => (open = false)}>Cancel</Button>
         <Button type="submit" disabled={loading}>
-          {loading ? 'Requesting...' : 'Request Tag'}
+          {loading ? 'Adding...' : 'Add Tag'}
         </Button>
       </DialogFooter>
     </form>

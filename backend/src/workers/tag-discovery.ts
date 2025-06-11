@@ -87,11 +87,8 @@ class TagDiscoveryWorker implements Worker {
               await db.insert(tags).values({
                 id: tagData.id,
                 tag: tagData.tag,
-                description: tagData.description || '',
                 viewCount: tagData.viewCount,
-                flags: tagData.flags,
                 fanslyCreatedAt: new Date(tagData.createdAt),
-                isTracked: true, // Auto-track discovered tags
               });
 
               logger.info(`Discovered new tag: ${tagName} (${tagData.viewCount} views)`);

@@ -2,8 +2,8 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { runMigrations } from './src/db/migrate';
 import tagsRouter from './src/routes/tags';
-import workersRouter from './src/routes/workers';
 import { workerManager } from './src/workers/manager';
+import { rankCalculatorWorker } from './src/workers/rank-calculator';
 import { tagDiscoveryWorker } from './src/workers/tag-discovery';
 import { tagUpdaterWorker } from './src/workers/tag-updater';
 
@@ -23,7 +23,25 @@ app.get('/', (c) => c.json({ status: 'ok' }));
 
 // Mount routes
 app.route('/api/tags', tagsRouter);
-app.route('/api/workers', workersRouter);
+
+// Worker status endpoint
+app.get('/api/workers/status', async (c) => {
+  const workers = await workerManager.getStatus();
+
+  // Check if any worker is running
+  const isRunning = workers.some((w) => w.status === 'running');
+  // Check if any worker has failed
+  const hasFailed = workers.some((w) => w.status === 'failed');
+
+  let status: 'idle' | 'running' | 'failed' = 'idle';
+  if (hasFailed) {
+    status = 'failed';
+  } else if (isRunning) {
+    status = 'running';
+  }
+
+  return c.json({ status });
+});
 
 async function startServer() {
   try {
@@ -41,11 +59,15 @@ async function startServer() {
   // Register workers
   await workerManager.register(tagUpdaterWorker);
   await workerManager.register(tagDiscoveryWorker);
+  await workerManager.register(rankCalculatorWorker);
 
-  // Start workers if enabled
+  // Start workers if enabled (in parallel)
   if (process.env.WORKER_ENABLED !== 'false') {
-    await workerManager.start('tag-updater');
-    await workerManager.start('tag-discovery');
+    await Promise.all([
+      workerManager.start('tag-updater'),
+      workerManager.start('tag-discovery'),
+      workerManager.start('rank-calculator'),
+    ]);
   }
 
   console.log(`Server running at ${server.url}`);

@@ -1,195 +1,135 @@
 <script lang="ts">
-  import { goto } from '$app/navigation';
-  import { page } from '$app/stores';
+  import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle
+  } from '$lib/components/ui/card';
   import { Badge } from '$lib/components/ui/badge';
   import { Button } from '$lib/components/ui/button';
-  import { Input } from '$lib/components/ui/input';
-  import {
-    Table,
-    TableBody,
-    TableCaption,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow
-  } from '$lib/components/ui/table';
-  import { Collapsible, CollapsibleContent } from '$lib/components/ui/collapsible';
-  import { ChevronDown, ChevronUp, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-svelte';
-  import TagHistory from '$lib/components/TagHistory.svelte';
-  import TagRequestDialog from '$lib/components/TagRequestDialog.svelte';
-  import WorkerStatus from '$lib/components/WorkerStatus.svelte';
-
-  export let data;
-
-  let searchInput = data.search;
-  let expandedTagId: string | null = null;
-
-  function handleSearch() {
-    const params = new URLSearchParams($page.url.searchParams);
-    params.set('search', searchInput);
-    params.set('page', '1');
-    goto(`?${params}`);
-  }
-
-  function handleSort(column: string) {
-    const params = new URLSearchParams($page.url.searchParams);
-    const currentSortBy = params.get('sortBy') || 'viewCount';
-    const currentSortOrder = params.get('sortOrder') || 'desc';
-
-    if (currentSortBy === column) {
-      params.set('sortOrder', currentSortOrder === 'desc' ? 'asc' : 'desc');
-    } else {
-      params.set('sortBy', column);
-      params.set('sortOrder', 'desc');
-    }
-    params.set('page', '1');
-    goto(`?${params}`);
-  }
-
-  function handlePageChange(newPage: number) {
-    const params = new URLSearchParams($page.url.searchParams);
-    params.set('page', newPage.toString());
-    goto(`?${params}`);
-  }
-
-  function toggleTag(tagId: string) {
-    expandedTagId = expandedTagId === tagId ? null : tagId;
-  }
-
-  function formatNumber(num: number): string {
-    return new Intl.NumberFormat().format(num);
-  }
-
-  function formatDate(date: Date | string): string {
-    return new Date(date).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  }
-
-  function getSortIcon(column: string) {
-    if (data.sortBy !== column) return ArrowUpDown;
-    return data.sortOrder === 'desc' ? ArrowDown : ArrowUp;
-  }
+  import { TrendingUp, BarChart3, Clock, Tag } from 'lucide-svelte';
 </script>
 
-<div class="container mx-auto py-8">
-  <div class="mb-6 flex items-center justify-between">
-    <h1 class="text-3xl font-bold">Fansly Tag Statistics</h1>
-    <TagRequestDialog />
+<div class="mx-auto max-w-4xl">
+  <div class="mb-8">
+    <h1 class="mb-4 text-4xl font-bold tracking-tight">Welcome to FanslyTagStats</h1>
+    <p class="text-muted-foreground text-xl">
+      Track and analyze Fansly tag popularity trends over time with automated data collection and
+      insightful analytics.
+    </p>
   </div>
 
-  <WorkerStatus />
+  <div class="mb-8 grid gap-6 md:grid-cols-2">
+    <Card>
+      <CardHeader>
+        <CardTitle class="flex items-center gap-2">
+          <TrendingUp class="h-5 w-5" />
+          Real-time Tracking
+        </CardTitle>
+        <CardDescription>Monitor tag view counts and popularity changes</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <p class="text-muted-foreground text-sm">
+          Our automated workers continuously collect data from Fansly, tracking view counts and
+          calculating changes over time to help you understand tag performance trends.
+        </p>
+      </CardContent>
+    </Card>
 
-  <div class="mb-6">
-    <form
-      onsubmit={(e) => {
-        e.preventDefault();
-        handleSearch();
-      }}
-      class="flex gap-2"
-    >
-      <Input type="search" placeholder="Search tags..." bind:value={searchInput} class="max-w-md" />
-      <Button type="submit">Search</Button>
-    </form>
+    <Card>
+      <CardHeader>
+        <CardTitle class="flex items-center gap-2">
+          <BarChart3 class="h-5 w-5" />
+          Historical Analytics
+        </CardTitle>
+        <CardDescription>Analyze trends with customizable date ranges</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <p class="text-muted-foreground text-sm">
+          View historical data with flexible date range selection. Compare tag performance across
+          different time periods to identify growth patterns and trending topics.
+        </p>
+      </CardContent>
+    </Card>
+
+    <Card>
+      <CardHeader>
+        <CardTitle class="flex items-center gap-2">
+          <Clock class="h-5 w-5" />
+          Automated Updates
+        </CardTitle>
+        <CardDescription>Set it and forget it with background workers</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <p class="text-muted-foreground text-sm">
+          Background workers automatically update tag statistics daily, discover new trending tags,
+          and maintain accurate historical records without manual intervention.
+        </p>
+      </CardContent>
+    </Card>
+
+    <Card>
+      <CardHeader>
+        <CardTitle class="flex items-center gap-2">
+          <Tag class="h-5 w-5" />
+          Tag Discovery
+        </CardTitle>
+        <CardDescription>Find new trending tags automatically</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <p class="text-muted-foreground text-sm">
+          Our tag discovery system analyzes popular content to identify emerging tags, helping you
+          stay ahead of trends and track new topics as they gain popularity.
+        </p>
+      </CardContent>
+    </Card>
   </div>
 
-  <Table>
-    <TableCaption>
-      Showing {data.tags.length} of {data.pagination.totalCount} tags
-    </TableCaption>
-    <TableHeader>
-      <TableRow>
-        <TableHead class="w-12"></TableHead>
-        <TableHead>
-          <button
-            class="hover:text-foreground flex items-center gap-1 transition-colors"
-            onclick={() => handleSort('tag')}
-          >
-            Tag
-            <svelte:component this={getSortIcon('tag')} class="h-4 w-4" />
-          </button>
-        </TableHead>
-        <TableHead>
-          <button
-            class="hover:text-foreground flex items-center gap-1 transition-colors"
-            onclick={() => handleSort('viewCount')}
-          >
-            View Count
-            <svelte:component this={getSortIcon('viewCount')} class="h-4 w-4" />
-          </button>
-        </TableHead>
-        <TableHead>
-          <button
-            class="hover:text-foreground flex items-center gap-1 transition-colors"
-            onclick={() => handleSort('updatedAt')}
-          >
-            Last Updated
-            <svelte:component this={getSortIcon('updatedAt')} class="h-4 w-4" />
-          </button>
-        </TableHead>
-      </TableRow>
-    </TableHeader>
-    <TableBody>
-      {#each data.tags as tag (tag.id)}
-        <TableRow>
-          <TableCell>
-            <button
-              onclick={() => toggleTag(tag.id)}
-              class="hover:bg-muted rounded p-1 transition-colors"
-            >
-              {#if expandedTagId === tag.id}
-                <ChevronUp class="h-4 w-4" />
-              {:else}
-                <ChevronDown class="h-4 w-4" />
-              {/if}
-            </button>
-          </TableCell>
-          <TableCell class="font-medium">
-            <Badge variant="secondary">#{tag.tag}</Badge>
-          </TableCell>
-          <TableCell>{formatNumber(tag.viewCount)}</TableCell>
-          <TableCell>{tag.lastCheckedAt ? formatDate(tag.lastCheckedAt) : 'Never'}</TableCell>
-        </TableRow>
-        {#if expandedTagId === tag.id}
-          <TableRow>
-            <TableCell colspan={4} class="p-0">
-              <Collapsible open={true}>
-                <CollapsibleContent>
-                  <div class="bg-muted/50 p-6">
-                    <TagHistory tagId={tag.id} />
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-            </TableCell>
-          </TableRow>
-        {/if}
-      {/each}
-    </TableBody>
-  </Table>
+  <Card class="border-primary">
+    <CardHeader>
+      <CardTitle>Get Started</CardTitle>
+      <CardDescription>Begin tracking Fansly tags and analyzing their performance</CardDescription>
+    </CardHeader>
+    <CardContent class="space-y-4">
+      <div class="flex items-start gap-4">
+        <Badge class="mt-0.5">1</Badge>
+        <div>
+          <p class="font-medium">Browse existing tags</p>
+          <p class="text-muted-foreground text-sm">
+            Navigate to the Tags page to see currently tracked tags and their statistics.
+          </p>
+        </div>
+      </div>
 
-  {#if data.pagination.totalPages > 1}
-    <div class="mt-6 flex justify-center gap-2">
-      <Button
-        variant="outline"
-        disabled={data.pagination.page <= 1}
-        onclick={() => handlePageChange(data.pagination.page - 1)}
-      >
-        Previous
-      </Button>
-      <span class="flex items-center px-4">
-        Page {data.pagination.page} of {data.pagination.totalPages}
-      </span>
-      <Button
-        variant="outline"
-        disabled={data.pagination.page >= data.pagination.totalPages}
-        onclick={() => handlePageChange(data.pagination.page + 1)}
-      >
-        Next
-      </Button>
-    </div>
-  {/if}
+      <div class="flex items-start gap-4">
+        <Badge class="mt-0.5">2</Badge>
+        <div>
+          <p class="font-medium">Add tags to track</p>
+          <p class="text-muted-foreground text-sm">
+            Use the "Add Tag" button to start tracking new tags. The system will fetch current data
+            and begin monitoring changes.
+          </p>
+        </div>
+      </div>
+
+      <div class="flex items-start gap-4">
+        <Badge class="mt-0.5">3</Badge>
+        <div>
+          <p class="font-medium">Analyze trends</p>
+          <p class="text-muted-foreground text-sm">
+            Click on any tag to view its historical data. Use date range filters to analyze
+            performance over specific time periods.
+          </p>
+        </div>
+      </div>
+
+      <div class="pt-4">
+        <Button href="/tags" size="lg">
+          <Tag class="mr-2 h-4 w-4" />
+          Go to Tags
+        </Button>
+      </div>
+    </CardContent>
+  </Card>
 </div>

@@ -15,6 +15,20 @@
       "when": 1749671247996,
       "tag": "0001_magical_scream",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1749673768382,
+      "tag": "0002_magenta_captain_cross",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1749675522360,
+      "tag": "0003_daily_darkhawk",
+      "breakpoints": true
     }
   ]
 }

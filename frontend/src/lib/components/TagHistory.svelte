@@ -6,7 +6,12 @@
   import Chart from 'chart.js/auto';
   import 'chartjs-adapter-date-fns';
 
-  export let tagId: string;
+  interface Props {
+    tagId: string;
+    dateRange?: { start: Date; end: Date };
+  }
+
+  const { tagId, dateRange }: Props = $props();
 
   interface HistoryPoint {
     id: number;
@@ -16,14 +21,32 @@
     updatedAt: Date;
   }
 
-  let history: HistoryPoint[] = [];
-  let loading = true;
-  let error = '';
-  let startDate: Date = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // 30 days ago
-  let endDate: Date = new Date();
-  let chartCanvas: HTMLCanvasElement;
+  let history = $state<HistoryPoint[]>([]);
+  let loading = $state(true);
+  let error = $state('');
+  let startDate = $state(dateRange?.start || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)); // 30 days ago
+  let endDate = $state(dateRange?.end || new Date());
+  let chartCanvas = $state<HTMLCanvasElement>();
   let chartInstance: Chart | null = null;
-  let showDatePicker = false;
+  let showDatePicker = $state(false);
+
+  // Use effect to update dates when dateRange changes
+  $effect(() => {
+    if (dateRange?.start && dateRange?.end) {
+      const newStart = new Date(dateRange.start);
+      const newEnd = new Date(dateRange.end);
+      if (newStart.getTime() !== startDate.getTime() || newEnd.getTime() !== endDate.getTime()) {
+        startDate = newStart;
+        endDate = newEnd;
+        // Fetch history after a small delay to avoid reactive loops
+        setTimeout(() => {
+          if (!loading) {
+            fetchHistory();
+          }
+        }, 0);
+      }
+    }
+  });
 
   async function fetchHistory() {
     loading = true;
@@ -115,6 +138,8 @@
   }
 
   onMount(() => {
+    // Only fetch history if component is mounted (i.e., row is expanded)
+    // This prevents unnecessary API calls when the component is not visible
     fetchHistory();
 
     return () => {
@@ -146,47 +171,53 @@
   <CardHeader>
     <CardTitle class="flex items-center justify-between">
       <span>Tag History</span>
-      <div class="relative">
-        <Button variant="outline" size="sm" onclick={() => (showDatePicker = !showDatePicker)}>
-          <CalendarIcon class="mr-2 h-4 w-4" />
-          {formatDate(startDate)} - {formatDate(endDate)}
-        </Button>
+      {#if !dateRange}
+        <div class="relative">
+          <Button variant="outline" size="sm" onclick={() => (showDatePicker = !showDatePicker)}>
+            <CalendarIcon class="mr-2 h-4 w-4" />
+            {formatDate(startDate)} - {formatDate(endDate)}
+          </Button>
 
-        {#if showDatePicker}
-          <div
-            class="bg-background absolute top-full right-0 z-50 mt-2 rounded-lg border p-4 shadow-lg"
-          >
-            <div class="space-y-4">
-              <div>
-                <label for="start-date" class="text-sm font-medium">Start Date</label>
-                <input
-                  id="start-date"
-                  type="date"
-                  value={startDate.toISOString().split('T')[0]}
-                  onchange={(e) => (startDate = new Date(e.currentTarget.value))}
-                  class="mt-1 block w-full rounded-md border px-3 py-2"
-                />
-              </div>
-              <div>
-                <label for="end-date" class="text-sm font-medium">End Date</label>
-                <input
-                  id="end-date"
-                  type="date"
-                  value={endDate.toISOString().split('T')[0]}
-                  onchange={(e) => (endDate = new Date(e.currentTarget.value))}
-                  class="mt-1 block w-full rounded-md border px-3 py-2"
-                />
-              </div>
-              <div class="flex gap-2">
-                <Button size="sm" onclick={updateDateRange}>Apply</Button>
-                <Button size="sm" variant="outline" onclick={() => (showDatePicker = false)}
-                  >Cancel</Button
-                >
+          {#if showDatePicker}
+            <div
+              class="bg-background absolute top-full right-0 z-50 mt-2 rounded-lg border p-4 shadow-lg"
+            >
+              <div class="space-y-4">
+                <div>
+                  <label for="start-date" class="text-sm font-medium">Start Date</label>
+                  <input
+                    id="start-date"
+                    type="date"
+                    value={startDate.toISOString().split('T')[0]}
+                    onchange={(e) => (startDate = new Date(e.currentTarget.value))}
+                    class="mt-1 block w-full rounded-md border px-3 py-2"
+                  />
+                </div>
+                <div>
+                  <label for="end-date" class="text-sm font-medium">End Date</label>
+                  <input
+                    id="end-date"
+                    type="date"
+                    value={endDate.toISOString().split('T')[0]}
+                    onchange={(e) => (endDate = new Date(e.currentTarget.value))}
+                    class="mt-1 block w-full rounded-md border px-3 py-2"
+                  />
+                </div>
+                <div class="flex gap-2">
+                  <Button size="sm" onclick={updateDateRange}>Apply</Button>
+                  <Button size="sm" variant="outline" onclick={() => (showDatePicker = false)}
+                    >Cancel</Button
+                  >
+                </div>
               </div>
             </div>
-          </div>
-        {/if}
-      </div>
+          {/if}
+        </div>
+      {:else}
+        <span class="text-muted-foreground text-sm">
+          {formatDate(startDate)} - {formatDate(endDate)}
+        </span>
+      {/if}
     </CardTitle>
   </CardHeader>
   <CardContent>

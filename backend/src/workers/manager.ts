@@ -10,7 +10,7 @@ export interface Worker {
 }
 
 export class WorkerManager {
-  private workers = new Map<string, { worker: Worker; timer?: Timer }>();
+  private workers = new Map<string, { worker: Worker; timer?: Timer; isRunning?: boolean }>();
   private isShuttingDown = false;
 
   constructor() {
@@ -59,13 +59,18 @@ export class WorkerManager {
       return;
     }
 
-    // Run immediately, then schedule
-    await this.runWorker(workerName);
+    // Run immediately (without blocking), then schedule
+    this.runWorker(workerName).catch((error) => {
+      logger.error(`Initial run of worker ${workerName} failed:`, error);
+    });
 
     // Schedule periodic runs
     const timer = setInterval(async () => {
       if (!this.isShuttingDown) {
-        await this.runWorker(workerName);
+        // Run without blocking the interval
+        this.runWorker(workerName).catch((error) => {
+          logger.error(`Scheduled run of worker ${workerName} failed:`, error);
+        });
       }
     }, worker.interval);
 
@@ -90,8 +95,18 @@ export class WorkerManager {
       throw new Error(`Worker ${workerName} not found`);
     }
 
+    // Skip if worker is already running
+    if (workerData.isRunning) {
+      logger.warn(`Worker ${workerName} is already running, skipping this run`);
+      return;
+    }
+
     const { worker } = workerData;
     try {
+      // Mark as running
+      workerData.isRunning = true;
+      this.workers.set(workerName, workerData);
+
       logger.info(`Running worker: ${worker.name}`);
 
       // Update status to running
@@ -136,6 +151,10 @@ export class WorkerManager {
           updatedAt: new Date(),
         })
         .where(eq(workers.name, worker.name));
+    } finally {
+      // Always mark as not running
+      workerData.isRunning = false;
+      this.workers.set(workerName, workerData);
     }
   }
 
@@ -146,13 +165,16 @@ export class WorkerManager {
       return;
     }
 
-    for (const [name] of this.workers) {
+    // Start all workers in parallel
+    const startPromises = Array.from(this.workers.keys()).map(async (name) => {
       try {
         await this.start(name);
       } catch (error) {
         logger.error(`Failed to start worker ${name}:`, error);
       }
-    }
+    });
+
+    await Promise.all(startPromises);
   }
 
   async stopAll() {
