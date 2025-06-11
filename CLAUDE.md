@@ -4,53 +4,141 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Fanslytagstats is a full-stack web application with a SvelteKit frontend and Bun backend, designed to provide statistics and analytics for Fansly tags.
+FToolbox is a full-stack web application that provides a collection of tools for Fansly creators and users. It features a SvelteKit frontend with real-time data visualization and a Bun backend with automated worker processes for data collection.
 
 ## Development Commands
 
 ### Frontend (SvelteKit)
 
+```bash
+cd frontend
+pnpm check      # Run svelte-check for type errors
+pnpm lint       # Run Prettier and ESLint
+```
+
 **ALWAYS** run `pnpm check && pnpm lint` after making changes
 
 ### Backend (Bun)
 
+```bash
+cd backend
+bun check       # Run TypeScript type checking (tsc --noEmit)
+bun lint        # Run Prettier and ESLint
+```
+
 **ALWAYS** run `bun check && bun lint` after making changes
 
-## Database Migrations
+### Task Runner
+
+```bash
+task watch-frontend  # Kill existing process and start frontend dev server
+task watch-backend   # Kill existing process and start backend dev server
+```
+
+## Database Management
+
+### Schema Location
+
+- Schema: `/backend/src/db/schema.ts`
+- Migrations: `/backend/drizzle/`
+
+### Migration Commands
 
 **IMPORTANT**: Always use Drizzle to generate migrations. NEVER write manual SQL migration files.
 
-Use the following command to generate migrations after schema changes:
-
 ```bash
-bun drizzle-kit generate
+cd backend
+bun drizzle-kit generate  # Generate migration after schema changes
 ```
 
-## Architecture
+Migrations run automatically on server startup via `runMigrations()` in index.ts.
+
+### Database Tables
+
+- `tags`: Fansly tags with view counts and metadata
+- `tagHistory`: Historical view count tracking
+- `tagRequests`: Queue for new tag addition requests
+- `workers`: Worker status and run statistics
+
+## Worker System Architecture
+
+The application uses a sophisticated background worker system for data collection:
+
+### Worker Manager
+
+- Central `WorkerManager` class orchestrates all workers
+- Prevents concurrent runs of the same worker
+- Tracks worker status in database
+- Supports graceful shutdown
+- Environment control: `WORKER_ENABLED=false` disables all workers
+
+### Available Workers
+
+1. **tag-updater**: Updates view counts for all tracked tags (24-hour interval)
+2. **tag-discovery**: Discovers new tags from Fansly
+3. **rank-calculator**: Calculates global ranks based on view counts
+
+### Worker Interface
+
+```typescript
+interface Worker {
+  name: string;
+  interval: number; // milliseconds
+  run(): Promise<void>;
+}
+```
+
+### Worker Status API
+
+- Endpoint: `GET /api/workers/status`
+- Returns: running/idle/failed status
+
+## API Architecture
+
+### Backend Stack
+
+- **Framework**: Hono for HTTP server
+- **Runtime**: Bun with TypeScript
+- **Database**: SQLite with Drizzle ORM
+- **CORS**: Enabled for frontend development
+
+### API Patterns
+
+- RESTful design with `/api/*` routes
+- JSON request/response format
+- Pagination, sorting, and filtering on list endpoints
+- Proper HTTP status codes for errors
+- Rate limiting considerations for external API calls
+
+### Key Endpoints
+
+- `GET /api/tags` - List tags with pagination/filtering
+- `GET /api/tags/:name` - Get single tag details
+- `POST /api/tags/request` - Request new tag tracking
+- `GET /api/tags/:name/history` - Get tag history
+- `GET /api/workers/status` - Worker system status
+
+## Frontend Architecture
 
 ### Tech Stack
 
-- **Frontend**: SvelteKit with Svelte 5, TypeScript, Tailwind CSS v4, shadcn-svelte components
-- **Backend**: Bun runtime with TypeScript
-- **Deployment**: Frontend configured for Cloudflare adapter
-- **Task Runner**: Taskfile for orchestrating development tasks
+- **Framework**: SvelteKit with Svelte 5
+- **Styling**: Tailwind CSS v4
+- **Components**: shadcn-svelte (40+ UI components)
+- **Deployment**: Cloudflare adapter
 
-### Directory Structure
+### Key Features
 
-- `/frontend/` - SvelteKit application
-  - `/src/lib/components/ui/` - shadcn-svelte UI components (40+ components)
-  - `/src/routes/` - SvelteKit file-based routing
-  - Uses Svelte 5 features including `.svelte.ts` files
-- `/backend/` - Bun API server (currently minimal placeholder)
-- `/site-frontend/` - Empty directory (possibly for landing page)
+- File-based routing in `/src/routes/`
+- Svelte 5 features including `.svelte.ts` files
+- Pre-built UI components in `/src/lib/components/ui/`
+- Responsive design with mobile considerations
 
-### Key Configuration
+## External API Integration
 
-- Frontend uses `pnpm` with specific build-only dependencies for performance
-- Backend uses `bun` for both runtime and package management
-- Taskfile automatically kills existing processes on ports before starting new ones
-- Frontend configured with Cloudflare adapter for deployment
+### Fansly API Client
 
-### Current State
-
-The project is in initial setup phase with frontend UI components installed but business logic not yet implemented. The backend is a placeholder server returning "Welcome to Bun!" on port 3000.
+- Location: `/backend/src/fansly/client.ts`
+- Rate limiting implemented
+- Error handling for API failures
+- Tag discovery and view count fetching

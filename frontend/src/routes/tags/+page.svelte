@@ -3,7 +3,6 @@
   import { page } from '$app/stores';
   import { Badge } from '$lib/components/ui/badge';
   import { Button } from '$lib/components/ui/button';
-  import { Input } from '$lib/components/ui/input';
   import {
     Card,
     CardContent,
@@ -11,7 +10,9 @@
     CardHeader,
     CardTitle
   } from '$lib/components/ui/card';
-  import { Popover, PopoverContent, PopoverTrigger } from '$lib/components/ui/popover';
+  import { DateRangePicker } from '$lib/components/ui/date-picker';
+  import { getLocalTimeZone, today } from '@internationalized/date';
+  import type { DateRange } from 'bits-ui';
   import {
     Table,
     TableBody,
@@ -22,7 +23,6 @@
     TableRow
   } from '$lib/components/ui/table';
   import {
-    CalendarIcon,
     ChevronDown,
     ChevronUp,
     ArrowUpDown,
@@ -34,18 +34,18 @@
   } from 'lucide-svelte';
   import TagHistory from '$lib/components/TagHistory.svelte';
   import TagRequestDialog from '$lib/components/TagRequestDialog.svelte';
-  import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 
   let { data } = $props();
 
   let searchInput = $state(data.search);
+  let searchInputElement: HTMLInputElement | undefined;
   let expandedTagId = $state<string | null>(null);
   let searchDebounceTimer: number;
 
   // Date range state
-  let dateRangeValue = $state<{ start: Date; end: Date } | undefined>({
-    start: subDays(new Date(), 7),
-    end: new Date()
+  let dateRangeValue = $state<DateRange>({
+    start: today(getLocalTimeZone()).subtract({ days: 7 }),
+    end: today(getLocalTimeZone())
   });
 
   // Tag changes cache
@@ -67,7 +67,21 @@
       const params = new URLSearchParams($page.url.searchParams);
       params.set('search', searchInput);
       params.set('page', '1');
-      goto(`?${params}`);
+
+      // Save current selection state before navigation
+      const activeElement = document.activeElement;
+      const selectionStart = searchInputElement?.selectionStart;
+      const selectionEnd = searchInputElement?.selectionEnd;
+
+      goto(`?${params}`, { replaceState: true, keepFocus: true }).then(() => {
+        // Restore focus and selection if the search input was focused
+        if (activeElement === searchInputElement && searchInputElement) {
+          searchInputElement.focus();
+          if (selectionStart !== undefined && selectionEnd !== undefined) {
+            searchInputElement.setSelectionRange(selectionStart, selectionEnd);
+          }
+        }
+      });
     }, 300);
   }
 
@@ -113,8 +127,8 @@
 
   function setDateRangePreset(days: number) {
     dateRangeValue = {
-      start: startOfDay(subDays(new Date(), days)),
-      end: endOfDay(new Date())
+      start: today(getLocalTimeZone()).subtract({ days }),
+      end: today(getLocalTimeZone())
     };
     fetchTagChanges();
   }
@@ -126,7 +140,7 @@
     const promises = data.tags.map(async (tag) => {
       try {
         const response = await fetch(
-          `http://localhost:3000/api/tags/${tag.id}/history?startDate=${dateRangeValue!.start.toISOString()}&endDate=${dateRangeValue!.end.toISOString()}`
+          `http://localhost:3000/api/tags/${tag.id}/history?startDate=${dateRangeValue.start!.toDate(getLocalTimeZone()).toISOString()}&endDate=${dateRangeValue.end!.toDate(getLocalTimeZone()).toISOString()}`
         );
         if (response.ok) {
           const { history } = (await response.json()) as { history: { change: number }[] };
@@ -167,52 +181,22 @@
       <div class="flex flex-col gap-4 sm:flex-row">
         <div class="relative flex-1">
           <Search class="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
-          <Input
+          <input
+            bind:this={searchInputElement}
             type="search"
             placeholder="Search tags..."
             value={searchInput}
             oninput={(e) => handleSearch(e.currentTarget.value)}
-            class="pl-9"
+            class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 pl-9 text-sm file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
           />
         </div>
 
         <div class="flex gap-2">
-          <Popover>
-            <PopoverTrigger>
-              <Button variant="outline" class="justify-start text-left font-normal">
-                <CalendarIcon class="mr-2 h-4 w-4" />
-                {#if dateRangeValue?.start && dateRangeValue?.end}
-                  {format(dateRangeValue.start, 'MMM dd')} - {format(
-                    dateRangeValue.end,
-                    'MMM dd, yyyy'
-                  )}
-                {:else}
-                  Select date range
-                {/if}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent class="w-auto p-0" align="end">
-              <div class="space-y-2 p-3">
-                <div class="mb-2 text-sm font-medium">Quick select</div>
-                <div class="grid grid-cols-2 gap-2">
-                  {#each dateRangePresets as preset (preset.days)}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onclick={() => setDateRangePreset(preset.days)}
-                    >
-                      {preset.label}
-                    </Button>
-                  {/each}
-                </div>
-              </div>
-              <div class="p-3">
-                <div class="text-muted-foreground text-sm">
-                  Custom date range selection coming soon
-                </div>
-              </div>
-            </PopoverContent>
-          </Popover>
+          <DateRangePicker
+            bind:value={dateRangeValue}
+            presets={dateRangePresets}
+            onPresetSelect={setDateRangePreset}
+          />
         </div>
       </div>
 

@@ -29,7 +29,7 @@ class TagDiscoveryWorker implements Worker {
   ];
 
   constructor() {
-    this.interval = parseInt(process.env.WORKER_DISCOVERY_INTERVAL || String(6 * 60 * 60 * 1000)); // Default: 6 hours
+    this.interval = parseInt(process.env.WORKER_DISCOVERY_INTERVAL || '30000'); // Default: 30 seconds for continuous discovery
   }
 
   async run(): Promise<void> {
@@ -41,8 +41,14 @@ class TagDiscoveryWorker implements Worker {
       let newTags = 0;
       let errors = 0;
 
-      // Fetch posts from seed tags
-      for (const seedTag of this.seedTags) {
+      // Randomly select 2-3 seed tags to process each run to avoid overwhelming the API
+      const shuffled = [...this.seedTags].sort(() => 0.5 - Math.random());
+      const selectedTags = shuffled.slice(0, Math.floor(Math.random() * 2) + 2);
+
+      logger.info(`Processing ${selectedTags.length} seed tags for discovery`);
+
+      // Fetch posts from selected seed tags
+      for (const seedTag of selectedTags) {
         try {
           logger.info(`Fetching posts for seed tag: ${seedTag}`);
 
@@ -54,7 +60,7 @@ class TagDiscoveryWorker implements Worker {
           }
 
           // Fetch posts for this tag
-          const posts = await fanslyClient.getPostsForTag(tagData.id, 50); // Get more posts for discovery
+          const posts = await fanslyClient.getPostsForTag(tagData.id, 20); // Reduced to 20 for continuous operation
 
           // Extract tags from post content
           for (const post of posts) {

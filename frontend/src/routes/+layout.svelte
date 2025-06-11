@@ -1,11 +1,25 @@
 <script lang="ts">
-  import '../app.css';
-  import { SidebarProvider, SidebarTrigger } from '$lib/components/ui/sidebar';
+  import { onNavigate } from '$app/navigation';
   import AppSidebar from '$lib/components/AppSidebar.svelte';
+  import { SidebarProvider, SidebarTrigger } from '$lib/components/ui/sidebar';
+  import { ModeWatcher } from 'mode-watcher';
+  import '../app.css';
 
   let { children } = $props();
+
+  onNavigate((navigation) => {
+    if (!document.startViewTransition) return;
+
+    return new Promise((resolve) => {
+      document.startViewTransition(async () => {
+        resolve();
+        await navigation.complete;
+      });
+    });
+  });
 </script>
 
+<ModeWatcher />
 <SidebarProvider>
   <div class="flex h-screen w-full">
     <AppSidebar />

@@ -5,10 +5,12 @@
   import { CalendarIcon } from 'lucide-svelte';
   import Chart from 'chart.js/auto';
   import 'chartjs-adapter-date-fns';
+  import type { DateRange } from 'bits-ui';
+  import { getLocalTimeZone } from '@internationalized/date';
 
   interface Props {
     tagId: string;
-    dateRange?: { start: Date; end: Date };
+    dateRange?: DateRange;
   }
 
   const { tagId, dateRange }: Props = $props();
@@ -24,8 +26,10 @@
   let history = $state<HistoryPoint[]>([]);
   let loading = $state(true);
   let error = $state('');
-  let startDate = $state(dateRange?.start || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)); // 30 days ago
-  let endDate = $state(dateRange?.end || new Date());
+  let startDate = $state(
+    dateRange?.start?.toDate(getLocalTimeZone()) || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+  ); // 30 days ago
+  let endDate = $state(dateRange?.end?.toDate(getLocalTimeZone()) || new Date());
   let chartCanvas = $state<HTMLCanvasElement>();
   let chartInstance: Chart | null = null;
   let showDatePicker = $state(false);
@@ -33,8 +37,8 @@
   // Use effect to update dates when dateRange changes
   $effect(() => {
     if (dateRange?.start && dateRange?.end) {
-      const newStart = new Date(dateRange.start);
-      const newEnd = new Date(dateRange.end);
+      const newStart = dateRange.start.toDate(getLocalTimeZone());
+      const newEnd = dateRange.end.toDate(getLocalTimeZone());
       if (newStart.getTime() !== startDate.getTime() || newEnd.getTime() !== endDate.getTime()) {
         startDate = newStart;
         endDate = newEnd;

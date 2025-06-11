@@ -9,8 +9,8 @@ class RankCalculatorWorker implements Worker {
   interval: number;
 
   constructor() {
-    // Run every hour by default
-    this.interval = parseInt(process.env.WORKER_RANK_INTERVAL || String(60 * 60 * 1000));
+    // Run every 60 seconds
+    this.interval = parseInt(process.env.WORKER_RANK_INTERVAL || '60000');
   }
 
   async run(): Promise<void> {

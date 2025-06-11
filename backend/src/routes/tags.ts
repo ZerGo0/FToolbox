@@ -2,10 +2,9 @@ import { and, asc, desc, eq, gte, like, lte } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { db } from '../db';
 import { tagHistory, tagRequests, tags } from '../db/schema';
-import { FanslyAPI } from '../lib/fansly-api';
+import { fanslyClient } from '../fansly/client';
 
 const app = new Hono();
-const fanslyAPI = new FanslyAPI();
 
 // Get all tags with pagination, sorting, and filtering
 app.get('/', async (c) => {
@@ -116,9 +115,9 @@ app.post('/request', async (c) => {
     }
 
     // Immediately try to fetch tag data
-    const tagData = await fanslyAPI.getTagViewCount(tag);
+    const tagData = await fanslyClient.getTagResponse(tag);
 
-    if (tagData && tagData.success) {
+    if (tagData && tagData.success && tagData.response?.mediaOfferSuggestionTag) {
       const fanslyTag = tagData.response.mediaOfferSuggestionTag;
 
       // Insert tag into database

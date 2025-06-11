@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Button } from '$lib/components/ui/button';
   import {
     Card,
     CardContent,
@@ -6,130 +7,100 @@
     CardHeader,
     CardTitle
   } from '$lib/components/ui/card';
-  import { Badge } from '$lib/components/ui/badge';
-  import { Button } from '$lib/components/ui/button';
-  import { TrendingUp, BarChart3, Clock, Tag } from 'lucide-svelte';
+  import { BarChart3, Clock, Tag, TrendingUp } from 'lucide-svelte';
 </script>
 
-<div class="mx-auto max-w-4xl">
+<div>
   <div class="mb-8">
-    <h1 class="mb-4 text-4xl font-bold tracking-tight">Welcome to FanslyTagStats</h1>
+    <h1 class="mb-4 text-4xl font-bold tracking-tight">Welcome to FToolbox</h1>
     <p class="text-muted-foreground text-xl">
-      Track and analyze Fansly tag popularity trends over time with automated data collection and
-      insightful analytics.
+      A comprehensive collection of tools for Fansly creators and users. Analyze trends, track
+      performance, and gain insights with our suite of specialized tools.
     </p>
   </div>
 
-  <div class="mb-8 grid gap-6 md:grid-cols-2">
-    <Card>
-      <CardHeader>
-        <CardTitle class="flex items-center gap-2">
-          <TrendingUp class="h-5 w-5" />
-          Real-time Tracking
-        </CardTitle>
-        <CardDescription>Monitor tag view counts and popularity changes</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <p class="text-muted-foreground text-sm">
-          Our automated workers continuously collect data from Fansly, tracking view counts and
-          calculating changes over time to help you understand tag performance trends.
-        </p>
-      </CardContent>
-    </Card>
+  <div class="mb-8">
+    <h2 class="mb-6 text-2xl font-semibold">Available Tools</h2>
 
-    <Card>
-      <CardHeader>
-        <CardTitle class="flex items-center gap-2">
-          <BarChart3 class="h-5 w-5" />
-          Historical Analytics
-        </CardTitle>
-        <CardDescription>Analyze trends with customizable date ranges</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <p class="text-muted-foreground text-sm">
-          View historical data with flexible date range selection. Compare tag performance across
-          different time periods to identify growth patterns and trending topics.
-        </p>
-      </CardContent>
-    </Card>
-
-    <Card>
-      <CardHeader>
-        <CardTitle class="flex items-center gap-2">
-          <Clock class="h-5 w-5" />
-          Automated Updates
-        </CardTitle>
-        <CardDescription>Set it and forget it with background workers</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <p class="text-muted-foreground text-sm">
-          Background workers automatically update tag statistics daily, discover new trending tags,
-          and maintain accurate historical records without manual intervention.
-        </p>
-      </CardContent>
-    </Card>
-
-    <Card>
+    <Card class="mb-6">
       <CardHeader>
         <CardTitle class="flex items-center gap-2">
           <Tag class="h-5 w-5" />
-          Tag Discovery
+          Tag Analytics
         </CardTitle>
-        <CardDescription>Find new trending tags automatically</CardDescription>
+        <CardDescription>Track and analyze Fansly tag popularity trends</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <p class="text-muted-foreground mb-4">
+          A powerful analytics tool for monitoring Fansly tag performance. Track view counts,
+          analyze historical trends, and discover emerging tags with our automated data collection
+          system.
+        </p>
+
+        <div class="grid gap-4 md:grid-cols-2">
+          <div class="flex items-start gap-2">
+            <TrendingUp class="text-muted-foreground mt-0.5 h-4 w-4" />
+            <div>
+              <p class="text-sm font-medium">Real-time Tracking</p>
+              <p class="text-muted-foreground text-xs">
+                Monitor tag view counts and popularity changes
+              </p>
+            </div>
+          </div>
+
+          <div class="flex items-start gap-2">
+            <BarChart3 class="text-muted-foreground mt-0.5 h-4 w-4" />
+            <div>
+              <p class="text-sm font-medium">Historical Analytics</p>
+              <p class="text-muted-foreground text-xs">
+                Analyze trends with customizable date ranges
+              </p>
+            </div>
+          </div>
+
+          <div class="flex items-start gap-2">
+            <Clock class="text-muted-foreground mt-0.5 h-4 w-4" />
+            <div>
+              <p class="text-sm font-medium">Automated Updates</p>
+              <p class="text-muted-foreground text-xs">Daily updates with background workers</p>
+            </div>
+          </div>
+
+          <div class="flex items-start gap-2">
+            <Tag class="text-muted-foreground mt-0.5 h-4 w-4" />
+            <div>
+              <p class="text-sm font-medium">Tag Discovery</p>
+              <p class="text-muted-foreground text-xs">Find new trending tags automatically</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-4">
+          <Button href="/tags" variant="default">
+            <Tag class="mr-2 h-4 w-4" />
+            Open Tag Analytics
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+
+    <Card class="border-muted">
+      <CardHeader>
+        <CardTitle class="text-muted-foreground flex items-center gap-2">
+          <Clock class="h-5 w-5" />
+          More Tools Coming Soon
+        </CardTitle>
+        <CardDescription
+          >We're working on additional tools to enhance your Fansly experience</CardDescription
+        >
       </CardHeader>
       <CardContent>
         <p class="text-muted-foreground text-sm">
-          Our tag discovery system analyzes popular content to identify emerging tags, helping you
-          stay ahead of trends and track new topics as they gain popularity.
+          Stay tuned for more powerful tools including content analytics, engagement metrics,
+          scheduling tools, and much more. FToolbox is continuously evolving to provide the best
+          toolkit for Fansly creators.
         </p>
       </CardContent>
     </Card>
   </div>
-
-  <Card class="border-primary">
-    <CardHeader>
-      <CardTitle>Get Started</CardTitle>
-      <CardDescription>Begin tracking Fansly tags and analyzing their performance</CardDescription>
-    </CardHeader>
-    <CardContent class="space-y-4">
-      <div class="flex items-start gap-4">
-        <Badge class="mt-0.5">1</Badge>
-        <div>
-          <p class="font-medium">Browse existing tags</p>
-          <p class="text-muted-foreground text-sm">
-            Navigate to the Tags page to see currently tracked tags and their statistics.
-          </p>
-        </div>
-      </div>
-
-      <div class="flex items-start gap-4">
-        <Badge class="mt-0.5">2</Badge>
-        <div>
-          <p class="font-medium">Add tags to track</p>
-          <p class="text-muted-foreground text-sm">
-            Use the "Add Tag" button to start tracking new tags. The system will fetch current data
-            and begin monitoring changes.
-          </p>
-        </div>
-      </div>
-
-      <div class="flex items-start gap-4">
-        <Badge class="mt-0.5">3</Badge>
-        <div>
-          <p class="font-medium">Analyze trends</p>
-          <p class="text-muted-foreground text-sm">
-            Click on any tag to view its historical data. Use date range filters to analyze
-            performance over specific time periods.
-          </p>
-        </div>
-      </div>
-
-      <div class="pt-4">
-        <Button href="/tags" size="lg">
-          <Tag class="mr-2 h-4 w-4" />
-          Go to Tags
-        </Button>
-      </div>
-    </CardContent>
-  </Card>
 </div>

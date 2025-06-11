@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { page } from '$app/state';
+  import { Badge } from '$lib/components/ui/badge';
+  import { Button } from '$lib/components/ui/button';
   import {
     Sidebar,
     SidebarContent,
@@ -11,13 +14,10 @@
     SidebarMenuItem,
     SidebarSeparator
   } from '$lib/components/ui/sidebar';
-  import { Button } from '$lib/components/ui/button';
-  import { Badge } from '$lib/components/ui/badge';
-  import { Package2, Tag, Moon, Sun, Loader2 } from 'lucide-svelte';
-  import { page } from '$app/stores';
+  import { Loader2, Package2, Tag, Sun, Moon } from 'lucide-svelte';
+  import { toggleMode, mode } from 'mode-watcher';
   import { onMount } from 'svelte';
 
-  let theme = $state('light');
   let workerStatus = $state<'idle' | 'running' | 'failed'>('idle');
   let checkingWorkerStatus = $state(false);
 
@@ -38,21 +38,7 @@
     }
   }
 
-  // Toggle theme
-  function toggleTheme() {
-    theme = theme === 'light' ? 'dark' : 'light';
-    document.documentElement.classList.toggle('dark');
-    localStorage.setItem('theme', theme);
-  }
-
   onMount(() => {
-    // Load theme from localStorage
-    const savedTheme = localStorage.getItem('theme') || 'light';
-    theme = savedTheme;
-    if (savedTheme === 'dark') {
-      document.documentElement.classList.add('dark');
-    }
-
     // Check worker status initially and periodically
     checkWorkerStatus();
     const interval = setInterval(checkWorkerStatus, 30000); // Check every 30 seconds
@@ -72,7 +58,7 @@
       <SidebarMenuItem>
         <a href="/" class="flex items-center gap-2 px-2 py-1.5 text-lg font-semibold">
           <Package2 class="h-6 w-6" />
-          <span>FanslyTagStats</span>
+          <span>FToolbox</span>
         </a>
       </SidebarMenuItem>
     </SidebarMenu>
@@ -87,7 +73,7 @@
             <SidebarMenuItem>
               <a
                 href={item.href}
-                class="hover:bg-accent hover:text-accent-foreground flex items-center gap-2 rounded-md px-2 py-1.5 text-sm {$page
+                class="hover:bg-accent hover:text-accent-foreground flex items-center gap-2 rounded-md px-2 py-1.5 text-sm {page
                   .url.pathname === item.href
                   ? 'bg-accent text-accent-foreground'
                   : ''}"
@@ -125,8 +111,8 @@
 
     <!-- Theme Toggle -->
     <div class="p-2">
-      <Button variant="ghost" size="sm" onclick={toggleTheme} class="w-full justify-start">
-        {#if theme === 'light'}
+      <Button variant="ghost" size="sm" onclick={toggleMode} class="w-full justify-start">
+        {#if mode.current === 'light'}
           <Sun class="mr-2 h-4 w-4" />
           Light Mode
         {:else}
