@@ -1,5 +1,6 @@
 <script lang="ts">
   import { PUBLIC_API_URL } from '$env/static/public';
+  import { Badge } from '$lib/components/ui/badge';
   import { Button } from '$lib/components/ui/button';
   import {
     Dialog,
@@ -12,8 +13,7 @@
   } from '$lib/components/ui/dialog';
   import { Label } from '$lib/components/ui/label';
   import { Textarea } from '$lib/components/ui/textarea';
-  import { Badge } from '$lib/components/ui/badge';
-  import { Clipboard, Hash, Loader2, TrendingUp, TrendingDown } from 'lucide-svelte';
+  import { Clipboard, Hash, Loader2, TrendingDown, TrendingUp } from 'lucide-svelte';
 
   let open = $state(false);
   let postText = $state('');
@@ -232,7 +232,7 @@
   <DialogTrigger>
     <Button variant="outline">
       <Clipboard class="mr-2 h-4 w-4" />
-      Analyze Post Text
+      <span class="hidden sm:block">Analyze Post Text</span>
     </Button>
   </DialogTrigger>
   <DialogContent class="max-w-2xl">

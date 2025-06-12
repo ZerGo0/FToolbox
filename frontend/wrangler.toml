@@ -5,11 +5,9 @@ compatibility_date = "2025-01-06"
 # Build configuration is handled by the deployment scripts in package.json
 # The adapter-cloudflare will output to .svelte-kit/cloudflare
 
-# Environment variables for production
-# These will be overridden by environment variables set in Cloudflare Pages dashboard
-[vars]
-PUBLIC_API_URL = "https://ftoolbox-api.zergo0.dev"
-
-# Preview environment (for branch previews)
-[env.preview.vars]
-PUBLIC_API_URL = "https://ftoolbox-api.zergo0.dev"
+# IMPORTANT: Environment variables for SvelteKit must be set in:
+# 1. Cloudflare Pages dashboard for production builds
+# 2. Via command line when building locally (see package.json scripts)
+# 
+# The [vars] section below does NOT work for build-time environment variables
+# in SvelteKit as they need to be available during the build process.

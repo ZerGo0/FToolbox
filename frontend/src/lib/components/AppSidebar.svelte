@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { PUBLIC_API_URL } from '$env/static/public';
   import { page } from '$app/state';
+  import { PUBLIC_API_URL } from '$env/static/public';
   import { Badge } from '$lib/components/ui/badge';
   import { Button } from '$lib/components/ui/button';
   import {

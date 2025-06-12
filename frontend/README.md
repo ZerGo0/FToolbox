@@ -57,18 +57,26 @@ pnpm wrangler pages project create ftoolbox-frontend
 ### Deploy
 
 ```bash
-# Deploy to production
+# Deploy to production (uses env vars from Cloudflare dashboard)
 pnpm pages:deploy
 
 # Deploy to preview branch
 pnpm pages:deploy:preview
+
+# Deploy with custom API URL from command line
+PUBLIC_API_URL=https://your-api.com pnpm pages:deploy:with-api
 ```
 
-### Environment Variables in Cloudflare
+### Environment Variables in Cloudflare Pages
 
-Set these in your Cloudflare Pages project settings:
+**IMPORTANT**: Environment variables for SvelteKit must be set in the Cloudflare Pages dashboard during the build process.
 
-- `PUBLIC_API_URL` - Your backend API URL (e.g., `https://api.yourdomain.com`)
+1. Go to your Cloudflare Pages project settings
+2. Navigate to Settings → Environment variables
+3. Add the following variables for **Production** (and optionally Preview):
+   - `PUBLIC_API_URL` - Your backend API URL (e.g., `https://api.yourdomain.com`)
+
+These variables are needed at BUILD TIME, not runtime. The wrangler.toml `[vars]` section does NOT work for SvelteKit environment variables.
 
 ### Local testing with Wrangler
 
