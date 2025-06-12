@@ -79,15 +79,30 @@ interface PostsResponseData {
 export class FanslyClient {
   private logger: Logger;
   private baseUrl = 'https://apiv3.fansly.com/api/v1';
+  private headers = {
+    'User-Agent': 'ftoolbox (contact: zergo0@pr.mozmail.com',
+  };
 
   constructor() {
     this.logger = new Logger('FanslyClient');
   }
 
+  private getHeaders() {
+    // check if the FANSLY_AUTH_TOKEN is set
+    if (process.env.FANSLY_AUTH_TOKEN) {
+      return {
+        ...this.headers,
+        Authorization: `${process.env.FANSLY_AUTH_TOKEN}`,
+      };
+    }
+
+    return this.headers;
+  }
+
   async getTag(tagName: string): Promise<FanslyTag | null> {
     try {
       const url = `${this.baseUrl}/contentdiscovery/media/tag?tag=${encodeURIComponent(tagName)}&ngsw-bypass=true`;
-      const response = await fetch(url);
+      const response = await fetch(url, { headers: this.getHeaders() });
 
       if (!response.ok) {
         this.logger.error(`Failed to fetch tag: ${tagName}, status: ${response.status}`);
@@ -111,7 +126,7 @@ export class FanslyClient {
   async getTagResponse(tagName: string): Promise<FanslyResponse<TagResponseData> | null> {
     try {
       const url = `${this.baseUrl}/contentdiscovery/media/tag?tag=${encodeURIComponent(tagName)}&ngsw-bypass=true`;
-      const response = await fetch(url);
+      const response = await fetch(url, { headers: this.getHeaders() });
 
       if (!response.ok) {
         this.logger.error(`Failed to fetch tag: ${tagName}, status: ${response.status}`);
@@ -132,7 +147,7 @@ export class FanslyClient {
   ): Promise<FanslyPost[]> {
     try {
       const url = `${this.baseUrl}/contentdiscovery/media/suggestionsnew?before=0&after=0&tagIds=${tagId}&limit=${limit}&offset=${offset}&ngsw-bypass=true`;
-      const response = await fetch(url);
+      const response = await fetch(url, { headers: this.getHeaders() });
 
       if (!response.ok) {
         this.logger.error(`Failed to fetch posts for tag: ${tagId}, status: ${response.status}`);
@@ -160,7 +175,7 @@ export class FanslyClient {
   ): Promise<FanslyResponse<PostsResponseData> | null> {
     try {
       const url = `${this.baseUrl}/contentdiscovery/media/suggestionsnew?before=0&after=0&tagIds=${tagId}&limit=${limit}&offset=${offset}&ngsw-bypass=true`;
-      const response = await fetch(url);
+      const response = await fetch(url, { headers: this.getHeaders() });
 
       if (!response.ok) {
         this.logger.error(`Failed to fetch posts for tag: ${tagId}, status: ${response.status}`);
@@ -188,4 +203,4 @@ export class FanslyClient {
 export const fanslyClient = new FanslyClient();
 
 // Export types for external use
-export type { FanslyResponse, FanslyTag, FanslyPost, TagResponseData, PostsResponseData };
+export type { FanslyPost, FanslyResponse, FanslyTag, PostsResponseData, TagResponseData };
