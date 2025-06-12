@@ -24,7 +24,7 @@
   }
 
   let history = $state<HistoryPoint[]>([]);
-  let loading = $state(true);
+  let loading = $state(false);
   let error = $state('');
   let startDate = $state(
     dateRange?.start?.toDate(getLocalTimeZone()) || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
@@ -32,6 +32,7 @@
   let endDate = $state(dateRange?.end?.toDate(getLocalTimeZone()) || new Date());
   let chartCanvas = $state<HTMLCanvasElement>();
   let chartInstance: Chart | null = null;
+  let chartInitialized = false;
   let showDatePicker = $state(false);
 
   // Use effect to update dates when dateRange changes
@@ -57,9 +58,13 @@
     error = '';
 
     try {
+      // Ensure endDate includes the full day by setting time to end of day
+      const adjustedEndDate = new Date(endDate);
+      adjustedEndDate.setHours(23, 59, 59, 999);
+
       const params = new URLSearchParams({
         startDate: startDate.toISOString(),
-        endDate: endDate.toISOString()
+        endDate: adjustedEndDate.toISOString()
       });
 
       const response = await fetch(`http://localhost:3000/api/tags/${tagId}/history?${params}`);
@@ -75,80 +80,159 @@
         updatedAt: new Date(point.updatedAt as string)
       }));
 
-      updateChart();
+      // Update loading state before updating chart
+      loading = false;
+
+      // Defer chart update to next tick to ensure DOM is ready
+      setTimeout(() => updateChart(), 0);
     } catch (e) {
       error = e instanceof Error ? e.message : 'An error occurred';
-    } finally {
       loading = false;
     }
   }
 
   function updateChart() {
-    if (!chartCanvas) return;
+    if (!chartCanvas) {
+      return;
+    }
 
     if (chartInstance) {
       chartInstance.destroy();
+      chartInstance = null;
     }
 
-    const chartData = history
-      .map((point) => ({
-        x: point.createdAt,
-        y: point.viewCount
-      }))
-      .reverse();
+    // Always create chart data, even if empty
+    const chartData =
+      history.length > 0
+        ? history
+            .map((point) => ({
+              x: point.createdAt,
+              y: point.viewCount
+            }))
+            .reverse()
+        : [];
 
-    chartInstance = new Chart(chartCanvas, {
-      type: 'line',
-      data: {
-        datasets: [
-          {
-            label: 'View Count',
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            data: chartData as any,
-            borderColor: 'hsl(var(--primary))',
-            backgroundColor: 'hsl(var(--primary) / 0.1)',
-            tension: 0.1
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            display: false
-          }
+    try {
+      chartInstance = new Chart(chartCanvas, {
+        type: 'line',
+        data: {
+          datasets: [
+            {
+              label: 'View Count',
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              data: chartData as any,
+              borderColor: 'rgb(99, 102, 241)',
+              backgroundColor: 'rgba(99, 102, 241, 0.1)',
+              fill: true,
+              tension: 0.4,
+              pointRadius: 0,
+              pointHoverRadius: 6,
+              pointBackgroundColor: 'rgb(99, 102, 241)',
+              pointBorderColor: '#fff',
+              pointBorderWidth: 2,
+              pointHoverBackgroundColor: 'rgb(99, 102, 241)',
+              pointHoverBorderColor: '#fff',
+              pointHoverBorderWidth: 2
+            }
+          ]
         },
-        scales: {
-          x: {
-            type: 'time',
-            time: {
-              displayFormats: {
-                day: 'MMM d'
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: {
+            mode: 'index',
+            intersect: false
+          },
+          plugins: {
+            legend: {
+              display: false
+            },
+            tooltip: {
+              backgroundColor: 'rgba(0, 0, 0, 0.8)',
+              titleColor: '#fff',
+              bodyColor: '#fff',
+              borderColor: 'rgb(99, 102, 241)',
+              borderWidth: 1,
+              padding: 12,
+              displayColors: false,
+              callbacks: {
+                label: function (context) {
+                  return 'Views: ' + new Intl.NumberFormat().format(context.parsed.y);
+                }
               }
             }
           },
-          y: {
-            beginAtZero: false,
-            ticks: {
-              callback: function (value) {
-                return new Intl.NumberFormat().format(value as number);
+          scales: {
+            x: {
+              type: 'time',
+              time: {
+                unit: 'day',
+                displayFormats: {
+                  day: 'MMM d'
+                }
+              },
+              grid: {
+                color: 'rgba(0, 0, 0, 0.05)',
+                display: true
+              },
+              border: {
+                display: false
+              },
+              ticks: {
+                color: 'rgb(107, 114, 128)',
+                font: {
+                  size: 11
+                }
+              }
+            },
+            y: {
+              beginAtZero: false,
+              grid: {
+                color: 'rgba(0, 0, 0, 0.05)',
+                display: true
+              },
+              border: {
+                display: false
+              },
+              ticks: {
+                color: 'rgb(107, 114, 128)',
+                font: {
+                  size: 11
+                },
+                callback: function (value) {
+                  return new Intl.NumberFormat('en-US', {
+                    notation: 'compact',
+                    compactDisplay: 'short'
+                  }).format(value as number);
+                }
               }
             }
           }
         }
-      }
-    });
+      });
+      chartInitialized = true;
+    } catch (error) {
+      console.error('Failed to create chart:', error);
+    }
   }
 
-  onMount(() => {
-    // Only fetch history if component is mounted (i.e., row is expanded)
-    // This prevents unnecessary API calls when the component is not visible
-    fetchHistory();
+  // Watch for canvas element to be available
+  $effect(() => {
+    if (chartCanvas && !chartInitialized) {
+      // Initialize chart first with empty data
+      updateChart();
+      // Only fetch history if component is mounted (i.e., row is expanded)
+      // This prevents unnecessary API calls when the component is not visible
+      fetchHistory();
+    }
+  });
 
+  onMount(() => {
     return () => {
       if (chartInstance) {
         chartInstance.destroy();
+        chartInstance = null;
+        chartInitialized = false;
       }
     };
   });
@@ -233,48 +317,56 @@
       <div class="flex justify-center py-8">
         <p class="text-destructive">{error}</p>
       </div>
-    {:else if history.length === 0}
-      <div class="flex justify-center py-8">
-        <p class="text-muted-foreground">No history data available for this period</p>
-      </div>
     {:else}
       <div class="space-y-4">
-        <div class="h-64">
-          <canvas bind:this={chartCanvas}></canvas>
+        <div class="relative h-80">
+          <canvas bind:this={chartCanvas} class="h-full w-full"></canvas>
+          {#if !loading && history.length === 0}
+            <div class="pointer-events-none absolute inset-0 flex items-center justify-center">
+              <p class="text-muted-foreground">No history data available for this period</p>
+            </div>
+          {/if}
         </div>
 
-        <div class="space-y-2">
-          <h4 class="text-sm font-medium">Data Points</h4>
-          <div class="max-h-48 overflow-y-auto">
-            <table class="w-full text-sm">
-              <thead class="border-b">
-                <tr>
-                  <th class="py-2 text-left">Date</th>
-                  <th class="py-2 text-right">View Count</th>
-                  <th class="py-2 text-right">Change</th>
-                </tr>
-              </thead>
-              <tbody>
-                {#each history as point, i (point.id)}
-                  <tr class="border-b">
-                    <td class="py-2">{formatDate(point.createdAt)}</td>
-                    <td class="py-2 text-right">{formatNumber(point.viewCount)}</td>
-                    <td class="py-2 text-right">
-                      {#if i < history.length - 1}
-                        {@const change = point.viewCount - history[i + 1].viewCount}
-                        <span class:text-green-600={change > 0} class:text-red-600={change < 0}>
-                          {change > 0 ? '+' : ''}{formatNumber(change)}
-                        </span>
-                      {:else}
-                        -
-                      {/if}
-                    </td>
+        {#if history.length > 0}
+          <div class="space-y-2">
+            <h4 class="text-sm font-medium">Data Points</h4>
+            <div class="max-h-48 overflow-y-auto">
+              <table class="w-full text-sm">
+                <thead class="border-b">
+                  <tr>
+                    <th class="py-2 text-left">Date</th>
+                    <th class="py-2 text-right">View Count</th>
+                    <th class="py-2 text-right">Change</th>
                   </tr>
-                {/each}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {#each history as point, i (point.id)}
+                    <tr class="border-b">
+                      <td class="py-2">{formatDate(point.createdAt)}</td>
+                      <td class="py-2 text-right">{formatNumber(point.viewCount)}</td>
+                      <td class="py-2 text-right">
+                        {#if i < history.length - 1}
+                          {@const change = point.viewCount - history[i + 1].viewCount}
+                          {@const previousValue = history[i + 1].viewCount}
+                          {@const percentage =
+                            previousValue > 0 ? (change / previousValue) * 100 : 0}
+                          <span class:text-green-600={change > 0} class:text-red-600={change < 0}>
+                            {change > 0 ? '+' : ''}{formatNumber(change)} ({percentage >= 0
+                              ? '+'
+                              : ''}{percentage.toFixed(2)}%)
+                          </span>
+                        {:else}
+                          -
+                        {/if}
+                      </td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        {/if}
       </div>
     {/if}
   </CardContent>

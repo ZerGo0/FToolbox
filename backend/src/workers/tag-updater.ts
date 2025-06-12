@@ -1,6 +1,6 @@
+import { and, eq, gte, isNull, lt, or } from 'drizzle-orm';
 import { db } from '../db';
-import { tags, tagHistory } from '../db/schema';
-import { eq, lt, or, isNull } from 'drizzle-orm';
+import { tagHistory, tags } from '../db/schema';
 import { fanslyClient } from '../fansly/client';
 import { logger } from '../utils/logger';
 import type { Worker } from './manager';
@@ -38,6 +38,25 @@ class TagUpdaterWorker implements Worker {
 
       for (const tag of trackedTags) {
         try {
+          // Check if we already have data for today
+          const todayStart = new Date();
+          todayStart.setHours(0, 0, 0, 0);
+
+          const existingTodayEntry = await db
+            .select()
+            .from(tagHistory)
+            .where(and(eq(tagHistory.tagId, tag.id), gte(tagHistory.createdAt, todayStart)))
+            .limit(1);
+
+          if (existingTodayEntry.length > 0) {
+            logger.info(`Tag "${tag.tag}" already has data for today, skipping`);
+
+            // Update lastCheckedAt to prevent checking again today
+            await db.update(tags).set({ lastCheckedAt: new Date() }).where(eq(tags.id, tag.id));
+
+            continue;
+          }
+
           // Fetch updated data from Fansly
           const tagData = await fanslyClient.getTag(tag.tag);
 
@@ -54,20 +73,16 @@ class TagUpdaterWorker implements Worker {
               })
               .where(eq(tags.id, tag.id));
 
-            // Create history record if view count changed
-            if (currentViewCount !== previousViewCount) {
-              await db.insert(tagHistory).values({
-                tagId: tag.id,
-                viewCount: currentViewCount,
-                change: currentViewCount - previousViewCount,
-              });
+            // Create history record
+            await db.insert(tagHistory).values({
+              tagId: tag.id,
+              viewCount: currentViewCount,
+              change: currentViewCount - previousViewCount,
+            });
 
-              logger.info(
-                `Updated tag "${tag.tag}": ${previousViewCount} -> ${currentViewCount} (${currentViewCount > previousViewCount ? '+' : ''}${currentViewCount - previousViewCount})`
-              );
-            } else {
-              logger.info(`No change for tag "${tag.tag}": ${currentViewCount} views`);
-            }
+            logger.info(
+              `Updated tag "${tag.tag}": ${previousViewCount} -> ${currentViewCount} (${currentViewCount > previousViewCount ? '+' : ''}${currentViewCount - previousViewCount})`
+            );
 
             updated++;
           } else {

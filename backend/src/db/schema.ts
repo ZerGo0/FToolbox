@@ -11,10 +11,10 @@ export const tags = sqliteTable(
     fanslyCreatedAt: integer('fansly_created_at', { mode: 'timestamp' }).notNull(),
     lastCheckedAt: integer('last_checked_at', { mode: 'timestamp' }),
     createdAt: integer('created_at', { mode: 'timestamp' })
-      .default(sql`CURRENT_TIMESTAMP`)
+      .default(sql`(unixepoch())`)
       .notNull(),
     updatedAt: integer('updated_at', { mode: 'timestamp' })
-      .default(sql`CURRENT_TIMESTAMP`)
+      .default(sql`(unixepoch())`)
       .notNull(),
   },
   (table) => {
@@ -36,10 +36,10 @@ export const tagHistory = sqliteTable(
     viewCount: integer('view_count').notNull(),
     change: integer('change').notNull(), // Change from previous value
     createdAt: integer('created_at', { mode: 'timestamp' })
-      .default(sql`CURRENT_TIMESTAMP`)
+      .default(sql`(unixepoch())`)
       .notNull(),
     updatedAt: integer('updated_at', { mode: 'timestamp' })
-      .default(sql`CURRENT_TIMESTAMP`)
+      .default(sql`(unixepoch())`)
       .notNull(),
   },
   (table) => {

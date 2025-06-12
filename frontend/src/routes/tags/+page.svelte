@@ -49,7 +49,7 @@
   });
 
   // Tag changes cache
-  let tagChanges = $state<Record<string, number>>({});
+  let tagChanges = $state<Record<string, { change: number; percentage: number }>>({});
 
   const dateRangePresets = [
     { label: '1 Day', days: 1 },
@@ -136,17 +136,26 @@
   async function fetchTagChanges() {
     if (!dateRangeValue?.start || !dateRangeValue?.end) return;
 
+    // Ensure endDate includes the full day by setting time to end of day
+    const endDate = dateRangeValue.end!.toDate(getLocalTimeZone());
+    endDate.setHours(23, 59, 59, 999);
+
     // Fetch changes for all visible tags
     const promises = data.tags.map(async (tag) => {
       try {
         const response = await fetch(
-          `http://localhost:3000/api/tags/${tag.id}/history?startDate=${dateRangeValue.start!.toDate(getLocalTimeZone()).toISOString()}&endDate=${dateRangeValue.end!.toDate(getLocalTimeZone()).toISOString()}`
+          `http://localhost:3000/api/tags/${tag.id}/history?startDate=${dateRangeValue.start!.toDate(getLocalTimeZone()).toISOString()}&endDate=${endDate.toISOString()}`
         );
         if (response.ok) {
-          const { history } = (await response.json()) as { history: { change: number }[] };
+          const { history } = (await response.json()) as { history: { viewCount: number }[] };
           if (history.length > 0) {
-            const totalChange = history.reduce((sum: number, h) => sum + h.change, 0);
-            tagChanges[tag.id] = totalChange;
+            // Calculate change by comparing first and last viewCount in the range
+            // History is returned in descending order (newest first)
+            const newestViewCount = history[0].viewCount;
+            const oldestViewCount = history[history.length - 1].viewCount;
+            const totalChange = newestViewCount - oldestViewCount;
+            const percentage = oldestViewCount > 0 ? (totalChange / oldestViewCount) * 100 : 0;
+            tagChanges[tag.id] = { change: totalChange, percentage };
           }
         }
       } catch (error) {
@@ -266,7 +275,9 @@
           </TableHeader>
           <TableBody>
             {#each data.tags as tag (tag.id)}
-              {@const change = tagChanges[tag.id] || 0}
+              {@const changeData = tagChanges[tag.id] || { change: 0, percentage: 0 }}
+              {@const change = changeData.change}
+              {@const percentage = changeData.percentage}
               <TableRow>
                 <TableCell>
                   <button
@@ -290,10 +301,16 @@
                     <div class="flex items-center gap-1">
                       {#if change > 0}
                         <TrendingUp class="h-4 w-4 text-green-500" />
-                        <span class="text-green-500">+{formatNumber(change)}</span>
+                        <span class="text-green-500">
+                          +{formatNumber(change)} ({percentage >= 0 ? '+' : ''}{percentage.toFixed(
+                            2
+                          )}%)
+                        </span>
                       {:else}
                         <TrendingDown class="h-4 w-4 text-red-500" />
-                        <span class="text-red-500">{formatNumber(change)}</span>
+                        <span class="text-red-500">
+                          {formatNumber(change)} ({percentage.toFixed(2)}%)
+                        </span>
                       {/if}
                     </div>
                   {:else}
