@@ -12,7 +12,7 @@ RUN bun install --frozen-lockfile
 COPY . .
 
 # Build the application
-RUN bun build
+RUN bun build index.ts --compile --outfile server
 
 # Production stage
 FROM oven/bun:latest as runner
