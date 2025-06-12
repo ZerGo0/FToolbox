@@ -4,6 +4,7 @@ import { runMigrations } from './src/db/migrate';
 import tagsRouter from './src/routes/tags';
 import { workerManager } from './src/workers/manager';
 import { rankCalculatorWorker } from './src/workers/rank-calculator';
+import { tagDiscoveryWorker } from './src/workers/tag-discovery';
 import { tagUpdaterWorker } from './src/workers/tag-updater';
 
 const app = new Hono();
@@ -57,14 +58,14 @@ async function startServer() {
 
   // Register workers
   await workerManager.register(tagUpdaterWorker);
-  // await workerManager.register(tagDiscoveryWorker);
+  await workerManager.register(tagDiscoveryWorker);
   await workerManager.register(rankCalculatorWorker);
 
   // Start workers if enabled (in parallel)
   if (process.env.WORKER_ENABLED !== 'false') {
     await Promise.all([
       workerManager.start('tag-updater'),
-      // workerManager.start('tag-discovery'),
+      workerManager.start('tag-discovery'),
       workerManager.start('rank-calculator'),
     ]);
   }
