@@ -1,0 +1,15 @@
+name = "ftoolbox-frontend"
+pages_build_output_dir = ".svelte-kit/cloudflare"
+compatibility_date = "2025-01-06"
+
+# Build configuration is handled by the deployment scripts in package.json
+# The adapter-cloudflare will output to .svelte-kit/cloudflare
+
+# Environment variables for production
+# These will be overridden by environment variables set in Cloudflare Pages dashboard
+[vars]
+PUBLIC_API_URL = "https://ftoolbox-api.zergo0.dev"
+
+# Preview environment (for branch previews)
+[env.preview.vars]
+PUBLIC_API_URL = "https://ftoolbox-api.zergo0.dev"

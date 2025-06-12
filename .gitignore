@@ -35,3 +35,7 @@ yarn-error.log*
 # ESLint cache
 .eslintcache
 frontend/.eslintcache
+
+# Wrangler
+.wrangler
+.dev.vars

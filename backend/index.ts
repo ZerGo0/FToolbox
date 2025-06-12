@@ -13,7 +13,7 @@ const app = new Hono();
 app.use(
   '/*',
   cors({
-    origin: 'http://localhost:5173',
+    origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
     credentials: true,
   })
 );
@@ -24,7 +24,7 @@ app.get('/', (c) => c.json({ status: 'ok' }));
 // Mount routes
 app.route('/api/tags', tagsRouter);
 
-// Worker status endpoint
+// Worker status endpoint (simple)
 app.get('/api/workers/status', async (c) => {
   const workers = await workerManager.getStatus();
 
@@ -52,7 +52,7 @@ async function startServer() {
   }
 
   const server = Bun.serve({
-    port: 3000,
+    port: parseInt(process.env.PORT || '3000'),
     fetch: app.fetch,
   });
 

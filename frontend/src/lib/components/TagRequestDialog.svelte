@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { PUBLIC_API_URL } from '$env/static/public';
   import { goto, invalidateAll } from '$app/navigation';
   import { Alert, AlertDescription } from '$lib/components/ui/alert';
   import { Button } from '$lib/components/ui/button';
@@ -32,7 +33,7 @@
     success = '';
 
     try {
-      const response = await fetch('http://localhost:3000/api/tags/request', {
+      const response = await fetch(`${PUBLIC_API_URL}/api/tags/request`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

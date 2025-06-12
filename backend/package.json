@@ -7,7 +7,8 @@
     "dev": "bun --watch run index.ts",
     "check": "tsc --noEmit",
     "lint": "prettier --write . --cache | { grep -v '(unchanged)' || true; } && eslint . --cache",
-    "cleanup:history": "bun run src/scripts/cleanup-duplicate-history.ts"
+    "cleanup:history": "bun run src/scripts/cleanup-duplicate-history.ts",
+    "build": "bun build index.ts --compile --outfile server"
   },
   "devDependencies": {
     "@types/bun": "^1.2.15",

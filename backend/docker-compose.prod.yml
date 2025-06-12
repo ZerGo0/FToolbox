@@ -1,0 +1,12 @@
+services:
+  app:
+    image: ftoolbox-backend:latest
+    ports:
+      - '8100:3000'
+    env_file:
+      - ./ftoolbox-backend.env
+    volumes:
+      - ./data:/app/data
+    environment:
+      - DATABASE_URL=file:/app/data/sqlite.db
+    restart: unless-stopped

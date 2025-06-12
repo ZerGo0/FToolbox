@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { PUBLIC_API_URL } from '$env/static/public';
   import { page } from '$app/state';
   import { Badge } from '$lib/components/ui/badge';
   import { Button } from '$lib/components/ui/button';
@@ -25,7 +26,7 @@
   async function checkWorkerStatus() {
     checkingWorkerStatus = true;
     try {
-      const response = await fetch('http://localhost:3000/api/workers/status');
+      const response = await fetch(`${PUBLIC_API_URL}/api/workers/status`);
       if (response.ok) {
         const data = await response.json();
         workerStatus = data.status;

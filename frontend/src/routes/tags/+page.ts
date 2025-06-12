@@ -1,3 +1,4 @@
+import { PUBLIC_API_URL } from '$env/static/public';
 import type { PageLoad } from './$types';
 
 interface TagHistory {
@@ -53,7 +54,7 @@ export const load: PageLoad = async ({ fetch, url }) => {
       historyEndDate
     });
 
-    const response = await fetch(`http://localhost:3000/api/tags?${params}`);
+    const response = await fetch(`${PUBLIC_API_URL}/api/tags?${params}`);
 
     if (!response.ok) {
       throw new Error('Failed to fetch tags');

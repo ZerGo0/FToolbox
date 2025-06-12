@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { PUBLIC_API_URL } from '$env/static/public';
   import { Button } from '$lib/components/ui/button';
   import {
     Dialog,
@@ -62,7 +63,7 @@
     // Fetch stats for each tag using the request endpoint
     const promises = tags.map(async (tag, index) => {
       try {
-        const response = await fetch('http://localhost:3000/api/tags/request', {
+        const response = await fetch(`${PUBLIC_API_URL}/api/tags/request`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'

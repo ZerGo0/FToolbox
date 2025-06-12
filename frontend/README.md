@@ -1,38 +1,79 @@
-# sv
+# FToolbox Frontend
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+SvelteKit frontend for FToolbox, deployed on Cloudflare Pages.
 
-## Creating a project
-
-If you're seeing this, you've probably already done this step. Congrats!
+## Development
 
 ```bash
-# create a new project in the current directory
-npx sv create
+# Install dependencies
+pnpm install
 
-# create a new project in my-app
-npx sv create my-app
+# Start development server
+pnpm dev
+
+# Run type checking
+pnpm check
+
+# Run linting
+pnpm lint
 ```
 
-## Developing
+## Environment Variables
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+Create a `.env` file in the frontend directory:
 
-```bash
-npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
+```env
+PUBLIC_API_URL=http://localhost:3000
 ```
+
+For production, set this in your Cloudflare Pages dashboard.
 
 ## Building
 
-To create a production version of your app:
-
 ```bash
-npm run build
+# Build for production
+pnpm build
+
+# Preview production build
+pnpm preview
 ```
 
-You can preview the production build with `npm run preview`.
+## Deployment to Cloudflare Pages
 
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+### First-time setup
+
+1. Login to Cloudflare:
+
+```bash
+pnpm wrangler login
+```
+
+2. Create a new Pages project:
+
+```bash
+pnpm wrangler pages project create ftoolbox-frontend
+```
+
+### Deploy
+
+```bash
+# Deploy to production
+pnpm pages:deploy
+
+# Deploy to preview branch
+pnpm pages:deploy:preview
+```
+
+### Environment Variables in Cloudflare
+
+Set these in your Cloudflare Pages project settings:
+
+- `PUBLIC_API_URL` - Your backend API URL (e.g., `https://api.yourdomain.com`)
+
+### Local testing with Wrangler
+
+```bash
+# Test the production build locally with Cloudflare Pages environment
+pnpm build
+pnpm pages:dev
+```

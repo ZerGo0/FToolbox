@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { PUBLIC_API_URL } from '$env/static/public';
   import { onMount, onDestroy } from 'svelte';
   import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card';
   import { Badge } from '$lib/components/ui/badge';
@@ -26,7 +27,7 @@
 
   async function fetchWorkerStatus() {
     try {
-      const response = await fetch('http://localhost:3000/api/workers/status');
+      const response = await fetch(`${PUBLIC_API_URL}/api/workers/status`);
       if (!response.ok) throw new Error('Failed to fetch worker status');
 
       const result = await response.json();
@@ -41,7 +42,7 @@
 
   async function triggerWorker(workerName: string) {
     try {
-      const response = await fetch(`http://localhost:3000/api/workers/${workerName}/trigger`, {
+      const response = await fetch(`${PUBLIC_API_URL}/api/workers/${workerName}/trigger`, {
         method: 'POST'
       });
       if (!response.ok) throw new Error('Failed to trigger worker');

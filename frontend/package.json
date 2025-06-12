@@ -10,7 +10,10 @@
     "prepare": "svelte-kit sync || echo ''",
     "check": "svelte-kit sync && SVELTE_CONFIG_FILE=svelte.check.config.js svelte-check --tsconfig ./tsconfig.json",
     "format": "prettier --write . --cache",
-    "lint": "prettier --write . --cache | { grep -v '(unchanged)' || true; } && eslint . --cache"
+    "lint": "prettier --write . --cache | { grep -v '(unchanged)' || true; } && eslint . --cache",
+    "pages:dev": "wrangler pages dev .svelte-kit/cloudflare",
+    "pages:deploy": "pnpm build && wrangler pages deploy .svelte-kit/cloudflare",
+    "pages:deploy:preview": "pnpm build && wrangler pages deploy .svelte-kit/cloudflare --branch preview"
   },
   "devDependencies": {
     "@eslint/compat": "^1.2.5",
@@ -47,7 +50,8 @@
     "typescript": "^5.0.0",
     "typescript-eslint": "^8.20.0",
     "vaul-svelte": "1.0.0-next.7",
-    "vite": "^6.2.6"
+    "vite": "^6.2.6",
+    "wrangler": "^4.20.0"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
