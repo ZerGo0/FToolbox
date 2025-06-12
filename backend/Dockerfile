@@ -1,39 +1,20 @@
-FROM oven/bun:latest as builder
+FROM oven/bun:latest
 
 WORKDIR /app
 
 # Copy package files
 COPY package.json bun.lock ./
 
-# Install dependencies
-RUN bun install --frozen-lockfile
+# Install production dependencies
+RUN bun install --frozen-lockfile --production
 
 # Copy source code
 COPY . .
-
-# Build the application
-RUN bun build index.ts --compile --outfile server
-
-# Production stage
-FROM oven/bun:latest as runner
-
-WORKDIR /app
-
-# Copy the compiled binary
-COPY --from=builder /app/server ./server
-
-# Copy drizzle migrations
-COPY --from=builder /app/drizzle ./drizzle
-
-# Copy package.json for metadata
-COPY --from=builder /app/package.json ./
 
 # Create directory for SQLite database
 RUN mkdir -p /app/data
 
 EXPOSE 3000
 
-COPY --from=builder /usr/local/bin/bun /usr/local/bin/bun
-
-# Run the compiled binary
-CMD ["./server"] 
+# Run with bun
+CMD ["bun", "run", "index.ts"] 
