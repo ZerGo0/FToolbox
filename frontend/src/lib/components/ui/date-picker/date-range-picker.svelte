@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { buttonVariants } from '$lib/components/ui/button/index.js';
+  import { Button, buttonVariants } from '$lib/components/ui/button/index.js';
   import * as Popover from '$lib/components/ui/popover/index.js';
   import { RangeCalendar } from '$lib/components/ui/range-calendar/index.js';
   import * as Select from '$lib/components/ui/select/index.js';
   import { cn } from '$lib/utils.js';
-  import { DateFormatter, type DateValue, getLocalTimeZone } from '@internationalized/date';
+  import { DateFormatter, type DateValue, getLocalTimeZone, today } from '@internationalized/date';
   import type { DateRange } from 'bits-ui';
   import CalendarIcon from 'lucide-svelte/icons/calendar';
 
@@ -12,12 +12,14 @@
     value = $bindable(),
     placeholder = 'Pick a date range',
     presets = [],
-    onPresetSelect
+    onPresetSelect,
+    onApply
   }: {
     value?: DateRange;
     placeholder?: string;
     presets?: Array<{ label: string; days: number }>;
     onPresetSelect?: (days: number) => void;
+    onApply?: () => void;
   } = $props();
 
   const df = new DateFormatter('en-US', {
@@ -81,6 +83,23 @@
       }}
       numberOfMonths={2}
       placeholder={value?.start}
+      maxValue={today(getLocalTimeZone())}
     />
+    {#if onApply}
+      <div class="border-t p-3">
+        <Button
+          class="w-full"
+          size="sm"
+          onclick={() => {
+            if (onApply) {
+              onApply();
+              open = false;
+            }
+          }}
+        >
+          Apply
+        </Button>
+      </div>
+    {/if}
   </Popover.Content>
 </Popover.Root>

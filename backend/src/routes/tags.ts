@@ -14,10 +14,16 @@ app.get('/', async (c) => {
   const search = c.req.query('search') || '';
   const sortBy = c.req.query('sortBy') || 'viewCount';
   const sortOrder = c.req.query('sortOrder') || 'desc';
+  const includeHistory = c.req.query('includeHistory') === 'true';
+  const historyStartDate = c.req.query('historyStartDate');
+  const historyEndDate = c.req.query('historyEndDate');
 
   try {
     // Build where conditions
     const whereConditions = search ? like(tags.tag, `%${search}%`) : undefined;
+
+    // For change sorting, we need to include history regardless
+    const needsHistory = includeHistory || sortBy === 'change';
 
     // Build order by
     let orderByColumn;
@@ -28,16 +34,26 @@ app.get('/', async (c) => {
     } else if (sortBy === 'updatedAt') {
       orderByColumn = sortOrder === 'desc' ? desc(tags.updatedAt) : asc(tags.updatedAt);
     }
+    // Note: 'change' sorting will be handled after fetching history
 
     // Execute query
     const query = db.select().from(tags);
     if (whereConditions) {
       query.where(whereConditions);
     }
-    if (orderByColumn) {
-      query.orderBy(orderByColumn);
+
+    // If sorting by change, we need to fetch all results first
+    let results;
+    if (sortBy === 'change') {
+      // Fetch all matching results for change calculation
+      results = await query;
+    } else {
+      // Normal pagination
+      if (orderByColumn) {
+        query.orderBy(orderByColumn);
+      }
+      results = await query.limit(limit).offset(offset);
     }
-    const results = await query.limit(limit).offset(offset);
 
     // Get total count for pagination
     const countQuery = db.select().from(tags);
@@ -47,8 +63,72 @@ app.get('/', async (c) => {
     const countResult = await countQuery;
     const totalCount = countResult.length;
 
+    // Fetch history for each tag if requested or if sorting by change
+    let tagsWithHistory = results;
+    if (needsHistory) {
+      tagsWithHistory = await Promise.all(
+        results.map(async (tag) => {
+          const conditions = [eq(tagHistory.tagId, tag.id)];
+
+          if (historyStartDate && historyEndDate) {
+            conditions.push(
+              gte(tagHistory.createdAt, new Date(historyStartDate)),
+              lte(tagHistory.createdAt, new Date(historyEndDate))
+            );
+          }
+
+          const history = await db
+            .select()
+            .from(tagHistory)
+            .where(and(...conditions))
+            .orderBy(desc(tagHistory.createdAt));
+
+          // Calculate changes between history points
+          const historyWithChanges = history.map((point, index) => {
+            if (index === history.length - 1) {
+              // Last point has no previous point to compare
+              return { ...point, change: 0, changePercent: 0 };
+            }
+
+            const previousPoint = history[index + 1];
+            if (!previousPoint) {
+              return { ...point, change: 0, changePercent: 0 };
+            }
+
+            const change = point.viewCount - previousPoint.viewCount;
+            const changePercent =
+              previousPoint.viewCount > 0 ? (change / previousPoint.viewCount) * 100 : 0;
+
+            return { ...point, change, changePercent };
+          });
+
+          // Calculate total change for sorting
+          let totalChange = 0;
+          if (history.length > 0) {
+            const newest = history[0]?.viewCount || 0;
+            const oldest = history[history.length - 1]?.viewCount || 0;
+            totalChange = newest - oldest;
+          }
+
+          return { ...tag, history: includeHistory ? historyWithChanges : undefined, totalChange };
+        })
+      );
+    }
+
+    // Sort by change if requested
+    if (sortBy === 'change') {
+      tagsWithHistory.sort((a, b) => {
+        const aChange = 'totalChange' in a ? (a.totalChange as number) : 0;
+        const bChange = 'totalChange' in b ? (b.totalChange as number) : 0;
+        return sortOrder === 'desc' ? bChange - aChange : aChange - bChange;
+      });
+
+      // Apply pagination after sorting
+      tagsWithHistory = tagsWithHistory.slice(offset, offset + limit);
+    }
+
     return c.json({
-      tags: results,
+      tags: tagsWithHistory,
       pagination: {
         page,
         limit,

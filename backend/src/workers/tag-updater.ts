@@ -10,7 +10,7 @@ class TagUpdaterWorker implements Worker {
   interval: number;
 
   constructor() {
-    this.interval = parseInt(process.env.WORKER_UPDATE_INTERVAL || '60000'); // Default: 60 seconds for continuous running
+    this.interval = parseInt(process.env.WORKER_UPDATE_INTERVAL || '10000'); // Default: 60 seconds for continuous running
   }
 
   async run(): Promise<void> {

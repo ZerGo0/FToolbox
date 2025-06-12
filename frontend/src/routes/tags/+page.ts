@@ -1,5 +1,15 @@
 import type { PageLoad } from './$types';
 
+interface TagHistory {
+  id: number;
+  tagId: string;
+  viewCount: number;
+  change: number;
+  changePercent: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 interface Tag {
   id: string;
   tag: string;
@@ -9,6 +19,7 @@ interface Tag {
   createdAt: Date;
   updatedAt: Date;
   rank?: number | null;
+  history?: TagHistory[];
 }
 
 interface TagsResponse {
@@ -26,6 +37,9 @@ export const load: PageLoad = async ({ fetch, url }) => {
   const search = url.searchParams.get('search') || '';
   const sortBy = url.searchParams.get('sortBy') || 'viewCount';
   const sortOrder = url.searchParams.get('sortOrder') || 'desc';
+  const includeHistory = url.searchParams.get('includeHistory') || 'true';
+  const historyStartDate = url.searchParams.get('historyStartDate') || '';
+  const historyEndDate = url.searchParams.get('historyEndDate') || '';
 
   try {
     const params = new URLSearchParams({
@@ -33,7 +47,10 @@ export const load: PageLoad = async ({ fetch, url }) => {
       limit: '20',
       search,
       sortBy,
-      sortOrder
+      sortOrder,
+      includeHistory,
+      historyStartDate,
+      historyEndDate
     });
 
     const response = await fetch(`http://localhost:3000/api/tags?${params}`);
@@ -49,7 +66,10 @@ export const load: PageLoad = async ({ fetch, url }) => {
       pagination: data.pagination,
       search,
       sortBy,
-      sortOrder
+      sortOrder,
+      includeHistory: includeHistory === 'true',
+      historyStartDate,
+      historyEndDate
     };
   } catch (error) {
     console.error('Error loading tags:', error);
@@ -63,7 +83,10 @@ export const load: PageLoad = async ({ fetch, url }) => {
       },
       search,
       sortBy,
-      sortOrder
+      sortOrder,
+      includeHistory: includeHistory === 'true',
+      historyStartDate,
+      historyEndDate
     };
   }
 };

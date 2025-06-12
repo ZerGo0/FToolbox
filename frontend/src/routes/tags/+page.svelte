@@ -48,8 +48,29 @@
     end: today(getLocalTimeZone())
   });
 
-  // Tag changes cache
-  let tagChanges = $state<Record<string, { change: number; percentage: number }>>({});
+  // Initialize date range from URL params
+  $effect(() => {
+    if (data.historyStartDate && data.historyEndDate) {
+      try {
+        const start = new Date(data.historyStartDate);
+        const end = new Date(data.historyEndDate);
+        dateRangeValue = {
+          start: today(getLocalTimeZone()).set({
+            year: start.getFullYear(),
+            month: start.getMonth() + 1,
+            day: start.getDate()
+          }),
+          end: today(getLocalTimeZone()).set({
+            year: end.getFullYear(),
+            month: end.getMonth() + 1,
+            day: end.getDate()
+          })
+        };
+      } catch {
+        // Invalid dates, keep defaults
+      }
+    }
+  });
 
   const dateRangePresets = [
     { label: '1 Day', days: 1 },
@@ -130,48 +151,45 @@
       start: today(getLocalTimeZone()).subtract({ days }),
       end: today(getLocalTimeZone())
     };
-    fetchTagChanges();
+    // Don't automatically apply - user needs to click Apply button
   }
 
-  async function fetchTagChanges() {
+  function updateDateRangeParams() {
     if (!dateRangeValue?.start || !dateRangeValue?.end) return;
 
+    const params = new URLSearchParams($page.url.searchParams);
+
     // Ensure endDate includes the full day by setting time to end of day
-    const endDate = dateRangeValue.end!.toDate(getLocalTimeZone());
+    const startDate = dateRangeValue.start.toDate(getLocalTimeZone());
+    const endDate = dateRangeValue.end.toDate(getLocalTimeZone());
     endDate.setHours(23, 59, 59, 999);
 
-    // Fetch changes for all visible tags
-    const promises = data.tags.map(async (tag) => {
-      try {
-        const response = await fetch(
-          `http://localhost:3000/api/tags/${tag.id}/history?startDate=${dateRangeValue.start!.toDate(getLocalTimeZone()).toISOString()}&endDate=${endDate.toISOString()}`
-        );
-        if (response.ok) {
-          const { history } = (await response.json()) as { history: { viewCount: number }[] };
-          if (history.length > 0) {
-            // Calculate change by comparing first and last viewCount in the range
-            // History is returned in descending order (newest first)
-            const newestViewCount = history[0].viewCount;
-            const oldestViewCount = history[history.length - 1].viewCount;
-            const totalChange = newestViewCount - oldestViewCount;
-            const percentage = oldestViewCount > 0 ? (totalChange / oldestViewCount) * 100 : 0;
-            tagChanges[tag.id] = { change: totalChange, percentage };
-          }
-        }
-      } catch (error) {
-        console.error(`Failed to fetch changes for tag ${tag.id}`, error);
-      }
-    });
+    params.set('historyStartDate', startDate.toISOString());
+    params.set('historyEndDate', endDate.toISOString());
+    params.set('includeHistory', 'true');
 
-    await Promise.all(promises);
+    goto(`?${params}`);
   }
 
-  // Fetch changes when component mounts or date range changes
-  $effect(() => {
-    if (dateRangeValue?.start && dateRangeValue?.end) {
-      fetchTagChanges();
+  // Manual update button for date range
+  function applyDateRange() {
+    updateDateRangeParams();
+  }
+
+  // Calculate change from history data
+  function getTagChange(tag: { history?: Array<{ viewCount: number }> }) {
+    if (!tag.history || tag.history.length === 0) {
+      return { change: 0, percentage: 0 };
     }
-  });
+
+    // History is in descending order (newest first)
+    const newestViewCount = tag.history[0].viewCount;
+    const oldestViewCount = tag.history[tag.history.length - 1].viewCount;
+    const totalChange = newestViewCount - oldestViewCount;
+    const percentage = oldestViewCount > 0 ? (totalChange / oldestViewCount) * 100 : 0;
+
+    return { change: totalChange, percentage };
+  }
 </script>
 
 <div class="space-y-6">
@@ -205,6 +223,7 @@
             bind:value={dateRangeValue}
             presets={dateRangePresets}
             onPresetSelect={setDateRangePreset}
+            onApply={applyDateRange}
           />
         </div>
       </div>
@@ -253,7 +272,23 @@
                   {/if}
                 </button>
               </TableHead>
-              <TableHead>Change</TableHead>
+              <TableHead>
+                <button
+                  class="hover:text-foreground flex items-center gap-1 transition-colors"
+                  onclick={() => handleSort('change')}
+                >
+                  Change
+                  {#if data.sortBy === 'change'}
+                    {#if data.sortOrder === 'desc'}
+                      <ArrowDown class="h-4 w-4" />
+                    {:else}
+                      <ArrowUp class="h-4 w-4" />
+                    {/if}
+                  {:else}
+                    <ArrowUpDown class="h-4 w-4" />
+                  {/if}
+                </button>
+              </TableHead>
               <TableHead>
                 <button
                   class="hover:text-foreground flex items-center gap-1 transition-colors"
@@ -275,7 +310,7 @@
           </TableHeader>
           <TableBody>
             {#each data.tags as tag (tag.id)}
-              {@const changeData = tagChanges[tag.id] || { change: 0, percentage: 0 }}
+              {@const changeData = getTagChange(tag)}
               {@const change = changeData.change}
               {@const percentage = changeData.percentage}
               <TableRow>
@@ -323,7 +358,7 @@
                 <TableRow>
                   <TableCell colspan={6} class="p-0">
                     <div class="bg-muted/50 p-6">
-                      <TagHistory tagId={tag.id} dateRange={dateRangeValue} />
+                      <TagHistory history={tag.history} />
                     </div>
                   </TableCell>
                 </TableRow>
