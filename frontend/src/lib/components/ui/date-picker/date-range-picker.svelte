@@ -60,7 +60,6 @@
           onValueChange={(value) => {
             if (value && onPresetSelect) {
               onPresetSelect(parseInt(value));
-              open = false;
             }
           }}
         >
