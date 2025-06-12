@@ -14,8 +14,8 @@
     SidebarMenuItem,
     SidebarSeparator
   } from '$lib/components/ui/sidebar';
-  import { Loader2, Package2, Tag, Sun, Moon } from 'lucide-svelte';
-  import { toggleMode, mode } from 'mode-watcher';
+  import { Loader2, Moon, Package2, Sun, Tag } from 'lucide-svelte';
+  import { mode, toggleMode } from 'mode-watcher';
   import { onMount } from 'svelte';
 
   let workerStatus = $state<'idle' | 'running' | 'failed'>('idle');
@@ -89,7 +89,7 @@
   </SidebarContent>
 
   <SidebarFooter>
-    <SidebarSeparator />
+    <SidebarSeparator class="mx-0" />
 
     <!-- Worker Status -->
     <div class="px-2 py-2">
@@ -107,7 +107,7 @@
       </div>
     </div>
 
-    <SidebarSeparator />
+    <SidebarSeparator class="mx-0" />
 
     <!-- Theme Toggle -->
     <div class="p-2">
