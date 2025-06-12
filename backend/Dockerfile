@@ -33,5 +33,7 @@ RUN mkdir -p /app/data
 
 EXPOSE 3000
 
+COPY --from=builder /usr/local/bin/bun /usr/local/bin/bun
+
 # Run the compiled binary
 CMD ["./server"] 

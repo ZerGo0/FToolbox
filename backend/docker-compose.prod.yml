@@ -2,7 +2,7 @@ services:
   app:
     image: ftoolbox-backend:latest
     ports:
-      - '8100:3000'
+      - '50323:3000'
     env_file:
       - ./ftoolbox-backend.env
     volumes:
