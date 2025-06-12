@@ -10,6 +10,7 @@ export const tags = sqliteTable(
     rank: integer('rank'), // Global rank based on view count
     fanslyCreatedAt: integer('fansly_created_at', { mode: 'timestamp' }).notNull(),
     lastCheckedAt: integer('last_checked_at', { mode: 'timestamp' }),
+    lastUsedForDiscovery: integer('last_used_for_discovery', { mode: 'timestamp' }),
     createdAt: integer('created_at', { mode: 'timestamp' })
       .default(sql`(unixepoch())`)
       .notNull(),
