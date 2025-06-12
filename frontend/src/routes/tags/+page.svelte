@@ -3,6 +3,7 @@
   import { page } from '$app/stores';
   import TagHistory from '$lib/components/TagHistory.svelte';
   import TagRequestDialog from '$lib/components/TagRequestDialog.svelte';
+  import PostTextDialog from '$lib/components/PostTextDialog.svelte';
   import { Badge } from '$lib/components/ui/badge';
   import { Button } from '$lib/components/ui/button';
   import {
@@ -195,7 +196,10 @@
 <div class="space-y-6">
   <div class="flex items-center justify-between">
     <h1 class="text-3xl font-bold">Tags</h1>
-    <TagRequestDialog />
+    <div class="flex gap-2">
+      <PostTextDialog />
+      <TagRequestDialog />
+    </div>
   </div>
 
   <Card>
@@ -207,14 +211,14 @@
       <!-- Search and Date Range Controls -->
       <div class="flex flex-col gap-4 sm:flex-row">
         <div class="relative flex-1">
-          <Search class="text-muted-foreground absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
+          <Search class="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
           <input
             bind:this={searchInputElement}
             type="search"
             placeholder="Search tags..."
             value={data.search}
             oninput={(e) => handleSearch(e.currentTarget.value)}
-            class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 pl-9 text-sm file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 pl-9 text-sm file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
           />
         </div>
 

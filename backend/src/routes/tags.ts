@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, like, lte } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, gte, like, lte } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { db } from '../db';
 import { tagHistory, tagRequests, tags } from '../db/schema';
@@ -241,15 +241,16 @@ app.post('/request', async (c) => {
       const higherRankedCount = await db
         .select()
         .from(tags)
-        .where(gte(tags.viewCount, newTag.viewCount))
+        .where(gt(tags.viewCount, newTag.viewCount))
         .then((rows) => rows.length);
 
-      await db.update(tags).set({ rank: higherRankedCount }).where(eq(tags.id, newTag.id));
+      const rank = higherRankedCount + 1;
+      await db.update(tags).set({ rank }).where(eq(tags.id, newTag.id));
 
       return c.json(
         serializeDates({
           message: 'Tag added successfully',
-          tag: { ...newTag, rank: higherRankedCount },
+          tag: { ...newTag, rank },
         })
       );
     } else {
