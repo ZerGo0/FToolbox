@@ -1,4 +1,4 @@
-import { and, eq, gte, isNull, lt, or } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { db } from '../db';
 import { tagHistory, tags } from '../db/schema';
 import { fanslyClient } from '../fansly/client';
@@ -17,46 +17,60 @@ class TagUpdaterWorker implements Worker {
     logger.info('Starting tag update process');
     const rateLimitDelay = 60000 / parseInt(process.env.FANSLY_API_RATE_LIMIT || '60'); // Default: 60 requests per minute
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const twentyFourHoursAgoUnix = Math.floor(twentyFourHoursAgo.getTime() / 1000);
 
     try {
-      // Fetch tags that haven't been updated in the last 24 hours
-      const trackedTags = await db
-        .select()
+      // Fetch tags that need updating based on their latest history entry
+      const tagsToUpdate = await db
+        .select({
+          id: tags.id,
+          tag: tags.tag,
+          viewCount: tags.viewCount,
+          lastCheckedAt: tags.lastCheckedAt,
+          lastHistoryCreatedAt: sql<number | null>`(
+            SELECT created_at 
+            FROM tag_history 
+            WHERE tag_history.tag_id = ${tags.id} 
+            ORDER BY created_at DESC 
+            LIMIT 1
+          )`.as('lastHistoryCreatedAt'),
+        })
         .from(tags)
-        .where(or(lt(tags.lastCheckedAt, twentyFourHoursAgo), isNull(tags.lastCheckedAt)))
+        .where(
+          sql`
+            NOT EXISTS (
+              SELECT 1 
+              FROM tag_history 
+              WHERE tag_history.tag_id = ${tags.id} 
+                AND tag_history.created_at >= ${twentyFourHoursAgoUnix}
+            )
+          `
+        )
         .limit(10); // Process in batches to avoid long-running operations
 
-      if (trackedTags.length === 0) {
+      if (tagsToUpdate.length === 0) {
         logger.info('No tags need updating at this time');
         return;
       }
 
-      logger.info(`Found ${trackedTags.length} tags that need updating`);
+      logger.info(`Found ${tagsToUpdate.length} tags that need updating`);
+
+      // Log the tags and their last history timestamps for validation
+      for (const tag of tagsToUpdate) {
+        const historyAge = tag.lastHistoryCreatedAt
+          ? `${Math.floor((Date.now() / 1000 - tag.lastHistoryCreatedAt) / (60 * 60))} hours ago`
+          : 'never';
+        const historyDate = tag.lastHistoryCreatedAt
+          ? new Date(tag.lastHistoryCreatedAt * 1000).toISOString()
+          : 'no history';
+        logger.info(`Tag "${tag.tag}" - Last history: ${historyAge} (${historyDate})`);
+      }
 
       let updated = 0;
       let errors = 0;
 
-      for (const tag of trackedTags) {
+      for (const tag of tagsToUpdate) {
         try {
-          // Check if we already have data for today
-          const todayStart = new Date();
-          todayStart.setHours(0, 0, 0, 0);
-
-          const existingTodayEntry = await db
-            .select()
-            .from(tagHistory)
-            .where(and(eq(tagHistory.tagId, tag.id), gte(tagHistory.createdAt, todayStart)))
-            .limit(1);
-
-          if (existingTodayEntry.length > 0) {
-            logger.info(`Tag "${tag.tag}" already has data for today, skipping`);
-
-            // Update lastCheckedAt to prevent checking again today
-            await db.update(tags).set({ lastCheckedAt: new Date() }).where(eq(tags.id, tag.id));
-
-            continue;
-          }
-
           // Fetch updated data from Fansly
           const tagData = await fanslyClient.getTag(tag.tag);
 

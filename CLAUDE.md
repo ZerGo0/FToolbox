@@ -60,6 +60,15 @@ Migrations run automatically on server startup via `runMigrations()` in index.ts
 - `tagRequests`: Queue for new tag addition requests
 - `workers`: Worker status and run statistics
 
+### Timestamp Handling
+
+**IMPORTANT**: All timestamps in the database are stored as Unix timestamps (seconds since epoch).
+
+- The Drizzle schema uses `{ mode: 'timestamp' }` which expects Date objects in code
+- All timestamp columns use `sql\`(unixepoch())\`` as default values
+- The backend automatically serializes Date objects to Unix timestamps when sending to frontend
+- The frontend handles both Unix timestamps and Date strings for backwards compatibility
+
 ## Worker System Architecture
 
 The application uses a sophisticated background worker system for data collection:

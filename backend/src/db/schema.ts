@@ -52,10 +52,10 @@ export const tagRequests = sqliteTable('tag_requests', {
   tag: text('tag').notNull(),
   status: text('status').notNull().default('pending'), // pending, processing, completed, failed
   createdAt: integer('created_at', { mode: 'timestamp' })
-    .default(sql`CURRENT_TIMESTAMP`)
+    .default(sql`(unixepoch())`)
     .notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' })
-    .default(sql`CURRENT_TIMESTAMP`)
+    .default(sql`(unixepoch())`)
     .notNull(),
 });
 
@@ -71,9 +71,9 @@ export const workers = sqliteTable('workers', {
   failureCount: integer('failure_count').notNull().default(0),
   isEnabled: integer('is_enabled', { mode: 'boolean' }).default(true).notNull(),
   createdAt: integer('created_at', { mode: 'timestamp' })
-    .default(sql`CURRENT_TIMESTAMP`)
+    .default(sql`(unixepoch())`)
     .notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' })
-    .default(sql`CURRENT_TIMESTAMP`)
+    .default(sql`(unixepoch())`)
     .notNull(),
 });

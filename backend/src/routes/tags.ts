@@ -3,6 +3,7 @@ import { Hono } from 'hono';
 import { db } from '../db';
 import { tagHistory, tagRequests, tags } from '../db/schema';
 import { fanslyClient } from '../fansly/client';
+import { serializeDates } from '../utils/serialize';
 
 const app = new Hono();
 
@@ -33,6 +34,8 @@ app.get('/', async (c) => {
       orderByColumn = sortOrder === 'desc' ? desc(tags.viewCount) : asc(tags.viewCount);
     } else if (sortBy === 'updatedAt') {
       orderByColumn = sortOrder === 'desc' ? desc(tags.updatedAt) : asc(tags.updatedAt);
+    } else if (sortBy === 'rank') {
+      orderByColumn = sortOrder === 'desc' ? desc(tags.rank) : asc(tags.rank);
     }
     // Note: 'change' sorting will be handled after fetching history
 
@@ -127,15 +130,17 @@ app.get('/', async (c) => {
       tagsWithHistory = tagsWithHistory.slice(offset, offset + limit);
     }
 
-    return c.json({
-      tags: tagsWithHistory,
-      pagination: {
-        page,
-        limit,
-        totalCount,
-        totalPages: Math.ceil(totalCount / limit),
-      },
-    });
+    return c.json(
+      serializeDates({
+        tags: tagsWithHistory,
+        pagination: {
+          page,
+          limit,
+          totalCount,
+          totalPages: Math.ceil(totalCount / limit),
+        },
+      })
+    );
   } catch (error) {
     console.error('Error fetching tags:', error);
     return c.json({ error: 'Failed to fetch tags' }, 500);
@@ -164,7 +169,7 @@ app.get('/:tagId/history', async (c) => {
       .where(and(...conditions))
       .orderBy(desc(tagHistory.createdAt));
 
-    return c.json({ history });
+    return c.json(serializeDates({ history }));
   } catch (error) {
     console.error('Error fetching tag history:', error);
     return c.json({ error: 'Failed to fetch tag history' }, 500);
@@ -184,7 +189,9 @@ app.post('/request', async (c) => {
     const existingTag = await db.select().from(tags).where(eq(tags.tag, tag)).limit(1);
 
     if (existingTag.length > 0) {
-      return c.json({ message: 'Tag is already being tracked', tag: existingTag[0] });
+      return c.json(
+        serializeDates({ message: 'Tag is already being tracked', tag: existingTag[0] })
+      );
     }
 
     // Create tag request
@@ -239,10 +246,12 @@ app.post('/request', async (c) => {
 
       await db.update(tags).set({ rank: higherRankedCount }).where(eq(tags.id, newTag.id));
 
-      return c.json({
-        message: 'Tag added successfully',
-        tag: { ...newTag, rank: higherRankedCount },
-      });
+      return c.json(
+        serializeDates({
+          message: 'Tag added successfully',
+          tag: { ...newTag, rank: higherRankedCount },
+        })
+      );
     } else {
       // Update request status to failed
       await db

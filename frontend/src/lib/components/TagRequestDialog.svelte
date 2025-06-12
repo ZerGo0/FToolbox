@@ -1,7 +1,7 @@
 <script lang="ts">
+  import { goto, invalidateAll } from '$app/navigation';
+  import { Alert, AlertDescription } from '$lib/components/ui/alert';
   import { Button } from '$lib/components/ui/button';
-  import { Input } from '$lib/components/ui/input';
-  import { Label } from '$lib/components/ui/label';
   import {
     Dialog,
     DialogContent,
@@ -11,9 +11,9 @@
     DialogTitle,
     DialogTrigger
   } from '$lib/components/ui/dialog';
-  import { Alert, AlertDescription } from '$lib/components/ui/alert';
+  import { Input } from '$lib/components/ui/input';
+  import { Label } from '$lib/components/ui/label';
   import { Plus } from 'lucide-svelte';
-  import { invalidateAll } from '$app/navigation';
 
   let open = false;
   let tagInput = '';
@@ -37,7 +37,7 @@
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ tag: tagInput.trim() })
+        body: JSON.stringify({ tag: tagInput.trim().replace(/^#/, '') })
       });
 
       const data = await response.json();
@@ -47,16 +47,16 @@
       }
 
       success = data.message || 'Tag requested successfully';
+      const searchTag = tagInput.trim().replace(/^#/, '');
       tagInput = '';
 
       // Refresh the page data
       await invalidateAll();
 
-      // Close dialog after a short delay
-      setTimeout(() => {
-        open = false;
-        success = '';
-      }, 2000);
+      // Navigate to tags page with search
+      open = false;
+      success = '';
+      await goto(`/tags?search=${encodeURIComponent(searchTag)}`);
     } catch (e) {
       error = e instanceof Error ? e.message : 'An error occurred';
     } finally {
@@ -90,7 +90,7 @@
           <Label for="tag">Tag Name</Label>
           <Input
             id="tag"
-            placeholder="Enter tag name (without #)"
+            placeholder="Enter tag name (e.g. fyp or #fyp)"
             bind:value={tagInput}
             disabled={loading}
           />

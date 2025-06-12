@@ -10,8 +10,8 @@
     viewCount: number;
     change: number;
     changePercent: number;
-    createdAt: Date;
-    updatedAt: Date;
+    createdAt: Date | string | number;
+    updatedAt: Date | string | number;
   }
 
   interface Props {
@@ -27,8 +27,14 @@
   const historyWithDates = $derived(
     history.map((point) => ({
       ...point,
-      createdAt: new Date(point.createdAt),
-      updatedAt: new Date(point.updatedAt)
+      createdAt:
+        typeof point.createdAt === 'number'
+          ? new Date(point.createdAt * 1000)
+          : new Date(point.createdAt),
+      updatedAt:
+        typeof point.updatedAt === 'number'
+          ? new Date(point.updatedAt * 1000)
+          : new Date(point.updatedAt)
     }))
   );
 

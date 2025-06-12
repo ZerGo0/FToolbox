@@ -1,6 +1,8 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
+  import TagHistory from '$lib/components/TagHistory.svelte';
+  import TagRequestDialog from '$lib/components/TagRequestDialog.svelte';
   import { Badge } from '$lib/components/ui/badge';
   import { Button } from '$lib/components/ui/button';
   import {
@@ -11,8 +13,6 @@
     CardTitle
   } from '$lib/components/ui/card';
   import { DateRangePicker } from '$lib/components/ui/date-picker';
-  import { getLocalTimeZone, today } from '@internationalized/date';
-  import type { DateRange } from 'bits-ui';
   import {
     Table,
     TableBody,
@@ -22,22 +22,21 @@
     TableHeader,
     TableRow
   } from '$lib/components/ui/table';
+  import { getLocalTimeZone, today } from '@internationalized/date';
+  import type { DateRange } from 'bits-ui';
   import {
+    ArrowDown,
+    ArrowUp,
+    ArrowUpDown,
     ChevronDown,
     ChevronUp,
-    ArrowUpDown,
-    ArrowUp,
-    ArrowDown,
     Search,
-    TrendingUp,
-    TrendingDown
+    TrendingDown,
+    TrendingUp
   } from 'lucide-svelte';
-  import TagHistory from '$lib/components/TagHistory.svelte';
-  import TagRequestDialog from '$lib/components/TagRequestDialog.svelte';
 
   let { data } = $props();
 
-  let searchInput = $state(data.search);
   let searchInputElement: HTMLInputElement | undefined;
   let expandedTagId = $state<string | null>(null);
   let searchDebounceTimer: number;
@@ -82,11 +81,10 @@
   ];
 
   function handleSearch(value: string) {
-    searchInput = value;
     clearTimeout(searchDebounceTimer);
     searchDebounceTimer = setTimeout(() => {
       const params = new URLSearchParams($page.url.searchParams);
-      params.set('search', searchInput);
+      params.set('search', value);
       params.set('page', '1');
 
       // Save current selection state before navigation
@@ -135,9 +133,11 @@
     return new Intl.NumberFormat().format(num);
   }
 
-  function formatDate(date: Date | string | null): string {
+  function formatDate(date: Date | string | number | null): string {
     if (!date) return 'Never';
-    return new Date(date).toLocaleDateString('en-US', {
+    // Handle Unix timestamps (numbers)
+    const dateObj = typeof date === 'number' ? new Date(date * 1000) : new Date(date);
+    return dateObj.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -207,14 +207,14 @@
       <!-- Search and Date Range Controls -->
       <div class="flex flex-col gap-4 sm:flex-row">
         <div class="relative flex-1">
-          <Search class="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+          <Search class="text-muted-foreground absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
           <input
             bind:this={searchInputElement}
             type="search"
             placeholder="Search tags..."
-            value={searchInput}
+            value={data.search}
             oninput={(e) => handleSearch(e.currentTarget.value)}
-            class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 pl-9 text-sm file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+            class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 pl-9 text-sm file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           />
         </div>
 
@@ -237,7 +237,23 @@
           <TableHeader>
             <TableRow>
               <TableHead class="w-12"></TableHead>
-              <TableHead class="w-16">Rank</TableHead>
+              <TableHead class="w-16">
+                <button
+                  class="hover:text-foreground flex items-center gap-1 transition-colors"
+                  onclick={() => handleSort('rank')}
+                >
+                  Rank
+                  {#if data.sortBy === 'rank'}
+                    {#if data.sortOrder === 'desc'}
+                      <ArrowDown class="h-4 w-4" />
+                    {:else}
+                      <ArrowUp class="h-4 w-4" />
+                    {/if}
+                  {:else}
+                    <ArrowUpDown class="h-4 w-4" />
+                  {/if}
+                </button>
+              </TableHead>
               <TableHead>
                 <button
                   class="hover:text-foreground flex items-center gap-1 transition-colors"
