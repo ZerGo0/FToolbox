@@ -18,13 +18,11 @@ export const tags = sqliteTable(
       .default(sql`(unixepoch())`)
       .notNull(),
   },
-  (table) => {
-    return {
-      tagIdx: index('tag_idx').on(table.tag),
-      viewCountIdx: index('view_count_idx').on(table.viewCount),
-      rankIdx: index('rank_idx').on(table.rank),
-    };
-  }
+  (table) => [
+    index('tag_idx').on(table.tag),
+    index('view_count_idx').on(table.viewCount),
+    index('rank_idx').on(table.rank),
+  ]
 );
 
 export const tagHistory = sqliteTable(
@@ -43,12 +41,10 @@ export const tagHistory = sqliteTable(
       .default(sql`(unixepoch())`)
       .notNull(),
   },
-  (table) => {
-    return {
-      tagIdIdx: index('tag_history_tag_id_idx').on(table.tagId),
-      createdAtIdx: index('tag_history_created_at_idx').on(table.createdAt),
-    };
-  }
+  (table) => [
+    index('tag_history_tag_id_idx').on(table.tagId),
+    index('tag_history_created_at_idx').on(table.createdAt),
+  ]
 );
 
 export const tagRequests = sqliteTable('tag_requests', {
