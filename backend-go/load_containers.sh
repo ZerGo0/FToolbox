@@ -7,6 +7,6 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 docker load < image.tar
-# mv docker-compose.prod.yml docker-compose.yml
-#docker compose up -d --remove-orphans
-#rm image.tar
+mv docker-compose.prod.yml docker-compose.yml
+docker compose up -d --remove-orphans
+rm image.tar
