@@ -2,7 +2,7 @@
   import { goto, invalidateAll } from '$app/navigation';
   import { PUBLIC_API_URL } from '$env/static/public';
   import { Alert, AlertDescription } from '$lib/components/ui/alert';
-  import { Button } from '$lib/components/ui/button';
+  import { Button, buttonVariants } from '$lib/components/ui/button';
   import {
     Dialog,
     DialogContent,
@@ -67,11 +67,9 @@
 </script>
 
 <Dialog bind:open>
-  <DialogTrigger>
-    <Button>
-      <Plus class="mr-2 h-4 w-4" />
-      <span class="hidden sm:block">Add Tag</span>
-    </Button>
+  <DialogTrigger class={buttonVariants()}>
+    <Plus class="h-4 w-4" />
+    <span class="hidden sm:block">Add Tag</span>
   </DialogTrigger>
   <DialogContent>
     <DialogHeader>

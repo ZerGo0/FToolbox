@@ -1,7 +1,7 @@
 <script lang="ts">
   import { PUBLIC_API_URL } from '$env/static/public';
   import { Badge } from '$lib/components/ui/badge';
-  import { Button } from '$lib/components/ui/button';
+  import { Button, buttonVariants } from '$lib/components/ui/button';
   import {
     Dialog,
     DialogContent,
@@ -229,11 +229,9 @@
 </script>
 
 <Dialog bind:open>
-  <DialogTrigger>
-    <Button variant="outline">
-      <Clipboard class="mr-2 h-4 w-4" />
-      <span class="hidden sm:block">Analyze Post Text</span>
-    </Button>
+  <DialogTrigger class={buttonVariants({ variant: 'outline' })}>
+    <Clipboard class="h-4 w-4" />
+    <span class="hidden sm:block">Analyze Post Text</span>
   </DialogTrigger>
   <DialogContent class="max-w-2xl">
     <DialogHeader>

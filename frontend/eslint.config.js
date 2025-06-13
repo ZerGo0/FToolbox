@@ -6,6 +6,7 @@ import globals from 'globals';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript-eslint';
 import svelteConfig from './svelte.config.js';
+import localPlugin from './eslint-plugin-local/index.js';
 
 const gitignorePath = fileURLToPath(new URL('./.gitignore', import.meta.url));
 
@@ -31,6 +32,15 @@ export default ts.config(
         parser: ts.parser,
         svelteConfig
       }
+    }
+  },
+  {
+    files: ['**/*.svelte'],
+    plugins: {
+      local: localPlugin
+    },
+    rules: {
+      'local/no-nested-interactive': 'error'
     }
   }
 );
