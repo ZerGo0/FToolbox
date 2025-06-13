@@ -75,6 +75,11 @@ func (h *TagHandler) GetTags(c *fiber.Ctx) error {
 		query = query.Where("tag LIKE ?", "%"+search+"%")
 	}
 
+	// When sorting by rank, exclude tags without a rank from the base query
+	if sortBy == "rank" {
+		query = query.Where("rank IS NOT NULL")
+	}
+
 	var total int64
 	query.Count(&total)
 
