@@ -45,7 +45,7 @@
 
   let searchInputElement: HTMLInputElement | undefined;
   let expandedTagId = $state<string | null>(null);
-  let searchDebounceTimer: number;
+  let searchValue = $state(data.search || '');
   let pageJumpValue = $state<string>('');
   let showPageJump = $state(false);
 
@@ -88,28 +88,11 @@
     { label: '1 Year', days: 365 }
   ];
 
-  function handleSearch(value: string) {
-    clearTimeout(searchDebounceTimer);
-    searchDebounceTimer = setTimeout(() => {
-      const params = new URLSearchParams($page.url.searchParams);
-      params.set('search', value);
-      params.set('page', '1');
-
-      // Save current selection state before navigation
-      const activeElement = document.activeElement;
-      const selectionStart = searchInputElement?.selectionStart;
-      const selectionEnd = searchInputElement?.selectionEnd;
-
-      goto(`?${params}`, { replaceState: true, keepFocus: true }).then(() => {
-        // Restore focus and selection if the search input was focused
-        if (activeElement === searchInputElement && searchInputElement) {
-          searchInputElement.focus();
-          if (selectionStart !== undefined && selectionEnd !== undefined) {
-            searchInputElement.setSelectionRange(selectionStart, selectionEnd);
-          }
-        }
-      });
-    }, 300);
+  function handleSearch() {
+    const params = new URLSearchParams($page.url.searchParams);
+    params.set('search', searchValue);
+    params.set('page', '1');
+    goto(`?${params}`);
   }
 
   function handleSort(column: string) {
@@ -225,16 +208,28 @@
     <CardContent class="space-y-4">
       <!-- Search and Date Range Controls -->
       <div class="flex flex-col gap-4 sm:flex-row">
-        <div class="relative flex-1">
-          <Search class="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
-          <input
-            bind:this={searchInputElement}
-            type="search"
-            placeholder="Search tags..."
-            value={data.search}
-            oninput={(e) => handleSearch(e.currentTarget.value)}
-            class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 pl-9 text-sm file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-          />
+        <div class="flex flex-1 gap-2">
+          <div class="relative flex-1">
+            <Search
+              class="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2"
+            />
+            <input
+              bind:this={searchInputElement}
+              bind:value={searchValue}
+              type="search"
+              placeholder="Search tags..."
+              onkeydown={(e) => {
+                if (e.key === 'Enter') {
+                  handleSearch();
+                }
+              }}
+              class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 pl-9 text-sm file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+            />
+          </div>
+          <Button onclick={handleSearch} variant="default" size="default" class="h-10">
+            <Search class="h-4 w-4 md:mr-2" />
+            <span class="hidden md:inline">Search</span>
+          </Button>
         </div>
 
         <div class="flex gap-2">
