@@ -1,0 +1,12 @@
+services:
+  migrate:
+    build:
+      context: .
+      dockerfile: ./migrate/Dockerfile
+    container_name: ftoolbox-migrate
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    env_file:
+      - ./ftoolbox-backend.env
+    command: ["/data/sqlite.db"]
