@@ -16,8 +16,8 @@ jobs:
       - name: Build Docker images
         run: |
           cd backend-go
-          docker build -f migrate/Dockerfile -t ftoolbox-migrate:latest .
-          docker save ftoolbox-migrate:latest > image.tar
+          docker build -t ftoolbox-backend:latest .
+          docker save ftoolbox-backend:latest > image.tar
 
       - name: Transfer files to root server
         uses: Burnett01/rsync-deployments@7.0.2

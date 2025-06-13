@@ -15,8 +15,8 @@ services:
       retries: 3
 
   migrate:
-    image: ftoolbox-migrate:latest
-    container_name: ftoolbox-migrate
+    image: ftoolbox-backend:latest
+    container_name: ftoolbox-backend
     depends_on:
       mariadb:
         condition: service_healthy
