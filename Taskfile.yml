@@ -17,12 +17,11 @@ tasks:
         ignore_error: true
 
   watch-backend:
-    desc: Start the backend development server
-    dir: backend
+    desc: Start the backend development server with live reload
+    dir: backend-go
     cmds:
-      - cmd: kill -9 $(lsof -t -i:3000)
+      - cmd: kill -9 $(lsof -t -i:3001)
         ignore_error: true
-      - bun install
-      - bun run dev
-      - cmd: kill -9 $(lsof -t -i:3000)
+      - air
+      - cmd: kill -9 $(lsof -t -i:3001)
         ignore_error: true

@@ -1,14 +1,14 @@
 root = "."
 testdata_dir = "testdata"
-tmp_dir = "backend/tmp"
+tmp_dir = "backend-go/tmp"
 
 [build]
-  cmd = "go build -o backend/main backend/cmd/api/main.go"
-  exclude_dir = ["assets", "tmp", "vendor", "testdata", "backend/tmp"]
+  cmd = "go build -o backend-go/main backend-go/main.go"
+  exclude_dir = ["assets", "tmp", "vendor", "testdata", "backend-go/tmp"]
   exclude_regex = ["_test.go"]
   exclude_unchanged = false
-  full_bin = "cd ./backend && ./main"
-  include_dir = ["backend", "shared"]
+  full_bin = "cd ./backend-go && ./main"
+  include_dir = ["backend-go"]
   include_ext = ["go", "tpl", "tmpl", "html"]
   send_interrupt = true
 

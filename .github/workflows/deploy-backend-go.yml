@@ -1,14 +1,11 @@
-name: Build and Deploy Backend
+name: Build and Deploy Go Backend
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    # if: github.event_name != 'pull_request'
 
     steps:
       - uses: actions/checkout@v4
@@ -16,9 +13,9 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build Docker image
+      - name: Build Docker images
         run: |
-          cd backend
+          cd backend-go
           docker build -t ftoolbox-backend:latest .
           docker save ftoolbox-backend:latest > image.tar
 
@@ -26,7 +23,7 @@ jobs:
         uses: Burnett01/rsync-deployments@7.0.2
         with:
           switches: -avzr --delete
-          path: backend/image.tar backend/docker-compose.prod.yml backend/load_container.sh
+          path: backend-go/images.tar backend-go/docker-compose.prod.yml backend-go/load_containers.sh
           remote_path: ${{ secrets.SERVER_PATH }}
           remote_host: ${{ secrets.SERVER_HOST }}
           remote_user: ${{ secrets.SERVER_USERNAME }}
