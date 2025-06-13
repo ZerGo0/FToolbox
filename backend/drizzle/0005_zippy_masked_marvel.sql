@@ -1,1 +1,0 @@
-ALTER TABLE `tags` ADD `last_used_for_discovery` integer;

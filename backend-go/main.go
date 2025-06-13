@@ -12,7 +12,9 @@ import (
 	"syscall"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/compress"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/etag"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"go.uber.org/zap"
 )
@@ -111,6 +113,10 @@ func main() {
 		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
 		AllowMethods: "GET, HEAD, PUT, PATCH, POST, DELETE",
 	}))
+	app.Use(compress.New(compress.Config{
+		Level: compress.LevelBestSpeed,
+	}))
+	app.Use(etag.New())
 
 	routes.Setup(app, db, workerManager, fanslyClient)
 

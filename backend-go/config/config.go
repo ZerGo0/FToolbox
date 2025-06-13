@@ -35,7 +35,7 @@ func Load() *Config {
 		WorkerEnabled:           getEnvBool("WORKER_ENABLED", true),
 		WorkerUpdateInterval:    getEnvInt("WORKER_UPDATE_INTERVAL", 10000),    // 10 seconds
 		WorkerDiscoveryInterval: getEnvInt("WORKER_DISCOVERY_INTERVAL", 60000), // 60 seconds
-		FanslyAPIRateLimit:      getEnvInt("FANSLY_API_RATE_LIMIT", 60),        // 60 requests per minute
+		FanslyAPIRateLimit:      getEnvInt("FANSLY_API_RATE_LIMIT", 300),       // 60 requests per minute
 	}
 }
 

@@ -14,7 +14,7 @@ services:
       timeout: 5s
       retries: 3
 
-  migrate:
+  backend:
     image: ftoolbox-backend:latest
     container_name: ftoolbox-backend
     depends_on:
@@ -22,9 +22,8 @@ services:
         condition: service_healthy
     env_file:
       - ./ftoolbox-backend.env
-    volumes:
-      - ./sqlite.db:/data/sqlite.db:ro
-    command: ["/data/sqlite.db"]
+    ports:
+      - "50323:3000"
 
 volumes:
   mariadb_data:
