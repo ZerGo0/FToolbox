@@ -1,8 +1,8 @@
 # Build stage
 FROM golang:1.24-alpine AS builder
 
-# Install build dependencies
-RUN apk add --no-cache git
+# Install build dependencies including gcc for CGO
+RUN apk add --no-cache git gcc musl-dev sqlite-dev
 
 WORKDIR /app
 
@@ -13,14 +13,14 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build the migration binary
-RUN go build -o migrate ./migrate/migrate.go
+# Build the migration binary with CGO enabled
+RUN CGO_ENABLED=1 go build -o migrate ./migrate/migrate.go
 
 # Final stage
 FROM alpine:latest
 
-# Install runtime dependencies
-RUN apk add --no-cache ca-certificates
+# Install runtime dependencies including SQLite libraries
+RUN apk add --no-cache ca-certificates sqlite-libs
 
 WORKDIR /app
 
