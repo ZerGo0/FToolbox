@@ -16,14 +16,14 @@ jobs:
       - name: Build Docker images
         run: |
           cd backend-go
-          docker build -t ftoolbox-migrate:latest .
+          docker build -f migrate/Dockerfile -t ftoolbox-migrate:latest .
           docker save ftoolbox-migrate:latest > image.tar
 
       - name: Transfer files to root server
         uses: Burnett01/rsync-deployments@7.0.2
         with:
           switches: -avzr --delete
-          path: backend-go/images.tar backend-go/docker-compose.prod.yml backend-go/load_containers.sh
+          path: backend-go/image.tar backend-go/docker-compose.prod.yml backend-go/load_containers.sh
           remote_path: ${{ secrets.SERVER_PATH }}
           remote_host: ${{ secrets.SERVER_HOST }}
           remote_user: ${{ secrets.SERVER_USERNAME }}
