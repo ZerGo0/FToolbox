@@ -59,9 +59,29 @@ func (w *TagDiscoveryWorker) Run(ctx context.Context) error {
 
 	zap.L().Info("Discovering tags from", zap.String("source_tag", tagToUse))
 
+	// Always update the last_used_for_discovery timestamp to prevent getting stuck
+	// on the same tag if it fails
+	defer func() {
+		now := time.Now()
+		if err := w.db.Model(&models.Tag{}).
+			Where("tag = ?", tagToUse).
+			Update("last_used_for_discovery", now).Error; err != nil {
+			zap.L().Error("Failed to update last_used_for_discovery",
+				zap.String("tag", tagToUse),
+				zap.Error(err))
+		}
+	}()
+
 	// First, get the tag details to get its ID
 	tagDetails, err := w.client.GetTag(tagToUse)
 	if err != nil {
+		// If tag not found on Fansly, mark it in database
+		if err.Error() == "tag not found" {
+			zap.L().Warn("Tag exists in database but not on Fansly, consider removing",
+				zap.String("tag", tagToUse))
+			// Optionally: Delete the tag or mark it as inactive
+			// w.db.Delete(&models.Tag{}, "tag = ?", tagToUse)
+		}
 		return fmt.Errorf("failed to fetch tag details: %w", err)
 	}
 
@@ -92,16 +112,6 @@ func (w *TagDiscoveryWorker) Run(ctx context.Context) error {
 		}
 	}
 
-	// Update the source tag's last used for discovery time
-	now := time.Now()
-	if err := w.db.Model(&models.Tag{}).
-		Where("tag = ?", tagToUse).
-		Update("last_used_for_discovery", now).Error; err != nil {
-		zap.L().Error("Failed to update last_used_for_discovery",
-			zap.String("tag", tagToUse),
-			zap.Error(err))
-	}
-
 	zap.L().Info("Tag discovery completed",
 		zap.String("source_tag", tagToUse),
 		zap.Int("discovered", len(discoveredTags)),
@@ -114,11 +124,15 @@ func (w *TagDiscoveryWorker) getTagForDiscovery() (string, error) {
 	// First, try to get a tag from the database that hasn't been used recently
 	sevenDaysAgo := time.Now().Add(-7 * 24 * time.Hour)
 
-	var tag models.Tag
+	var tags []models.Tag
+	// Get multiple tags that haven't been used recently, ordered by view count
 	if err := w.db.Where("last_used_for_discovery IS NULL OR last_used_for_discovery < ?", sevenDaysAgo).
 		Order("view_count DESC").
-		First(&tag).Error; err == nil {
-		return tag.Tag, nil
+		Limit(10).
+		Find(&tags).Error; err == nil && len(tags) > 0 {
+		// Select a random tag from the top 10 to avoid always picking the same one
+		idx := time.Now().Unix() % int64(len(tags))
+		return tags[idx].Tag, nil
 	}
 
 	// If no suitable database tag, use a random seed tag
