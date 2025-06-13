@@ -18,6 +18,7 @@ type Config struct {
 	WorkerEnabled           bool
 	WorkerUpdateInterval    int
 	WorkerDiscoveryInterval int
+	RankCalculationInterval int
 	FanslyAPIRateLimit      int
 }
 
@@ -33,9 +34,10 @@ func Load() *Config {
 		Port:                    getEnv("PORT", "3000"),
 		LogLevel:                getEnv("LOG_LEVEL", "info"),
 		WorkerEnabled:           getEnvBool("WORKER_ENABLED", true),
-		WorkerUpdateInterval:    getEnvInt("WORKER_UPDATE_INTERVAL", 10000),    // 10 seconds
-		WorkerDiscoveryInterval: getEnvInt("WORKER_DISCOVERY_INTERVAL", 60000), // 60 seconds
-		FanslyAPIRateLimit:      getEnvInt("FANSLY_API_RATE_LIMIT", 300),       // 60 requests per minute
+		WorkerUpdateInterval:    getEnvInt("WORKER_UPDATE_INTERVAL", 10000),
+		WorkerDiscoveryInterval: getEnvInt("WORKER_DISCOVERY_INTERVAL", 60000),
+		RankCalculationInterval: getEnvInt("RANK_CALCULATION_INTERVAL", 60000),
+		FanslyAPIRateLimit:      getEnvInt("FANSLY_API_RATE_LIMIT", 300),
 	}
 }
 

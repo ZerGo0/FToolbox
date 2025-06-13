@@ -6,6 +6,7 @@ import (
 	"ftoolbox/fansly"
 	"ftoolbox/models"
 	"ftoolbox/routes"
+	"ftoolbox/utils"
 	"ftoolbox/workers"
 	"os"
 	"os/signal"
@@ -25,11 +26,7 @@ func main() {
 	// Initialize zap logger
 	var logger *zap.Logger
 	var err error
-	if cfg.LogLevel == "debug" {
-		logger, err = zap.NewDevelopment()
-	} else {
-		logger, err = zap.NewProduction()
-	}
+	logger, err = zap.NewDevelopment()
 	if err != nil {
 		panic(err)
 	}
@@ -50,7 +47,7 @@ func main() {
 	db.Model(&models.Tag{}).Where("rank IS NULL").Count(&tagCount)
 	if tagCount > 0 {
 		zap.L().Info("Calculating initial ranks for tags")
-		if err := models.CalculateTagRanks(db); err != nil {
+		if err := utils.CalculateTagRanks(db); err != nil {
 			zap.L().Error("Failed to calculate initial ranks", zap.Error(err))
 		}
 	}
@@ -64,12 +61,16 @@ func main() {
 	// Register workers
 	tagUpdater := workers.NewTagUpdaterWorker(db, cfg)
 	tagDiscovery := workers.NewTagDiscoveryWorker(db, cfg)
+	rankCalculator := workers.NewRankCalculatorWorker(db, cfg)
 
 	if err := workerManager.Register(tagUpdater); err != nil {
 		zap.L().Error("Failed to register tag updater", zap.Error(err))
 	}
 	if err := workerManager.Register(tagDiscovery); err != nil {
 		zap.L().Error("Failed to register tag discovery", zap.Error(err))
+	}
+	if err := workerManager.Register(rankCalculator); err != nil {
+		zap.L().Error("Failed to register rank calculator", zap.Error(err))
 	}
 
 	// Start workers if enabled
@@ -80,6 +81,9 @@ func main() {
 			}
 			if err := workerManager.Start("tag-discovery"); err != nil {
 				zap.L().Error("Failed to start tag discovery", zap.Error(err))
+			}
+			if err := workerManager.Start("rank-calculator"); err != nil {
+				zap.L().Error("Failed to start rank calculator", zap.Error(err))
 			}
 		}()
 	}

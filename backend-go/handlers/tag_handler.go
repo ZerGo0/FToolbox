@@ -3,6 +3,7 @@ package handlers
 import (
 	"ftoolbox/fansly"
 	"ftoolbox/models"
+	"ftoolbox/utils"
 	"sort"
 	"strconv"
 	"time"
@@ -330,7 +331,12 @@ func (h *TagHandler) RequestTag(c *fiber.Ctx) error {
 		zap.L().Error("Failed to create tag history", zap.Error(err))
 	}
 
-	// Retrieve the tag again to get the rank calculated by the hook
+	// Calculate ranks after adding the new tag
+	if err := utils.CalculateTagRanks(h.db); err != nil {
+		zap.L().Error("Failed to calculate ranks", zap.Error(err))
+	}
+
+	// Retrieve the tag again to get the calculated rank
 	var tagWithRank models.Tag
 	if err := h.db.Where("id = ?", newTag.ID).First(&tagWithRank).Error; err != nil {
 		zap.L().Error("Failed to retrieve tag with rank", zap.Error(err))
