@@ -28,9 +28,20 @@
 
   let startValue: DateValue | undefined = $state(undefined);
   let open = $state(false);
+  let initialValue: DateRange | undefined = $state(undefined);
+
+  function handleOpenChange(open: boolean) {
+    if (open) {
+      initialValue = { start: value?.start, end: value?.end };
+    } else {
+      if (initialValue) {
+        value = initialValue;
+      }
+    }
+  }
 </script>
 
-<Popover.Root bind:open>
+<Popover.Root bind:open onOpenChange={handleOpenChange}>
   <Popover.Trigger
     class={cn(
       buttonVariants({ variant: 'outline' }),
@@ -80,7 +91,7 @@
       onStartValueChange={(v) => {
         startValue = v;
       }}
-      numberOfMonths={2}
+      numberOfMonths={1}
       placeholder={value?.start}
       maxValue={today(getLocalTimeZone())}
     />
