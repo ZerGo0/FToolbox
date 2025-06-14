@@ -305,6 +305,23 @@
                 <TableHead>
                   <button
                     class="hover:text-foreground flex items-center gap-1 transition-colors"
+                    onclick={() => handleSort('postCount')}
+                  >
+                    Post Count
+                    {#if data.sortBy === 'postCount'}
+                      {#if data.sortOrder === 'desc'}
+                        <ArrowDown class="h-4 w-4" />
+                      {:else}
+                        <ArrowUp class="h-4 w-4" />
+                      {/if}
+                    {:else}
+                      <ArrowUpDown class="h-4 w-4" />
+                    {/if}
+                  </button>
+                </TableHead>
+                <TableHead>
+                  <button
+                    class="hover:text-foreground flex items-center gap-1 transition-colors"
                     onclick={() => handleSort('change')}
                   >
                     Change
@@ -361,6 +378,7 @@
                     <Badge variant="secondary">#{tag.tag}</Badge>
                   </TableCell>
                   <TableCell>{formatNumber(tag.viewCount)}</TableCell>
+                  <TableCell>{tag.postCount ? formatNumber(tag.postCount) : '-'}</TableCell>
                   <TableCell>
                     {#if change !== 0}
                       <div class="flex items-center gap-1">
@@ -386,7 +404,7 @@
                 </TableRow>
                 {#if expandedTagId === tag.id}
                   <TableRow>
-                    <TableCell colspan={6} class="p-0">
+                    <TableCell colspan={7} class="p-0">
                       <div class="bg-muted/50 p-6">
                         <TagHistory history={tag.history} />
                       </div>

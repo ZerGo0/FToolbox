@@ -6,7 +6,6 @@ import (
 	"ftoolbox/config"
 	"ftoolbox/fansly"
 	"ftoolbox/models"
-	"regexp"
 	"strings"
 	"time"
 
@@ -18,7 +17,6 @@ type TagDiscoveryWorker struct {
 	BaseWorker
 	db       *gorm.DB
 	client   *fansly.Client
-	tagRegex *regexp.Regexp
 	seedTags []string
 }
 
@@ -29,7 +27,6 @@ func NewTagDiscoveryWorker(db *gorm.DB, cfg *config.Config) *TagDiscoveryWorker 
 		BaseWorker: NewBaseWorker("tag-discovery", interval),
 		db:         db,
 		client:     fansly.NewClient(cfg.FanslyAPIRateLimit),
-		tagRegex:   regexp.MustCompile(`#(\w+)`),
 		seedTags: []string{
 			"amateur", "teen", "milf", "anal", "asian", "latina", "ebony",
 			"blonde", "brunette", "redhead", "bigboobs", "smalltits", "ass",
@@ -86,25 +83,25 @@ func (w *TagDiscoveryWorker) Run(ctx context.Context) error {
 	}
 
 	// Fetch posts for this tag using its ID
-	posts, err := w.client.GetPostsForTag(tagDetails.ID, 20, 0)
+	result, err := w.client.GetPostsForTagWithPagination(tagDetails.ID, 20, "0")
 	if err != nil {
 		return fmt.Errorf("failed to fetch posts: %w", err)
 	}
 
-	// Extract and process tags
-	discoveredTags := w.extractTags(posts)
+	// Extract and process tags from mediaOfferSuggestions
+	discoveredTags := w.extractTagsFromSuggestions(result.Suggestions)
 	newTags := 0
 
-	for _, tagName := range discoveredTags {
+	for _, tag := range discoveredTags {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
 		}
 
-		if err := w.processDiscoveredTag(tagName); err != nil {
+		if err := w.processDiscoveredTag(tag); err != nil {
 			zap.L().Error("Failed to process discovered tag",
-				zap.String("tag", tagName),
+				zap.String("tag", tag.Tag),
 				zap.Error(err))
 			continue
 		} else {
@@ -145,52 +142,43 @@ func (w *TagDiscoveryWorker) getTagForDiscovery() (string, error) {
 	return "", fmt.Errorf("no tags available for discovery")
 }
 
-func (w *TagDiscoveryWorker) extractTags(posts []fansly.FanslyPost) []string {
-	tagSet := make(map[string]bool)
+// extractTagsFromSuggestions extracts unique tags from media offer suggestions
+func (w *TagDiscoveryWorker) extractTagsFromSuggestions(suggestions []fansly.MediaOfferSuggestion) []fansly.FanslyTag {
+	tagMap := make(map[string]fansly.FanslyTag)
 
-	for _, post := range posts {
-		// Extract from content using regex
-		matches := w.tagRegex.FindAllStringSubmatch(post.Content, -1)
-		for _, match := range matches {
-			if len(match) > 1 {
-				tag := strings.ToLower(strings.TrimSpace(match[1]))
-				if tag != "" {
-					tagSet[tag] = true
-				}
+	for _, suggestion := range suggestions {
+		for _, tag := range suggestion.PostTags {
+			// Use the tag name as key to ensure uniqueness
+			tagName := strings.ToLower(strings.TrimSpace(tag.Tag))
+			if tagName != "" {
+				tagMap[tagName] = tag
 			}
 		}
 	}
 
-	// Convert set to slice
-	tags := make([]string, 0, len(tagSet))
-	for tag := range tagSet {
+	// Convert map to slice
+	tags := make([]fansly.FanslyTag, 0, len(tagMap))
+	for _, tag := range tagMap {
 		tags = append(tags, tag)
 	}
 
 	return tags
 }
 
-func (w *TagDiscoveryWorker) processDiscoveredTag(tagName string) error {
+func (w *TagDiscoveryWorker) processDiscoveredTag(tag fansly.FanslyTag) error {
 	// Check if tag already exists
 	var existingTag models.Tag
-	if err := w.db.Where("tag = ?", tagName).First(&existingTag).Error; err == nil {
+	if err := w.db.Where("tag = ?", tag.Tag).First(&existingTag).Error; err == nil {
 		// Tag already exists
 		return nil
 	}
 
-	// Fetch tag details from Fansly
-	tagResponse, err := w.client.GetTag(tagName)
-	if err != nil {
-		// Tag might not exist on Fansly
-		return fmt.Errorf("failed to fetch tag details: %w", err)
-	}
-
-	// Create new tag
+	// Create new tag using the data we already have
 	newTag := models.Tag{
-		ID:              tagResponse.ID,
-		Tag:             tagResponse.Tag,
-		ViewCount:       tagResponse.ViewCount,
-		FanslyCreatedAt: fansly.ParseFanslyTimestamp(tagResponse.CreatedAt),
+		ID:              tag.ID,
+		Tag:             tag.Tag,
+		ViewCount:       tag.ViewCount,
+		FanslyCreatedAt: fansly.ParseFanslyTimestamp(tag.CreatedAt),
 	}
 
 	if err := w.db.Create(&newTag).Error; err != nil {
@@ -198,8 +186,8 @@ func (w *TagDiscoveryWorker) processDiscoveredTag(tagName string) error {
 	}
 
 	zap.L().Info("Discovered new tag",
-		zap.String("tag", tagName),
-		zap.Int64("viewCount", tagResponse.ViewCount))
+		zap.String("tag", tag.Tag),
+		zap.Int64("viewCount", tag.ViewCount))
 
 	return nil
 }

@@ -7,6 +7,7 @@ interface TagHistory {
   viewCount: number;
   change: number;
   changePercent: number;
+  postCount: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -15,6 +16,7 @@ interface Tag {
   id: string;
   tag: string;
   viewCount: number;
+  postCount: number;
   fanslyCreatedAt: Date;
   lastCheckedAt: Date | null;
   createdAt: Date;

@@ -186,9 +186,16 @@ type FanslyAttachment struct {
 	ContentID   string `json:"contentId"`
 }
 
+// MediaOfferSuggestion represents a media suggestion with tags
+type MediaOfferSuggestion struct {
+	ID            string      `json:"id"`
+	CorrelationID string      `json:"correlationId"`
+	PostTags      []FanslyTag `json:"postTags"`
+}
+
 // PostsResponseData represents the posts response data structure
 type PostsResponseData struct {
-	MediaOfferSuggestions []interface{} `json:"mediaOfferSuggestions,omitempty"`
+	MediaOfferSuggestions []MediaOfferSuggestion `json:"mediaOfferSuggestions,omitempty"`
 	AggregationData       *struct {
 		Accounts            []interface{} `json:"accounts,omitempty"`
 		AccountMedia        []interface{} `json:"accountMedia,omitempty"`
@@ -223,6 +230,48 @@ func (c *Client) GetPostsForTag(tagID string, limit int, offset int) ([]FanslyPo
 	}
 
 	return response.Response.AggregationData.Posts, nil
+}
+
+// PostsWithSuggestions contains both posts and media suggestions
+type PostsWithSuggestions struct {
+	Posts       []FanslyPost
+	Suggestions []MediaOfferSuggestion
+}
+
+// GetPostsForTagWithPagination fetches posts and media suggestions with pagination support
+func (c *Client) GetPostsForTagWithPagination(tagID string, limit int, after string) (*PostsWithSuggestions, error) {
+	url := fmt.Sprintf("%s/contentdiscovery/media/suggestionsnew?before=0&after=%s&tagIds=%s&limit=%d&offset=0&ngsw-bypass=true",
+		baseURL, after, tagID, limit)
+
+	body, err := c.doRequest(url)
+	if err != nil {
+		return nil, err
+	}
+
+	var response struct {
+		Success  bool               `json:"success"`
+		Response *PostsResponseData `json:"response"`
+	}
+	if err := json.Unmarshal(body, &response); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	if !response.Success || response.Response == nil {
+		return &PostsWithSuggestions{
+			Posts:       []FanslyPost{},
+			Suggestions: []MediaOfferSuggestion{},
+		}, nil
+	}
+
+	result := &PostsWithSuggestions{
+		Suggestions: response.Response.MediaOfferSuggestions,
+	}
+
+	if response.Response.AggregationData != nil {
+		result.Posts = response.Response.AggregationData.Posts
+	}
+
+	return result, nil
 }
 
 // FetchTagViewCount fetches the current view count for a tag

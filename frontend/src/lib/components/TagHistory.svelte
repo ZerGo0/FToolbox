@@ -10,6 +10,7 @@
     viewCount: number;
     change: number;
     changePercent: number;
+    postCount: number;
     createdAt: Date | string | number;
     updatedAt: Date | string | number;
   }
@@ -56,12 +57,22 @@
     }
 
     // Always create chart data, even if empty
-    const chartData =
+    const viewCountData =
       historyWithDates.length > 0
         ? historyWithDates
             .map((point) => ({
               x: point.createdAt,
               y: point.viewCount
+            }))
+            .reverse()
+        : [];
+
+    const postCountData =
+      historyWithDates.length > 0
+        ? historyWithDates
+            .map((point) => ({
+              x: point.createdAt,
+              y: point.postCount
             }))
             .reverse()
         : [];
@@ -74,7 +85,7 @@
             {
               label: 'View Count',
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              data: chartData as any,
+              data: viewCountData as any,
               borderColor: 'rgb(99, 102, 241)',
               backgroundColor: 'rgba(99, 102, 241, 0.1)',
               fill: true,
@@ -86,7 +97,26 @@
               pointBorderWidth: 2,
               pointHoverBackgroundColor: 'rgb(99, 102, 241)',
               pointHoverBorderColor: '#fff',
-              pointHoverBorderWidth: 2
+              pointHoverBorderWidth: 2,
+              yAxisID: 'y'
+            },
+            {
+              label: 'Post Count',
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              data: postCountData as any,
+              borderColor: 'rgb(34, 197, 94)',
+              backgroundColor: 'rgba(34, 197, 94, 0.1)',
+              fill: true,
+              tension: 0.4,
+              pointRadius: 0,
+              pointHoverRadius: 6,
+              pointBackgroundColor: 'rgb(34, 197, 94)',
+              pointBorderColor: '#fff',
+              pointBorderWidth: 2,
+              pointHoverBackgroundColor: 'rgb(34, 197, 94)',
+              pointHoverBorderColor: '#fff',
+              pointHoverBorderWidth: 2,
+              yAxisID: 'y1'
             }
           ]
         },
@@ -99,7 +129,15 @@
           },
           plugins: {
             legend: {
-              display: false
+              display: true,
+              position: 'top' as const,
+              labels: {
+                usePointStyle: true,
+                padding: 20,
+                font: {
+                  size: 12
+                }
+              }
             },
             tooltip: {
               backgroundColor: 'rgba(0, 0, 0, 0.8)',
@@ -108,10 +146,12 @@
               borderColor: 'rgb(99, 102, 241)',
               borderWidth: 1,
               padding: 12,
-              displayColors: false,
+              displayColors: true,
               callbacks: {
                 label: function (context) {
-                  return 'Views: ' + new Intl.NumberFormat().format(context.parsed.y);
+                  const label = context.dataset.label || '';
+                  const value = new Intl.NumberFormat().format(context.parsed.y);
+                  return label + ': ' + value;
                 }
               }
             }
@@ -140,6 +180,9 @@
               }
             },
             y: {
+              type: 'linear',
+              display: true,
+              position: 'left',
               beginAtZero: false,
               grid: {
                 color: 'rgba(0, 0, 0, 0.05)',
@@ -158,6 +201,46 @@
                     notation: 'compact',
                     compactDisplay: 'short'
                   }).format(value as number);
+                }
+              },
+              title: {
+                display: true,
+                text: 'View Count',
+                color: 'rgb(107, 114, 128)',
+                font: {
+                  size: 12
+                }
+              }
+            },
+            y1: {
+              type: 'linear',
+              display: true,
+              position: 'right',
+              beginAtZero: false,
+              grid: {
+                drawOnChartArea: false
+              },
+              border: {
+                display: false
+              },
+              ticks: {
+                color: 'rgb(107, 114, 128)',
+                font: {
+                  size: 11
+                },
+                callback: function (value) {
+                  return new Intl.NumberFormat('en-US', {
+                    notation: 'compact',
+                    compactDisplay: 'short'
+                  }).format(value as number);
+                }
+              },
+              title: {
+                display: true,
+                text: 'Post Count',
+                color: 'rgb(107, 114, 128)',
+                font: {
+                  size: 12
                 }
               }
             }
@@ -226,6 +309,7 @@
                   <th class="py-2 text-left">Date</th>
                   <th class="py-2 text-right">View Count</th>
                   <th class="py-2 text-right">Change</th>
+                  <th class="py-2 text-right">Post Count</th>
                 </tr>
               </thead>
               <tbody>
@@ -248,6 +332,7 @@
                         -
                       {/if}
                     </td>
+                    <td class="py-2 text-right">{formatNumber(point.postCount)}</td>
                   </tr>
                 {/each}
               </tbody>
