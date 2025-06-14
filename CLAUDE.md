@@ -10,7 +10,7 @@ FToolbox is a full-stack web application that provides a collection of tools for
 
 - **Frontend**: SvelteKit with Svelte 5, Tailwind CSS v4, and shadcn-svelte components
 - **Backend**: Go with Fiber framework and MariaDB database (port 3000)
-- **Legacy Backend**: Bun runtime with Hono framework and SQLite database (being phased out)
+- **Task Runner**: Taskfile for development automation
 
 ## Development Commands
 
@@ -20,13 +20,22 @@ FToolbox is a full-stack web application that provides a collection of tools for
 cd frontend
 pnpm check      # Run svelte-check for type errors
 pnpm lint       # Run Prettier and ESLint
+pnpm dev        # Start development server
+pnpm build      # Production build
 ```
 
 **ALWAYS** run `pnpm check && pnpm lint` after making changes
+**ALWAYS** use shadcn svelte components for UI if possible @frontend/src/lib/components/ui/
 
 ### Backend (Go)
 
-**ALWAYS**: Run `go fmt ./...` and `go vet ./...` manually.
+```bash
+cd backend-go
+go fmt ./...    # Format code
+go vet ./...    # Vet code for issues
+```
+
+**ALWAYS** run `go fmt ./...` and `go vet ./...` manually after changes
 
 ### Task Runner
 
@@ -59,11 +68,13 @@ task watch-backend   # Kill port 3000 and start Go backend with Air
 
 1. **tag-updater**: Updates view counts for all tracked tags
 2. **tag-discovery**: Discovers new tags from Fansly
+3. **rank-calculator**: Calculates tag rankings
 
 ### Implementation
 
 - Go implementation uses goroutines with context-based cancellation and time.Ticker
 - Workers run on configurable intervals and can be enabled/disabled
+- Worker status persisted in database
 
 ### Configuration
 
@@ -79,6 +90,7 @@ task watch-backend   # Kill port 3000 and start Go backend with Air
 - `POST /api/tags/request` - Request new tag tracking
 - `GET /api/tags/:name/history` - Get tag history
 - `GET /api/workers/status` - Worker system status
+- `GET /api/health` - Health check
 
 ## External API Integration
 
@@ -108,4 +120,5 @@ backend-go/
 - File-based routing in `/src/routes/`
 - Svelte 5 runes and `.svelte.ts` files
 - Pre-built UI components from shadcn-svelte
-- API calls to backend
+- API calls to backend at port 3000
+- Custom ESLint rule to prevent nested interactive elements
