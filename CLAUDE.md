@@ -8,8 +8,8 @@ FToolbox is a full-stack web application that provides a collection of tools for
 
 ## Current Architecture
 
-- **Frontend**: SvelteKit with Svelte 5, Tailwind CSS v4, and shadcn-svelte components
-- **Backend**: Go with Fiber framework and MariaDB database (port 3000)
+- **Frontend**: SvelteKit with Svelte 5, Tailwind CSS v4, and shadcn-svelte components (deployed on Cloudflare Pages)
+- **Backend**: Go 1.24+ with Fiber framework, GORM ORM, Zap logging, and MariaDB database (port 3000)
 - **Task Runner**: Taskfile for development automation
 
 ## Development Commands
@@ -18,10 +18,9 @@ FToolbox is a full-stack web application that provides a collection of tools for
 
 ```bash
 cd frontend
+pnpm install    # Install dependencies
 pnpm check      # Run svelte-check for type errors
 pnpm lint       # Run Prettier and ESLint
-pnpm dev        # Start development server
-pnpm build      # Production build
 ```
 
 **ALWAYS** run `pnpm check && pnpm lint` after making changes
@@ -31,6 +30,7 @@ pnpm build      # Production build
 
 ```bash
 cd backend-go
+go mod download # Install dependencies
 go fmt ./...    # Format code
 go vet ./...    # Vet code for issues
 ```
@@ -76,11 +76,6 @@ task watch-backend   # Kill port 3000 and start Go backend with Air
 - Workers run on configurable intervals and can be enabled/disabled
 - Worker status persisted in database
 
-### Configuration
-
-- Environment variable: `WORKER_ENABLED=false` disables all workers
-- Worker status endpoint: `GET /api/workers/status`
-
 ## API Architecture
 
 ### Main Endpoints
@@ -106,10 +101,13 @@ task watch-backend   # Kill port 3000 and start Go backend with Air
 ### Rate Limiting Configuration
 
 Environment variables:
-- `FANSLY_GLOBAL_RATE_LIMIT=50` - Global rate limit (requests per window)
+
+- `FANSLY_GLOBAL_RATE_LIMIT=5` - Global rate limit (requests per window)
 - `FANSLY_GLOBAL_RATE_LIMIT_WINDOW=10` - Global rate limit window (seconds)
+- `FANSLY_AUTH_TOKEN` - Optional authentication token for Fansly API
 
 Features:
+
 - Per-endpoint adaptive rate limiting that automatically learns from 429 responses
 - Starts with conservative default (60 requests/minute) and adjusts based on API responses
 - Global rate limiting to spread requests evenly across all endpoints
