@@ -5,6 +5,7 @@ import (
 	"ftoolbox/database"
 	"ftoolbox/fansly"
 	"ftoolbox/models"
+	"ftoolbox/ratelimit"
 	"ftoolbox/routes"
 	"ftoolbox/utils"
 	"ftoolbox/workers"
@@ -26,7 +27,25 @@ func main() {
 	// Initialize zap logger
 	var logger *zap.Logger
 	var err error
-	logger, err = zap.NewDevelopment()
+	
+	// Always use development config for better formatting
+	zapConfig := zap.NewDevelopmentConfig()
+	
+	// Set the log level based on LOG_LEVEL env var
+	switch cfg.LogLevel {
+	case "debug":
+		zapConfig.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
+	case "info":
+		zapConfig.Level = zap.NewAtomicLevelAt(zap.InfoLevel)
+	case "warn":
+		zapConfig.Level = zap.NewAtomicLevelAt(zap.WarnLevel)
+	case "error":
+		zapConfig.Level = zap.NewAtomicLevelAt(zap.ErrorLevel)
+	default:
+		zapConfig.Level = zap.NewAtomicLevelAt(zap.InfoLevel)
+	}
+	
+	logger, err = zapConfig.Build()
 	if err != nil {
 		panic(err)
 	}
@@ -52,15 +71,27 @@ func main() {
 		}
 	}
 
-	// Initialize Fansly client
-	fanslyClient := fansly.NewClient(cfg.FanslyAPIRateLimit)
+	// Initialize Fansly client with adaptive rate limiting
+	fanslyClient := fansly.NewClient()
+
+	// Configure global rate limit
+	fanslyClient.SetGlobalRateLimit(cfg.GlobalRateLimit, cfg.GlobalRateLimitWindow)
+	zap.L().Info("Configured global rate limit",
+		zap.Int("max_requests", cfg.GlobalRateLimit),
+		zap.Int("window_seconds", cfg.GlobalRateLimitWindow))
+
+	// Configure database persistence for rate limits
+	dbPersistence := ratelimit.NewDBPersistence(db, zap.L().Named("ratelimit-persistence"))
+	if err := fanslyClient.SetRateLimitPersistence(dbPersistence.Save, dbPersistence.Load); err != nil {
+		zap.L().Error("Failed to configure rate limit persistence", zap.Error(err))
+	}
 
 	// Initialize worker manager
 	workerManager := workers.NewWorkerManager(db, cfg.WorkerEnabled)
 
 	// Register workers
-	tagUpdater := workers.NewTagUpdaterWorker(db, cfg)
-	tagDiscovery := workers.NewTagDiscoveryWorker(db, cfg)
+	tagUpdater := workers.NewTagUpdaterWorker(db, cfg, fanslyClient)
+	tagDiscovery := workers.NewTagDiscoveryWorker(db, cfg, fanslyClient)
 	rankCalculator := workers.NewRankCalculatorWorker(db, cfg)
 
 	if err := workerManager.Register(tagUpdater); err != nil {

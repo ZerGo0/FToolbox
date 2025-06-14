@@ -1,40 +1,58 @@
 package fansly
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"strconv"
-	"sync"
 	"time"
 
+	"ftoolbox/ratelimit"
 	"go.uber.org/zap"
 )
 
 const (
-	baseURL        = "https://apiv3.fansly.com/api/v1"
-	defaultTimeout = 30 * time.Second
+	baseURL          = "https://apiv3.fansly.com/api/v1"
+	defaultTimeout   = 30 * time.Second
+	defaultRateLimit = 60 // Conservative default, will be adjusted by adaptive system
 )
 
 type Client struct {
-	httpClient *http.Client
-	rateLimit  int
-	requests   []time.Time
-	mu         sync.Mutex
-	authToken  string
+	retryClient *ratelimit.RetryClient
+	rateLimiter *ratelimit.AdaptiveRateLimiter
+	authToken   string
+	logger      *zap.Logger
 }
 
-func NewClient(rateLimit int) *Client {
-	return &Client{
-		httpClient: &http.Client{
-			Timeout: defaultTimeout,
-		},
-		rateLimit: rateLimit,
-		requests:  make([]time.Time, 0),
-		authToken: getEnv("FANSLY_AUTH_TOKEN", ""),
+func NewClient() *Client {
+	logger := zap.L().Named("fansly")
+
+	// Create adaptive rate limiter with conservative default
+	rateLimiter := ratelimit.NewAdaptiveRateLimiter(logger, defaultRateLimit)
+
+	// Create HTTP client
+	httpClient := &http.Client{
+		Timeout: defaultTimeout,
 	}
+
+	// Create retry client with adaptive rate limiter
+	retryClient := ratelimit.NewRetryClient(httpClient, rateLimiter, logger)
+
+	return &Client{
+		retryClient: retryClient,
+		rateLimiter: rateLimiter,
+		authToken:   getEnv("FANSLY_AUTH_TOKEN", ""),
+		logger:      logger,
+	}
+}
+
+// SetGlobalRateLimit configures a global rate limiter for all requests
+func (c *Client) SetGlobalRateLimit(maxRequests int, windowSeconds int) {
+	globalLimiter := ratelimit.NewGlobalRateLimiter(maxRequests, windowSeconds, c.logger)
+	c.rateLimiter.SetGlobalLimiter(globalLimiter)
 }
 
 func getEnv(key, defaultValue string) string {
@@ -44,64 +62,46 @@ func getEnv(key, defaultValue string) string {
 	return defaultValue
 }
 
-// checkRateLimit ensures we don't exceed the rate limit
-func (c *Client) checkRateLimit() {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	now := time.Now()
-	oneMinuteAgo := now.Add(-time.Minute)
-
-	// Remove requests older than 1 minute
-	var recentRequests []time.Time
-	for _, reqTime := range c.requests {
-		if reqTime.After(oneMinuteAgo) {
-			recentRequests = append(recentRequests, reqTime)
-		}
-	}
-	c.requests = recentRequests
-
-	// If we're at the limit, wait
-	if len(c.requests) >= c.rateLimit {
-		oldestRequest := c.requests[0]
-		waitTime := oldestRequest.Add(time.Minute).Sub(now)
-		if waitTime > 0 {
-			zap.L().Debug("Rate limit reached, waiting", zap.Duration("wait", waitTime))
-			time.Sleep(waitTime)
-		}
-	}
-
-	// Add current request
-	c.requests = append(c.requests, now)
+// SetRateLimitPersistence configures persistence for learned rate limits
+func (c *Client) SetRateLimitPersistence(save func(map[string]*ratelimit.EndpointConfig) error, load func() (map[string]*ratelimit.EndpointConfig, error)) error {
+	return c.rateLimiter.SetPersistence(save, load)
 }
 
-// doRequest performs an HTTP request with rate limiting
-func (c *Client) doRequest(url string) ([]byte, error) {
-	c.checkRateLimit()
+// GetRateLimitStats returns current rate limit statistics
+func (c *Client) GetRateLimitStats() map[string]map[string]interface{} {
+	return c.rateLimiter.GetStats()
+}
 
-	req, err := http.NewRequest("GET", url, nil)
+// doRequest performs an HTTP request with adaptive rate limiting and retry logic
+func (c *Client) doRequest(ctx context.Context, url string) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	// Set headers
-	req.Header.Set("User-Agent", "ftoolbox (contact: zergo0@pr.mozmail.com")
+	req.Header.Set("User-Agent", "ftoolbox (contact: zergo0@pr.mozmail.com)")
 	if c.authToken != "" {
 		req.Header.Set("Authorization", c.authToken)
 	}
 
-	resp, err := c.httpClient.Do(req)
+	// Use retry client which handles rate limiting and retries
+	resp, err := c.retryClient.Do(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("API error: status=%d, body=%s", resp.StatusCode, string(body))
 	}
 
-	return io.ReadAll(resp.Body)
+	return body, nil
 }
 
 // FanslyResponse represents the generic API response structure
@@ -135,9 +135,14 @@ func (c *Client) SearchTags(keyword string) ([]FanslyTag, error) {
 
 // GetTag fetches a single tag by name
 func (c *Client) GetTag(tagName string) (*FanslyTag, error) {
+	return c.GetTagWithContext(context.Background(), tagName)
+}
+
+// GetTagWithContext fetches a single tag by name with context
+func (c *Client) GetTagWithContext(ctx context.Context, tagName string) (*FanslyTag, error) {
 	url := fmt.Sprintf("%s/contentdiscovery/media/tag?tag=%s&ngsw-bypass=true", baseURL, tagName)
 
-	body, err := c.doRequest(url)
+	body, err := c.doRequest(ctx, url)
 	if err != nil {
 		return nil, err
 	}
@@ -209,10 +214,15 @@ type PostsResponseData struct {
 
 // GetPostsForTag fetches posts for a specific tag ID
 func (c *Client) GetPostsForTag(tagID string, limit int, offset int) ([]FanslyPost, error) {
+	return c.GetPostsForTagWithContext(context.Background(), tagID, limit, offset)
+}
+
+// GetPostsForTagWithContext fetches posts for a specific tag ID with context
+func (c *Client) GetPostsForTagWithContext(ctx context.Context, tagID string, limit int, offset int) ([]FanslyPost, error) {
 	url := fmt.Sprintf("%s/contentdiscovery/media/suggestionsnew?before=0&after=0&tagIds=%s&limit=%d&offset=%d&ngsw-bypass=true",
 		baseURL, tagID, limit, offset)
 
-	body, err := c.doRequest(url)
+	body, err := c.doRequest(ctx, url)
 	if err != nil {
 		return nil, err
 	}
@@ -240,10 +250,15 @@ type PostsWithSuggestions struct {
 
 // GetPostsForTagWithPagination fetches posts and media suggestions with pagination support
 func (c *Client) GetPostsForTagWithPagination(tagID string, limit int, after string) (*PostsWithSuggestions, error) {
+	return c.GetPostsForTagWithPaginationAndContext(context.Background(), tagID, limit, after)
+}
+
+// GetPostsForTagWithPaginationAndContext fetches posts and media suggestions with pagination support and context
+func (c *Client) GetPostsForTagWithPaginationAndContext(ctx context.Context, tagID string, limit int, after string) (*PostsWithSuggestions, error) {
 	url := fmt.Sprintf("%s/contentdiscovery/media/suggestionsnew?before=0&after=%s&tagIds=%s&limit=%d&offset=0&ngsw-bypass=true",
 		baseURL, after, tagID, limit)
 
-	body, err := c.doRequest(url)
+	body, err := c.doRequest(ctx, url)
 	if err != nil {
 		return nil, err
 	}
@@ -276,7 +291,12 @@ func (c *Client) GetPostsForTagWithPagination(tagID string, limit int, after str
 
 // FetchTagViewCount fetches the current view count for a tag
 func (c *Client) FetchTagViewCount(tagName string) (int64, error) {
-	tag, err := c.GetTag(tagName)
+	return c.FetchTagViewCountWithContext(context.Background(), tagName)
+}
+
+// FetchTagViewCountWithContext fetches the current view count for a tag with context
+func (c *Client) FetchTagViewCountWithContext(ctx context.Context, tagName string) (int64, error) {
+	tag, err := c.GetTagWithContext(ctx, tagName)
 	if err != nil {
 		return 0, fmt.Errorf("failed to fetch view count: %w", err)
 	}

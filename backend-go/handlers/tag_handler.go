@@ -347,7 +347,7 @@ func (h *TagHandler) RequestTag(c *fiber.Ctx) error {
 	}
 
 	// Immediately try to fetch tag data from Fansly
-	fanslyTag, err := h.fanslyClient.GetTag(req.Tag)
+	fanslyTag, err := h.fanslyClient.GetTagWithContext(c.Context(), req.Tag)
 
 	if err != nil || fanslyTag == nil {
 		return c.Status(404).JSON(fiber.Map{"error": "Tag not found on Fansly"})

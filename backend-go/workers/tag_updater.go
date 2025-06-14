@@ -18,13 +18,13 @@ type TagUpdaterWorker struct {
 	client *fansly.Client
 }
 
-func NewTagUpdaterWorker(db *gorm.DB, cfg *config.Config) *TagUpdaterWorker {
+func NewTagUpdaterWorker(db *gorm.DB, cfg *config.Config, client *fansly.Client) *TagUpdaterWorker {
 	interval := time.Duration(cfg.WorkerUpdateInterval) * time.Millisecond
 
 	return &TagUpdaterWorker{
 		BaseWorker: NewBaseWorker("tag-updater", interval),
 		db:         db,
-		client:     fansly.NewClient(cfg.FanslyAPIRateLimit),
+		client:     client,
 	}
 }
 
@@ -56,7 +56,7 @@ func (w *TagUpdaterWorker) Run(ctx context.Context) error {
 		default:
 		}
 
-		if err := w.updateTag(&tag); err != nil {
+		if err := w.updateTag(ctx, &tag); err != nil {
 			zap.L().Error("Failed to update tag",
 				zap.String("tag", tag.Tag),
 				zap.Error(err))
@@ -76,15 +76,15 @@ func (w *TagUpdaterWorker) Run(ctx context.Context) error {
 	return nil
 }
 
-func (w *TagUpdaterWorker) updateTag(tag *models.Tag) error {
+func (w *TagUpdaterWorker) updateTag(ctx context.Context, tag *models.Tag) error {
 	// Fetch current view count from Fansly
-	viewCount, err := w.client.FetchTagViewCount(tag.Tag)
+	viewCount, err := w.client.FetchTagViewCountWithContext(ctx, tag.Tag)
 	if err != nil {
 		return fmt.Errorf("failed to fetch view count: %w", err)
 	}
 
 	// Count posts for this tag
-	postCount, err := w.countPostsForTag(tag.ID, tag.LastCheckedAt)
+	postCount, err := w.countPostsForTag(ctx, tag.ID, tag.LastCheckedAt)
 	if err != nil {
 		zap.L().Warn("Failed to count posts for tag",
 			zap.String("tag", tag.Tag),
@@ -137,7 +137,7 @@ func (w *TagUpdaterWorker) updateTag(tag *models.Tag) error {
 }
 
 // countPostsForTag counts posts for a tag since the last check
-func (w *TagUpdaterWorker) countPostsForTag(tagID string, lastCheckedAt *time.Time) (int64, error) {
+func (w *TagUpdaterWorker) countPostsForTag(ctx context.Context, tagID string, lastCheckedAt *time.Time) (int64, error) {
 	const pageSize = 25
 	after := "0"
 	totalCount := int64(0)
@@ -150,8 +150,15 @@ func (w *TagUpdaterWorker) countPostsForTag(tagID string, lastCheckedAt *time.Ti
 	}
 
 	for {
+		// Check for cancellation
+		select {
+		case <-ctx.Done():
+			return 0, ctx.Err()
+		default:
+		}
+
 		// Fetch posts with pagination
-		result, err := w.client.GetPostsForTagWithPagination(tagID, pageSize, after)
+		result, err := w.client.GetPostsForTagWithPaginationAndContext(ctx, tagID, pageSize, after)
 		if err != nil {
 			return 0, fmt.Errorf("failed to fetch posts: %w", err)
 		}

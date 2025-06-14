@@ -20,13 +20,13 @@ type TagDiscoveryWorker struct {
 	seedTags []string
 }
 
-func NewTagDiscoveryWorker(db *gorm.DB, cfg *config.Config) *TagDiscoveryWorker {
+func NewTagDiscoveryWorker(db *gorm.DB, cfg *config.Config, client *fansly.Client) *TagDiscoveryWorker {
 	interval := time.Duration(cfg.WorkerDiscoveryInterval) * time.Millisecond
 
 	return &TagDiscoveryWorker{
 		BaseWorker: NewBaseWorker("tag-discovery", interval),
 		db:         db,
-		client:     fansly.NewClient(cfg.FanslyAPIRateLimit),
+		client:     client,
 		seedTags: []string{
 			"amateur", "teen", "milf", "anal", "asian", "latina", "ebony",
 			"blonde", "brunette", "redhead", "bigboobs", "smalltits", "ass",
@@ -70,7 +70,7 @@ func (w *TagDiscoveryWorker) Run(ctx context.Context) error {
 	}()
 
 	// First, get the tag details to get its ID
-	tagDetails, err := w.client.GetTag(tagToUse)
+	tagDetails, err := w.client.GetTagWithContext(ctx, tagToUse)
 	if err != nil {
 		// If tag not found on Fansly, mark it in database
 		if err.Error() == "tag not found" {
@@ -83,7 +83,7 @@ func (w *TagDiscoveryWorker) Run(ctx context.Context) error {
 	}
 
 	// Fetch posts for this tag using its ID
-	result, err := w.client.GetPostsForTagWithPagination(tagDetails.ID, 20, "0")
+	result, err := w.client.GetPostsForTagWithPaginationAndContext(ctx, tagDetails.ID, 20, "0")
 	if err != nil {
 		return fmt.Errorf("failed to fetch posts: %w", err)
 	}
