@@ -27,10 +27,10 @@ func main() {
 	// Initialize zap logger
 	var logger *zap.Logger
 	var err error
-	
+
 	// Always use development config for better formatting
 	zapConfig := zap.NewDevelopmentConfig()
-	
+
 	// Set the log level based on LOG_LEVEL env var
 	switch cfg.LogLevel {
 	case "debug":
@@ -44,7 +44,7 @@ func main() {
 	default:
 		zapConfig.Level = zap.NewAtomicLevelAt(zap.InfoLevel)
 	}
-	
+
 	logger, err = zapConfig.Build()
 	if err != nil {
 		panic(err)

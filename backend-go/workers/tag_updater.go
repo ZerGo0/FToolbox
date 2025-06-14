@@ -83,16 +83,6 @@ func (w *TagUpdaterWorker) updateTag(ctx context.Context, tag *models.Tag) error
 		return fmt.Errorf("failed to fetch view count: %w", err)
 	}
 
-	// Count posts for this tag
-	postCount, err := w.countPostsForTag(ctx, tag.ID, tag.LastCheckedAt)
-	if err != nil {
-		zap.L().Warn("Failed to count posts for tag",
-			zap.String("tag", tag.Tag),
-			zap.Error(err))
-		// Don't fail the entire update if post counting fails
-		postCount = 0
-	}
-
 	// Calculate changes
 	viewCountChange := viewCount - tag.ViewCount
 
@@ -114,7 +104,6 @@ func (w *TagUpdaterWorker) updateTag(ctx context.Context, tag *models.Tag) error
 		TagID:     tag.ID,
 		ViewCount: viewCount,
 		Change:    viewCountChange,
-		PostCount: postCount,
 	}
 
 	if err := tx.Create(&history).Error; err != nil {
@@ -130,87 +119,7 @@ func (w *TagUpdaterWorker) updateTag(ctx context.Context, tag *models.Tag) error
 	zap.L().Debug("Updated tag",
 		zap.String("tag", tag.Tag),
 		zap.Int64("viewCount", viewCount),
-		zap.Int64("viewCountChange", viewCountChange),
-		zap.Int64("postCount", postCount))
+		zap.Int64("viewCountChange", viewCountChange))
 
 	return nil
-}
-
-// countPostsForTag counts posts for a tag since the last check
-func (w *TagUpdaterWorker) countPostsForTag(ctx context.Context, tagID string, lastCheckedAt *time.Time) (int64, error) {
-	const pageSize = 25
-	after := "0"
-	totalCount := int64(0)
-
-	// If this is the first check, only count posts from last 24 hours
-	// Otherwise, only count posts newer than last check
-	checkTimestamp := time.Now().Add(-24 * time.Hour)
-	if lastCheckedAt != nil {
-		checkTimestamp = *lastCheckedAt
-	}
-
-	for {
-		// Check for cancellation
-		select {
-		case <-ctx.Done():
-			return 0, ctx.Err()
-		default:
-		}
-
-		// Fetch posts with pagination
-		result, err := w.client.GetPostsForTagWithPaginationAndContext(ctx, tagID, pageSize, after)
-		if err != nil {
-			return 0, fmt.Errorf("failed to fetch posts: %w", err)
-		}
-
-		// If no suggestions, we've reached the end
-		if len(result.Suggestions) == 0 {
-			break
-		}
-
-		// Count posts that are newer than our check timestamp
-		pageCount := int64(0)
-		oldestPostFound := false
-
-		// Create a map of post IDs to posts for quick lookup
-		postMap := make(map[string]*fansly.FanslyPost)
-		for i := range result.Posts {
-			postMap[result.Posts[i].ID] = &result.Posts[i]
-		}
-
-		for _, suggestion := range result.Suggestions {
-			// Find the corresponding post using correlationId
-			post, exists := postMap[suggestion.CorrelationID]
-			if !exists {
-				continue
-			}
-
-			// Convert post timestamp
-			postTime := fansly.ParseFanslyTimestamp(post.CreatedAt)
-
-			// If we've found a post older than our check time, stop counting
-			if !checkTimestamp.IsZero() && postTime.Before(checkTimestamp) {
-				oldestPostFound = true
-				break
-			}
-
-			pageCount++
-		}
-
-		totalCount += pageCount
-
-		// If we found an old post or got less than a full page, stop
-		if oldestPostFound || len(result.Suggestions) < pageSize {
-			break
-		}
-
-		// Set up for next page - use the last suggestion ID
-		if len(result.Suggestions) > 0 {
-			after = result.Suggestions[len(result.Suggestions)-1].ID
-		} else {
-			break
-		}
-	}
-
-	return totalCount, nil
 }

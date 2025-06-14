@@ -30,7 +30,6 @@ type HistoryPoint struct {
 	TagID         string  `json:"tagId"`
 	ViewCount     int64   `json:"viewCount"`
 	Change        int64   `json:"change"`
-	PostCount     int64   `json:"postCount"`
 	CreatedAt     int64   `json:"createdAt"`
 	UpdatedAt     int64   `json:"updatedAt"`
 	ChangePercent float64 `json:"changePercent"`
@@ -40,7 +39,6 @@ type TagWithHistory struct {
 	ID                   string         `json:"id"`
 	Tag                  string         `json:"tag"`
 	ViewCount            int64          `json:"viewCount"`
-	PostCount            int64          `json:"postCount"`
 	Rank                 *int           `json:"rank"`
 	FanslyCreatedAt      *int64         `json:"fanslyCreatedAt"`
 	LastCheckedAt        *int64         `json:"lastCheckedAt"`
@@ -86,7 +84,7 @@ func (h *TagHandler) GetTags(c *fiber.Ctx) error {
 	query.Count(&total)
 
 	// Handle sorting
-	needsHistory := includeHistory || sortBy == "change" || sortBy == "postCount"
+	needsHistory := includeHistory || sortBy == "change"
 
 	// Map frontend sortBy values to database columns
 	columnMap := map[string]string{
@@ -97,7 +95,7 @@ func (h *TagHandler) GetTags(c *fiber.Ctx) error {
 	}
 
 	// For normal sorting
-	if sortBy != "change" && sortBy != "postCount" {
+	if sortBy != "change" {
 		dbColumn, ok := columnMap[sortBy]
 		if !ok {
 			dbColumn = "view_count" // default
@@ -115,7 +113,7 @@ func (h *TagHandler) GetTags(c *fiber.Ctx) error {
 			return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch tags"})
 		}
 	} else {
-		// For change or postCount sorting, we need all tags to calculate aggregated values
+		// For change sorting, we need all tags to calculate aggregated values
 		// But we can still apply search filter at DB level
 		if err := query.Find(&tags).Error; err != nil {
 			zap.L().Error("Failed to fetch tags", zap.Error(err))
@@ -184,21 +182,16 @@ func (h *TagHandler) GetTags(c *fiber.Ctx) error {
 
 			// Calculate changes and convert to HistoryPoint
 			historyPoints := make([]HistoryPoint, len(history))
-			totalPostCount := int64(0)
 			for i, point := range history {
 				historyPoints[i] = HistoryPoint{
 					ID:            point.ID,
 					TagID:         point.TagID,
 					ViewCount:     point.ViewCount,
 					Change:        0,
-					PostCount:     point.PostCount,
 					CreatedAt:     point.CreatedAt.Unix(),
 					UpdatedAt:     point.UpdatedAt.Unix(),
 					ChangePercent: 0,
 				}
-
-				// Sum up all post counts
-				totalPostCount += point.PostCount
 
 				// Calculate change from previous point
 				if i < len(history)-1 {
@@ -210,9 +203,6 @@ func (h *TagHandler) GetTags(c *fiber.Ctx) error {
 					}
 				}
 			}
-
-			// Set the total post count
-			tagWithHist.PostCount = totalPostCount
 
 			// Calculate total change
 			if len(history) > 0 {
@@ -228,21 +218,14 @@ func (h *TagHandler) GetTags(c *fiber.Ctx) error {
 			tagsWithHistory = append(tagsWithHistory, tagWithHist)
 		}
 
-		// Sort by change or postCount if requested
-		if sortBy == "change" || sortBy == "postCount" {
+		// Sort by change if requested
+		if sortBy == "change" {
 			// Use Go's efficient sort instead of bubble sort
 			sort.Slice(tagsWithHistory, func(i, j int) bool {
-				if sortBy == "change" {
-					if sortOrder == "desc" {
-						return tagsWithHistory[i].TotalChange > tagsWithHistory[j].TotalChange
-					}
-					return tagsWithHistory[i].TotalChange < tagsWithHistory[j].TotalChange
-				} else { // sortBy == "postCount"
-					if sortOrder == "desc" {
-						return tagsWithHistory[i].PostCount > tagsWithHistory[j].PostCount
-					}
-					return tagsWithHistory[i].PostCount < tagsWithHistory[j].PostCount
+				if sortOrder == "desc" {
+					return tagsWithHistory[i].TotalChange > tagsWithHistory[j].TotalChange
 				}
+				return tagsWithHistory[i].TotalChange < tagsWithHistory[j].TotalChange
 			})
 
 			// Apply pagination after sorting
@@ -272,29 +255,6 @@ func (h *TagHandler) GetTags(c *fiber.Ctx) error {
 	}
 
 	// For non-history responses, we need to convert tags to proper format
-	// First, fetch all tag IDs to get their post counts
-	tagIDs := make([]string, len(tags))
-	for i, tag := range tags {
-		tagIDs[i] = tag.ID
-	}
-
-	// Get sum of post counts for each tag
-	type PostCountSum struct {
-		TagID     string
-		TotalPost int64
-	}
-	var postCounts []PostCountSum
-	h.db.Model(&models.TagHistory{}).
-		Select("tag_id as tag_id, SUM(post_count) as total_post").
-		Where("tag_id IN ?", tagIDs).
-		Group("tag_id").
-		Scan(&postCounts)
-
-	// Create a map for quick lookup
-	postCountMap := make(map[string]int64)
-	for _, pc := range postCounts {
-		postCountMap[pc.TagID] = pc.TotalPost
-	}
 
 	tagsData := make([]map[string]interface{}, len(tags))
 	for i, tag := range tags {
@@ -302,7 +262,6 @@ func (h *TagHandler) GetTags(c *fiber.Ctx) error {
 			"id":                   tag.ID,
 			"tag":                  tag.Tag,
 			"viewCount":            tag.ViewCount,
-			"postCount":            postCountMap[tag.ID],
 			"rank":                 tag.Rank,
 			"fanslyCreatedAt":      ptr(timeToUnix(tag.FanslyCreatedAt)),
 			"lastCheckedAt":        timeToUnixPtr(tag.LastCheckedAt),
@@ -372,7 +331,6 @@ func (h *TagHandler) RequestTag(c *fiber.Ctx) error {
 		TagID:     newTag.ID,
 		ViewCount: newTag.ViewCount,
 		Change:    0, // Initial entry has no change
-		PostCount: 0, // Will be updated by worker
 	}
 
 	if err := h.db.Create(&history).Error; err != nil {

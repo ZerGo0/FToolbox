@@ -10,7 +10,6 @@
     viewCount: number;
     change: number;
     changePercent: number;
-    postCount: number;
     createdAt: Date | string | number;
     updatedAt: Date | string | number;
   }
@@ -67,16 +66,6 @@
             .reverse()
         : [];
 
-    const postCountData =
-      historyWithDates.length > 0
-        ? historyWithDates
-            .map((point) => ({
-              x: point.createdAt,
-              y: point.postCount
-            }))
-            .reverse()
-        : [];
-
     try {
       chartInstance = new Chart(chartCanvas, {
         type: 'line',
@@ -99,24 +88,6 @@
               pointHoverBorderColor: '#fff',
               pointHoverBorderWidth: 2,
               yAxisID: 'y'
-            },
-            {
-              label: 'Post Count',
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              data: postCountData as any,
-              borderColor: 'rgb(34, 197, 94)',
-              backgroundColor: 'rgba(34, 197, 94, 0.1)',
-              fill: true,
-              tension: 0.4,
-              pointRadius: 0,
-              pointHoverRadius: 6,
-              pointBackgroundColor: 'rgb(34, 197, 94)',
-              pointBorderColor: '#fff',
-              pointBorderWidth: 2,
-              pointHoverBackgroundColor: 'rgb(34, 197, 94)',
-              pointHoverBorderColor: '#fff',
-              pointHoverBorderWidth: 2,
-              yAxisID: 'y1'
             }
           ]
         },
@@ -211,38 +182,6 @@
                   size: 12
                 }
               }
-            },
-            y1: {
-              type: 'linear',
-              display: true,
-              position: 'right',
-              beginAtZero: false,
-              grid: {
-                drawOnChartArea: false
-              },
-              border: {
-                display: false
-              },
-              ticks: {
-                color: 'rgb(107, 114, 128)',
-                font: {
-                  size: 11
-                },
-                callback: function (value) {
-                  return new Intl.NumberFormat('en-US', {
-                    notation: 'compact',
-                    compactDisplay: 'short'
-                  }).format(value as number);
-                }
-              },
-              title: {
-                display: true,
-                text: 'Post Count',
-                color: 'rgb(107, 114, 128)',
-                font: {
-                  size: 12
-                }
-              }
             }
           }
         }
@@ -309,7 +248,6 @@
                   <th class="py-2 text-left">Date</th>
                   <th class="py-2 text-right">View Count</th>
                   <th class="py-2 text-right">Change</th>
-                  <th class="py-2 text-right">Post Count</th>
                 </tr>
               </thead>
               <tbody>
@@ -332,7 +270,6 @@
                         -
                       {/if}
                     </td>
-                    <td class="py-2 text-right">{formatNumber(point.postCount)}</td>
                   </tr>
                 {/each}
               </tbody>
