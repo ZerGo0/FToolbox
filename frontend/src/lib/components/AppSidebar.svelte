@@ -122,5 +122,22 @@
         {/if}
       </Button>
     </div>
+
+    <SidebarSeparator class="mx-0" />
+
+    <!-- Credits -->
+    <div class="px-4 py-2">
+      <p class="text-muted-foreground text-xs">
+        Made with 🩵 by
+        <a
+          href="https://fansly.com/ZerGo0_Bot/"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="text-primary hover:underline"
+        >
+          ZerGo0
+        </a>
+      </p>
+    </div>
   </SidebarFooter>
 </Sidebar>

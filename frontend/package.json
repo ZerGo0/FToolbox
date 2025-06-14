@@ -12,7 +12,7 @@
     "format": "prettier --write . --cache",
     "lint": "prettier --write . --cache | { grep -v '(unchanged)' || true; } && eslint . --cache",
     "pages:dev": "wrangler pages dev .svelte-kit/cloudflare",
-    "pages:deploy": "pnpm build && wrangler pages deploy .svelte-kit/cloudflare",
+    "pages:deploy": "PUBLIC_API_URL=https://ftoolbox-api.zergo0.dev pnpm build && wrangler pages deploy .svelte-kit/cloudflare",
     "pages:deploy:preview": "pnpm build && wrangler pages deploy .svelte-kit/cloudflare --branch preview"
   },
   "devDependencies": {
