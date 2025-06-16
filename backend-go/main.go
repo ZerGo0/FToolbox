@@ -5,7 +5,6 @@ import (
 	"ftoolbox/database"
 	"ftoolbox/fansly"
 	"ftoolbox/models"
-	"ftoolbox/ratelimit"
 	"ftoolbox/routes"
 	"ftoolbox/utils"
 	"ftoolbox/workers"
@@ -71,7 +70,7 @@ func main() {
 		}
 	}
 
-	// Initialize Fansly client with adaptive rate limiting
+	// Initialize Fansly client with global rate limiting
 	fanslyClient := fansly.NewClient()
 
 	// Configure global rate limit
@@ -79,12 +78,6 @@ func main() {
 	zap.L().Info("Configured global rate limit",
 		zap.Int("max_requests", cfg.GlobalRateLimit),
 		zap.Int("window_seconds", cfg.GlobalRateLimitWindow))
-
-	// Configure database persistence for rate limits
-	dbPersistence := ratelimit.NewDBPersistence(db, zap.L().Named("ratelimit-persistence"))
-	if err := fanslyClient.SetRateLimitPersistence(dbPersistence.Save, dbPersistence.Load); err != nil {
-		zap.L().Error("Failed to configure rate limit persistence", zap.Error(err))
-	}
 
 	// Initialize worker manager
 	workerManager := workers.NewWorkerManager(db, cfg.WorkerEnabled)

@@ -92,9 +92,7 @@ task watch-backend   # Kill port 3000 and start Go backend with Air
 ### Fansly API Client
 
 - Location: `/backend-go/fansly/client.go`
-- Implements adaptive rate limiting with learning capability
-- Database persistence for learned rate limits
-- Global rate limiting across all endpoints
+- Implements global rate limiting across all endpoints
 - Automatic retry with exponential backoff
 - Tag discovery and view count fetching
 
@@ -102,17 +100,15 @@ task watch-backend   # Kill port 3000 and start Go backend with Air
 
 Environment variables:
 
-- `FANSLY_GLOBAL_RATE_LIMIT=5` - Global rate limit (requests per window)
+- `FANSLY_GLOBAL_RATE_LIMIT=50` - Global rate limit (requests per window)
 - `FANSLY_GLOBAL_RATE_LIMIT_WINDOW=10` - Global rate limit window (seconds)
 - `FANSLY_AUTH_TOKEN` - Optional authentication token for Fansly API
 
 Features:
 
-- Per-endpoint adaptive rate limiting that automatically learns from 429 responses
-- Starts with conservative default (60 requests/minute) and adjusts based on API responses
 - Global rate limiting to spread requests evenly across all endpoints
-- Rate limit configurations stored in `rate_limits` database table
-- Monitoring endpoint: `GET /api/ratelimits/stats`
+- Simple retry logic with exponential backoff for failed requests
+- Special handling for rate limit errors (429 status code)
 
 ## Code Architecture Patterns
 

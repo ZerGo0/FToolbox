@@ -26,13 +26,4 @@ func Setup(app *fiber.App, db *gorm.DB, workerManager *workers.WorkerManager, fa
 	api.Get("/health", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"status": "ok"})
 	})
-
-	// Rate limit stats (for monitoring)
-	api.Get("/ratelimits/stats", func(c *fiber.Ctx) error {
-		stats := fanslyClient.GetRateLimitStats()
-		return c.JSON(fiber.Map{
-			"endpoints": stats,
-			"adaptive":  true,
-		})
-	})
 }

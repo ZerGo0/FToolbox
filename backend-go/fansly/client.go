@@ -16,47 +16,38 @@ import (
 )
 
 const (
-	baseURL          = "https://apiv3.fansly.com/api/v1"
-	defaultTimeout   = 30 * time.Second
-	defaultRateLimit = 60 // Conservative default, will be adjusted by adaptive system
+	baseURL        = "https://apiv3.fansly.com/api/v1"
+	defaultTimeout = 30 * time.Second
 )
 
 // ErrTagNotFound is returned when a tag doesn't exist on Fansly
 var ErrTagNotFound = errors.New("fansly: tag not found")
 
 type Client struct {
-	retryClient *ratelimit.RetryClient
-	rateLimiter *ratelimit.AdaptiveRateLimiter
-	authToken   string
-	logger      *zap.Logger
+	httpClient    *http.Client
+	globalLimiter *ratelimit.GlobalRateLimiter
+	authToken     string
+	logger        *zap.Logger
 }
 
 func NewClient() *Client {
 	logger := zap.L().Named("fansly")
-
-	// Create adaptive rate limiter with conservative default
-	rateLimiter := ratelimit.NewAdaptiveRateLimiter(logger, defaultRateLimit)
 
 	// Create HTTP client
 	httpClient := &http.Client{
 		Timeout: defaultTimeout,
 	}
 
-	// Create retry client with adaptive rate limiter
-	retryClient := ratelimit.NewRetryClient(httpClient, rateLimiter, logger)
-
 	return &Client{
-		retryClient: retryClient,
-		rateLimiter: rateLimiter,
-		authToken:   getEnv("FANSLY_AUTH_TOKEN", ""),
-		logger:      logger,
+		httpClient: httpClient,
+		authToken:  getEnv("FANSLY_AUTH_TOKEN", ""),
+		logger:     logger,
 	}
 }
 
 // SetGlobalRateLimit configures a global rate limiter for all requests
 func (c *Client) SetGlobalRateLimit(maxRequests int, windowSeconds int) {
-	globalLimiter := ratelimit.NewGlobalRateLimiter(maxRequests, windowSeconds, c.logger)
-	c.rateLimiter.SetGlobalLimiter(globalLimiter)
+	c.globalLimiter = ratelimit.NewGlobalRateLimiter(maxRequests, windowSeconds, c.logger)
 }
 
 func getEnv(key, defaultValue string) string {
@@ -66,18 +57,15 @@ func getEnv(key, defaultValue string) string {
 	return defaultValue
 }
 
-// SetRateLimitPersistence configures persistence for learned rate limits
-func (c *Client) SetRateLimitPersistence(save func(map[string]*ratelimit.EndpointConfig) error, load func() (map[string]*ratelimit.EndpointConfig, error)) error {
-	return c.rateLimiter.SetPersistence(save, load)
-}
-
-// GetRateLimitStats returns current rate limit statistics
-func (c *Client) GetRateLimitStats() map[string]map[string]interface{} {
-	return c.rateLimiter.GetStats()
-}
-
-// doRequest performs an HTTP request with adaptive rate limiting and retry logic
+// doRequest performs an HTTP request with global rate limiting and retry logic
 func (c *Client) doRequest(ctx context.Context, url string) ([]byte, error) {
+	// Apply global rate limiting if configured
+	if c.globalLimiter != nil {
+		if err := c.globalLimiter.Wait(ctx); err != nil {
+			return nil, fmt.Errorf("rate limiter error: %w", err)
+		}
+	}
+
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -89,10 +77,69 @@ func (c *Client) doRequest(ctx context.Context, url string) ([]byte, error) {
 		req.Header.Set("Authorization", c.authToken)
 	}
 
-	// Use retry client which handles rate limiting and retries
-	resp, err := c.retryClient.Do(ctx, req)
-	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
+	// Simple retry logic for common errors
+	var resp *http.Response
+	var lastErr error
+	retryableStatuses := map[int]bool{
+		http.StatusTooManyRequests:     true,
+		http.StatusInternalServerError: true,
+		http.StatusBadGateway:          true,
+		http.StatusServiceUnavailable:  true,
+		http.StatusGatewayTimeout:      true,
+	}
+
+	maxRetries := 3
+	backoff := time.Second
+
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		resp, err = c.httpClient.Do(req.Clone(ctx))
+		if err != nil {
+			lastErr = err
+			c.logger.Warn("Request failed",
+				zap.String("url", url),
+				zap.Int("attempt", attempt+1),
+				zap.Error(err))
+
+			if attempt < maxRetries {
+				select {
+				case <-time.After(backoff):
+					backoff *= 2
+					continue
+				case <-ctx.Done():
+					return nil, ctx.Err()
+				}
+			}
+			return nil, fmt.Errorf("request failed after %d attempts: %w", maxRetries+1, lastErr)
+		}
+
+		if retryableStatuses[resp.StatusCode] && attempt < maxRetries {
+			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			lastErr = fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
+			c.logger.Warn("Retryable HTTP error",
+				zap.String("url", url),
+				zap.Int("status", resp.StatusCode),
+				zap.Int("attempt", attempt+1))
+
+			// For rate limit errors, wait longer
+			if resp.StatusCode == http.StatusTooManyRequests {
+				backoff = 30 * time.Second
+			}
+
+			select {
+			case <-time.After(backoff):
+				backoff *= 2
+				continue
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			}
+		}
+
+		break
+	}
+
+	if resp == nil {
+		return nil, fmt.Errorf("no response received")
 	}
 	defer resp.Body.Close()
 
