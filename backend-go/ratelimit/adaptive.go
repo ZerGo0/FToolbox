@@ -136,7 +136,7 @@ func (r *AdaptiveRateLimiter) WaitIfNeeded(ctx context.Context, endpoint string)
 	}
 
 	// Check if we need to wait for rate limit
-	if len(config.RequestTimestamps) >= config.Limit {
+	if len(config.RequestTimestamps) >= config.Limit && len(config.RequestTimestamps) > 0 {
 		oldestRequest := config.RequestTimestamps[0]
 		waitTime := oldestRequest.Add(config.Window).Sub(now)
 		if waitTime > 0 {
