@@ -302,7 +302,7 @@ func (c *Client) FetchTagViewCount(tagName string) (int64, error) {
 func (c *Client) FetchTagViewCountWithContext(ctx context.Context, tagName string) (int64, error) {
 	tag, err := c.GetTagWithContext(ctx, tagName)
 	if err != nil {
-		return 0, fmt.Errorf("failed to fetch view count: %w", err)
+		return 0, err
 	}
 	return tag.ViewCount, nil
 }

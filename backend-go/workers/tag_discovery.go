@@ -2,6 +2,7 @@ package workers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"ftoolbox/config"
 	"ftoolbox/fansly"
@@ -72,12 +73,29 @@ func (w *TagDiscoveryWorker) Run(ctx context.Context) error {
 	// First, get the tag details to get its ID
 	tagDetails, err := w.client.GetTagWithContext(ctx, tagToUse)
 	if err != nil {
-		// If tag not found on Fansly, mark it in database
-		if err.Error() == "tag not found" {
-			zap.L().Warn("Tag exists in database but not on Fansly, consider removing",
+		// If tag not found on Fansly, mark it as deleted
+		if errors.Is(err, fansly.ErrTagNotFound) {
+			zap.L().Info("Tag no longer exists on Fansly, marking as deleted",
 				zap.String("tag", tagToUse))
-			// Optionally: Delete the tag or mark it as inactive
-			// w.db.Delete(&models.Tag{}, "tag = ?", tagToUse)
+
+			// Update the tag to mark it as deleted
+			now := time.Now()
+			updates := map[string]interface{}{
+				"is_deleted":          true,
+				"deleted_detected_at": &now,
+				"updated_at":          now,
+			}
+
+			if updateErr := w.db.Model(&models.Tag{}).
+				Where("tag = ?", tagToUse).
+				Updates(updates).Error; updateErr != nil {
+				zap.L().Error("Failed to mark tag as deleted",
+					zap.String("tag", tagToUse),
+					zap.Error(updateErr))
+			}
+
+			// Continue with discovery using another tag
+			return nil
 		}
 		return fmt.Errorf("failed to fetch tag details: %w", err)
 	}
@@ -122,8 +140,8 @@ func (w *TagDiscoveryWorker) getTagForDiscovery() (string, error) {
 	sevenDaysAgo := time.Now().Add(-7 * 24 * time.Hour)
 
 	var tags []models.Tag
-	// Get multiple tags that haven't been used recently, ordered by view count
-	if err := w.db.Where("last_used_for_discovery IS NULL OR last_used_for_discovery < ?", sevenDaysAgo).
+	// Get multiple tags that haven't been used recently and aren't deleted, ordered by view count
+	if err := w.db.Where("(last_used_for_discovery IS NULL OR last_used_for_discovery < ?) AND is_deleted = ?", sevenDaysAgo, false).
 		Order("view_count DESC").
 		Limit(10).
 		Find(&tags).Error; err == nil && len(tags) > 0 {
