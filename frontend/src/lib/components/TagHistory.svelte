@@ -66,6 +66,20 @@
             .reverse()
         : [];
 
+    // Create change data for secondary axis
+    const changeData =
+      historyWithDates.length > 0
+        ? historyWithDates
+            .map((point) => ({
+              x: point.createdAt,
+              y: point.change
+            }))
+            .reverse()
+        : [];
+
+    // Check if we have any non-zero change values
+    const hasChangeData = changeData.some((d) => d.y !== 0);
+
     try {
       chartInstance = new Chart(chartCanvas, {
         type: 'line',
@@ -88,7 +102,30 @@
               pointHoverBorderColor: '#fff',
               pointHoverBorderWidth: 2,
               yAxisID: 'y'
-            }
+            },
+            ...(hasChangeData
+              ? [
+                  {
+                    label: 'Change',
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    data: changeData as any,
+                    borderColor: 'var(--chart-2, rgb(52, 211, 153))',
+                    backgroundColor: 'rgba(52, 211, 153, 0.15)',
+                    fill: false,
+                    tension: 0.4,
+                    pointRadius: 0,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: 'var(--chart-2, rgb(52, 211, 153))',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointHoverBackgroundColor: 'var(--chart-2, rgb(52, 211, 153))',
+                    pointHoverBorderColor: '#fff',
+                    pointHoverBorderWidth: 2,
+                    borderDash: [4, 4],
+                    yAxisID: 'y1'
+                  }
+                ]
+              : [])
           ]
         },
         options: {
@@ -121,8 +158,14 @@
               callbacks: {
                 label: function (context) {
                   const label = context.dataset.label || '';
-                  const value = new Intl.NumberFormat().format(context.parsed.y);
-                  return label + ': ' + value;
+                  const value = context.parsed.y;
+                  if (label === 'Change') {
+                    const formatted = new Intl.NumberFormat('en-US', {
+                      signDisplay: 'exceptZero'
+                    }).format(value);
+                    return label + ': ' + formatted;
+                  }
+                  return label + ': ' + new Intl.NumberFormat().format(value);
                 }
               }
             }
@@ -182,7 +225,42 @@
                   size: 12
                 }
               }
-            }
+            },
+            ...(hasChangeData
+              ? {
+                  y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    beginAtZero: false,
+                    grid: {
+                      drawOnChartArea: false
+                    },
+                    border: {
+                      display: false
+                    },
+                    ticks: {
+                      color: 'rgb(107, 114, 128)',
+                      font: {
+                        size: 11
+                      },
+                      callback: function (value) {
+                        return new Intl.NumberFormat('en-US', {
+                          signDisplay: 'exceptZero'
+                        }).format(value as number);
+                      }
+                    },
+                    title: {
+                      display: true,
+                      text: 'Change',
+                      color: 'rgb(107, 114, 128)',
+                      font: {
+                        size: 12
+                      }
+                    }
+                  }
+                }
+              : {})
           }
         }
       });
