@@ -3,6 +3,7 @@ package fansly
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -19,6 +20,9 @@ const (
 	defaultTimeout   = 30 * time.Second
 	defaultRateLimit = 60 // Conservative default, will be adjusted by adaptive system
 )
+
+// ErrTagNotFound is returned when a tag doesn't exist on Fansly
+var ErrTagNotFound = errors.New("fansly: tag not found")
 
 type Client struct {
 	retryClient *ratelimit.RetryClient
@@ -156,7 +160,7 @@ func (c *Client) GetTagWithContext(ctx context.Context, tagName string) (*Fansly
 	}
 
 	if !response.Success || response.Response == nil || response.Response.MediaOfferSuggestionTag == nil {
-		return nil, fmt.Errorf("tag not found")
+		return nil, ErrTagNotFound
 	}
 
 	return response.Response.MediaOfferSuggestionTag, nil

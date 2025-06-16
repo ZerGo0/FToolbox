@@ -21,6 +21,8 @@ interface Tag {
   updatedAt: Date;
   rank?: number | null;
   history?: TagHistory[];
+  isDeleted?: boolean;
+  deletedDetectedAt?: number | null;
 }
 
 interface TagsResponse {

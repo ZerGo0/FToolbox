@@ -6,6 +6,7 @@
   import PostTextDialog from '$lib/components/PostTextDialog.svelte';
   import { Badge } from '$lib/components/ui/badge';
   import { Button } from '$lib/components/ui/button';
+  import * as Tooltip from '$lib/components/ui/tooltip';
   import {
     Card,
     CardContent,
@@ -38,7 +39,8 @@
     ChevronLeft,
     ChevronRight,
     ChevronsLeft,
-    ChevronsRight
+    ChevronsRight,
+    AlertCircle
   } from 'lucide-svelte';
 
   let { data } = $props();
@@ -132,10 +134,16 @@
     return new Intl.NumberFormat().format(num);
   }
 
-  function formatDate(date: Date | string | number | null): string {
+  function formatDate(date: Date | string | number | null | undefined): string {
     if (!date) return 'Never';
     // Handle Unix timestamps (numbers)
-    const dateObj = typeof date === 'number' ? new Date(date * 1000) : new Date(date);
+    // If the number is less than 10 billion, it's likely in seconds, otherwise milliseconds
+    const dateObj =
+      typeof date === 'number'
+        ? date < 1e10
+          ? new Date(date * 1000)
+          : new Date(date)
+        : new Date(date);
     return dateObj.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
@@ -358,7 +366,23 @@
                   </TableCell>
                   <TableCell class="text-center font-medium">{tag.rank ?? '-'}</TableCell>
                   <TableCell class="font-medium">
-                    <Badge variant="secondary">#{tag.tag}</Badge>
+                    <div class="flex items-center gap-2">
+                      <Badge variant="secondary">#{tag.tag}</Badge>
+                      {#if tag.isDeleted}
+                        <Tooltip.Root>
+                          <Tooltip.Trigger>
+                            <Badge variant="destructive" class="p-1">
+                              <AlertCircle class="h-3 w-3" />
+                            </Badge>
+                          </Tooltip.Trigger>
+                          <Tooltip.Content>
+                            No longer exists on Fansly (detected {formatDate(
+                              tag.deletedDetectedAt
+                            )})
+                          </Tooltip.Content>
+                        </Tooltip.Root>
+                      {/if}
+                    </div>
                   </TableCell>
                   <TableCell>{formatNumber(tag.viewCount)}</TableCell>
                   <TableCell>

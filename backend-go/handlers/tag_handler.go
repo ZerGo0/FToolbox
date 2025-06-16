@@ -43,6 +43,8 @@ type TagWithHistory struct {
 	FanslyCreatedAt      *int64         `json:"fanslyCreatedAt"`
 	LastCheckedAt        *int64         `json:"lastCheckedAt"`
 	LastUsedForDiscovery *int64         `json:"lastUsedForDiscovery"`
+	IsDeleted            bool           `json:"isDeleted"`
+	DeletedDetectedAt    *int64         `json:"deletedDetectedAt"`
 	CreatedAt            int64          `json:"createdAt"`
 	UpdatedAt            int64          `json:"updatedAt"`
 	History              []HistoryPoint `json:"history,omitempty"`
@@ -174,6 +176,8 @@ func (h *TagHandler) GetTags(c *fiber.Ctx) error {
 				FanslyCreatedAt:      ptr(timeToUnix(tag.FanslyCreatedAt)),
 				LastCheckedAt:        timeToUnixPtr(tag.LastCheckedAt),
 				LastUsedForDiscovery: timeToUnixPtr(tag.LastUsedForDiscovery),
+				IsDeleted:            tag.IsDeleted,
+				DeletedDetectedAt:    timeToUnixPtr(tag.DeletedDetectedAt),
 				CreatedAt:            tag.CreatedAt.Unix(),
 				UpdatedAt:            tag.UpdatedAt.Unix(),
 			}
@@ -266,6 +270,8 @@ func (h *TagHandler) GetTags(c *fiber.Ctx) error {
 			"fanslyCreatedAt":      ptr(timeToUnix(tag.FanslyCreatedAt)),
 			"lastCheckedAt":        timeToUnixPtr(tag.LastCheckedAt),
 			"lastUsedForDiscovery": timeToUnixPtr(tag.LastUsedForDiscovery),
+			"isDeleted":            tag.IsDeleted,
+			"deletedDetectedAt":    timeToUnixPtr(tag.DeletedDetectedAt),
 			"createdAt":            tag.CreatedAt.Unix(),
 			"updatedAt":            tag.UpdatedAt.Unix(),
 		}

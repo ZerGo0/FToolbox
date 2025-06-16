@@ -12,6 +12,8 @@ type Tag struct {
 	FanslyCreatedAt      time.Time  `gorm:"not null;column:fansly_created_at" json:"-"`
 	LastCheckedAt        *time.Time `gorm:"column:last_checked_at" json:"-"`
 	LastUsedForDiscovery *time.Time `gorm:"column:last_used_for_discovery" json:"-"`
+	IsDeleted            bool       `gorm:"not null;default:false;column:is_deleted" json:"isDeleted"`
+	DeletedDetectedAt    *time.Time `gorm:"column:deleted_detected_at" json:"deletedDetectedAt"`
 	CreatedAt            time.Time  `gorm:"not null;column:created_at;default:CURRENT_TIMESTAMP" json:"-"`
 	UpdatedAt            time.Time  `gorm:"not null;column:updated_at;default:CURRENT_TIMESTAMP" json:"-"`
 }

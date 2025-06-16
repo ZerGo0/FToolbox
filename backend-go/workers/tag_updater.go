@@ -2,6 +2,7 @@ package workers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"ftoolbox/config"
 	"ftoolbox/fansly"
@@ -80,7 +81,38 @@ func (w *TagUpdaterWorker) updateTag(ctx context.Context, tag *models.Tag) error
 	// Fetch current view count from Fansly
 	viewCount, err := w.client.FetchTagViewCountWithContext(ctx, tag.Tag)
 	if err != nil {
+		// Check if tag no longer exists on Fansly
+		if errors.Is(err, fansly.ErrTagNotFound) {
+			// Mark tag as deleted
+			now := time.Now()
+			tag.LastCheckedAt = &now
+			tag.UpdatedAt = now
+
+			// Only update deletion fields if not already marked as deleted
+			if !tag.IsDeleted {
+				tag.IsDeleted = true
+				tag.DeletedDetectedAt = &now
+
+				zap.L().Info("Tag no longer exists on Fansly, marking as deleted",
+					zap.String("tag", tag.Tag))
+			}
+
+			// Save the updated tag (no history entry for deleted tags)
+			if err := w.db.Save(tag).Error; err != nil {
+				return fmt.Errorf("failed to update deleted tag: %w", err)
+			}
+
+			return nil
+		}
 		return fmt.Errorf("failed to fetch view count: %w", err)
+	}
+
+	// If tag was previously deleted but now exists again, clear the deletion flag
+	if tag.IsDeleted {
+		tag.IsDeleted = false
+		tag.DeletedDetectedAt = nil
+		zap.L().Info("Tag exists again on Fansly, clearing deleted status",
+			zap.String("tag", tag.Tag))
 	}
 
 	// Calculate changes
