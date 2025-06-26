@@ -66,7 +66,17 @@ func main() {
 	if tagCount > 0 {
 		zap.L().Info("Calculating initial ranks for tags")
 		if err := utils.CalculateTagRanks(db); err != nil {
-			zap.L().Error("Failed to calculate initial ranks", zap.Error(err))
+			zap.L().Error("Failed to calculate initial tag ranks", zap.Error(err))
+		}
+	}
+
+	// Calculate initial ranks for creators if needed
+	var creatorCount int64
+	db.Model(&models.Creator{}).Where("rank IS NULL").Count(&creatorCount)
+	if creatorCount > 0 {
+		zap.L().Info("Calculating initial ranks for creators")
+		if err := utils.CalculateCreatorRanks(db); err != nil {
+			zap.L().Error("Failed to calculate initial creator ranks", zap.Error(err))
 		}
 	}
 
@@ -86,6 +96,7 @@ func main() {
 	tagUpdater := workers.NewTagUpdaterWorker(db, cfg, fanslyClient)
 	tagDiscovery := workers.NewTagDiscoveryWorker(db, cfg, fanslyClient)
 	rankCalculator := workers.NewRankCalculatorWorker(db, cfg)
+	creatorUpdater := workers.NewCreatorUpdaterWorker(db, fanslyClient)
 
 	if err := workerManager.Register(tagUpdater); err != nil {
 		zap.L().Error("Failed to register tag updater", zap.Error(err))
@@ -95,6 +106,9 @@ func main() {
 	}
 	if err := workerManager.Register(rankCalculator); err != nil {
 		zap.L().Error("Failed to register rank calculator", zap.Error(err))
+	}
+	if err := workerManager.Register(creatorUpdater); err != nil {
+		zap.L().Error("Failed to register creator updater", zap.Error(err))
 	}
 
 	// Start workers if enabled
@@ -108,6 +122,9 @@ func main() {
 			}
 			if err := workerManager.Start("rank-calculator"); err != nil {
 				zap.L().Error("Failed to start rank calculator", zap.Error(err))
+			}
+			if err := workerManager.Start("creator-updater"); err != nil {
+				zap.L().Error("Failed to start creator updater", zap.Error(err))
 			}
 		}()
 	}

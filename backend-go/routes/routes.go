@@ -13,11 +13,16 @@ func Setup(app *fiber.App, db *gorm.DB, workerManager *workers.WorkerManager, fa
 	api := app.Group("/api")
 
 	tagHandler := handlers.NewTagHandler(db, fanslyClient)
+	creatorHandler := handlers.NewCreatorHandler(db, fanslyClient)
 	workerHandler := handlers.NewWorkerHandler(db)
 
 	// Tag routes
 	api.Get("/tags", tagHandler.GetTags)
 	api.Post("/tags/request", tagHandler.RequestTag)
+
+	// Creator routes
+	api.Get("/creators", creatorHandler.GetCreators)
+	api.Post("/creators/request", creatorHandler.RequestCreator)
 
 	// Worker routes
 	api.Get("/workers/status", workerHandler.GetStatus)

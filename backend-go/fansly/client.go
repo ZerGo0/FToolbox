@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"ftoolbox/ratelimit"
+
 	"go.uber.org/zap"
 )
 
@@ -177,20 +178,8 @@ type TagResponseData struct {
 	AggregationData         map[string]interface{} `json:"aggregationData,omitempty"`
 }
 
-// SearchTags searches for tags by keyword (not implemented in v3 API)
-func (c *Client) SearchTags(keyword string) ([]FanslyTag, error) {
-	// Note: The v3 API doesn't have a direct search endpoint
-	// This would need to be implemented differently
-	return nil, fmt.Errorf("tag search not implemented in v3 API")
-}
-
-// GetTag fetches a single tag by name
-func (c *Client) GetTag(tagName string) (*FanslyTag, error) {
-	return c.GetTagWithContext(context.Background(), tagName)
-}
-
 // GetTagWithContext fetches a single tag by name with context
-func (c *Client) GetTagWithContext(ctx context.Context, tagName string) (*FanslyTag, error) {
+func (c *Client) GetTagWithContext(ctx context.Context, tagName string) (*TagResponseData, error) {
 	url := fmt.Sprintf("%s/contentdiscovery/media/tag?tag=%s&ngsw-bypass=true", baseURL, tagName)
 
 	body, err := c.doRequest(ctx, url)
@@ -210,7 +199,7 @@ func (c *Client) GetTagWithContext(ctx context.Context, tagName string) (*Fansly
 		return nil, ErrTagNotFound
 	}
 
-	return response.Response.MediaOfferSuggestionTag, nil
+	return response.Response, nil
 }
 
 // FanslyPost represents a post from the Fansly API
@@ -249,29 +238,47 @@ type MediaOfferSuggestion struct {
 	PostTags      []FanslyTag `json:"postTags"`
 }
 
-// PostsResponseData represents the posts response data structure
-type PostsResponseData struct {
+// FanslyAccount represents a Fansly account/creator
+type FanslyAccount struct {
+	ID                string `json:"id"`
+	Username          string `json:"username"`
+	DisplayName       string `json:"displayName"`
+	AccountMediaLikes int64  `json:"accountMediaLikes"`
+	PostLikes         int64  `json:"postLikes"`
+	FollowCount       int64  `json:"followCount"`
+	TimelineStats     struct {
+		ImageCount int64 `json:"imageCount"`
+		VideoCount int64 `json:"videoCount"`
+	} `json:"timelineStats"`
+}
+
+// SuggestionsResponseData represents the complete response data structure from suggestionsnew endpoint
+type SuggestionsResponseData struct {
 	MediaOfferSuggestions []MediaOfferSuggestion `json:"mediaOfferSuggestions,omitempty"`
 	AggregationData       *struct {
-		Accounts            []interface{} `json:"accounts,omitempty"`
-		AccountMedia        []interface{} `json:"accountMedia,omitempty"`
-		AccountMediaBundles []interface{} `json:"accountMediaBundles,omitempty"`
-		Posts               []FanslyPost  `json:"posts,omitempty"`
-		Tips                []interface{} `json:"tips,omitempty"`
-		TipGoals            []interface{} `json:"tipGoals,omitempty"`
-		Stories             []interface{} `json:"stories,omitempty"`
+		Accounts            []FanslyAccount `json:"accounts,omitempty"`
+		AccountMedia        []interface{}   `json:"accountMedia,omitempty"`
+		AccountMediaBundles []interface{}   `json:"accountMediaBundles,omitempty"`
+		Posts               []FanslyPost    `json:"posts,omitempty"`
+		Tips                []interface{}   `json:"tips,omitempty"`
+		TipGoals            []interface{}   `json:"tipGoals,omitempty"`
+		Stories             []interface{}   `json:"stories,omitempty"`
 	} `json:"aggregationData,omitempty"`
 }
 
-// GetPostsForTag fetches posts for a specific tag ID
-func (c *Client) GetPostsForTag(tagID string, limit int, offset int) ([]FanslyPost, error) {
-	return c.GetPostsForTagWithContext(context.Background(), tagID, limit, offset)
-}
+// GetSuggestionsData fetches all data from the suggestions endpoint with full parameter control
+func (c *Client) GetSuggestionsData(ctx context.Context, tagIDs []string, before, after string, limit, offset int) (*SuggestionsResponseData, error) {
+	// Build tag IDs string
+	tagIDsStr := ""
+	for i, id := range tagIDs {
+		if i > 0 {
+			tagIDsStr += ","
+		}
+		tagIDsStr += id
+	}
 
-// GetPostsForTagWithContext fetches posts for a specific tag ID with context
-func (c *Client) GetPostsForTagWithContext(ctx context.Context, tagID string, limit int, offset int) ([]FanslyPost, error) {
-	url := fmt.Sprintf("%s/contentdiscovery/media/suggestionsnew?before=0&after=0&tagIds=%s&limit=%d&offset=%d&ngsw-bypass=true",
-		baseURL, tagID, limit, offset)
+	url := fmt.Sprintf("%s/contentdiscovery/media/suggestionsnew?before=%s&after=%s&tagIds=%s&limit=%d&offset=%d&ngsw-bypass=true",
+		baseURL, before, after, tagIDsStr, limit, offset)
 
 	body, err := c.doRequest(ctx, url)
 	if err != nil {
@@ -279,35 +286,32 @@ func (c *Client) GetPostsForTagWithContext(ctx context.Context, tagID string, li
 	}
 
 	var response struct {
-		Success  bool               `json:"success"`
-		Response *PostsResponseData `json:"response"`
+		Success  bool                     `json:"success"`
+		Response *SuggestionsResponseData `json:"response"`
 	}
 	if err := json.Unmarshal(body, &response); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	if !response.Success || response.Response == nil || response.Response.AggregationData == nil {
-		return []FanslyPost{}, nil
+	return response.Response, nil
+}
+
+// GetAccountsWithContext fetches multiple accounts by their IDs with context
+func (c *Client) GetAccountsWithContext(ctx context.Context, accountIDs []string) ([]FanslyAccount, error) {
+	if len(accountIDs) == 0 {
+		return nil, nil
 	}
 
-	return response.Response.AggregationData.Posts, nil
-}
+	// Build comma-separated list of account IDs
+	idsParam := ""
+	for i, id := range accountIDs {
+		if i > 0 {
+			idsParam += ","
+		}
+		idsParam += id
+	}
 
-// PostsWithSuggestions contains both posts and media suggestions
-type PostsWithSuggestions struct {
-	Posts       []FanslyPost
-	Suggestions []MediaOfferSuggestion
-}
-
-// GetPostsForTagWithPagination fetches posts and media suggestions with pagination support
-func (c *Client) GetPostsForTagWithPagination(tagID string, limit int, after string) (*PostsWithSuggestions, error) {
-	return c.GetPostsForTagWithPaginationAndContext(context.Background(), tagID, limit, after)
-}
-
-// GetPostsForTagWithPaginationAndContext fetches posts and media suggestions with pagination support and context
-func (c *Client) GetPostsForTagWithPaginationAndContext(ctx context.Context, tagID string, limit int, after string) (*PostsWithSuggestions, error) {
-	url := fmt.Sprintf("%s/contentdiscovery/media/suggestionsnew?before=0&after=%s&tagIds=%s&limit=%d&offset=0&ngsw-bypass=true",
-		baseURL, after, tagID, limit)
+	url := fmt.Sprintf("%s/account?ids=%s&ngsw-bypass=true", baseURL, idsParam)
 
 	body, err := c.doRequest(ctx, url)
 	if err != nil {
@@ -315,43 +319,46 @@ func (c *Client) GetPostsForTagWithPaginationAndContext(ctx context.Context, tag
 	}
 
 	var response struct {
-		Success  bool               `json:"success"`
-		Response *PostsResponseData `json:"response"`
+		Success  bool            `json:"success"`
+		Response []FanslyAccount `json:"response"`
 	}
 	if err := json.Unmarshal(body, &response); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	if !response.Success || response.Response == nil {
-		return &PostsWithSuggestions{
-			Posts:       []FanslyPost{},
-			Suggestions: []MediaOfferSuggestion{},
-		}, nil
+	if !response.Success {
+		return nil, fmt.Errorf("API returned success=false")
 	}
 
-	result := &PostsWithSuggestions{
-		Suggestions: response.Response.MediaOfferSuggestions,
-	}
-
-	if response.Response.AggregationData != nil {
-		result.Posts = response.Response.AggregationData.Posts
-	}
-
-	return result, nil
+	return response.Response, nil
 }
 
-// FetchTagViewCount fetches the current view count for a tag
-func (c *Client) FetchTagViewCount(tagName string) (int64, error) {
-	return c.FetchTagViewCountWithContext(context.Background(), tagName)
-}
+// GetAccountByUsername fetches a single account by username
+func (c *Client) GetAccountByUsername(ctx context.Context, username string) (*FanslyAccount, error) {
+	url := fmt.Sprintf("%s/account?usernames=%s&ngsw-bypass=true", baseURL, username)
 
-// FetchTagViewCountWithContext fetches the current view count for a tag with context
-func (c *Client) FetchTagViewCountWithContext(ctx context.Context, tagName string) (int64, error) {
-	tag, err := c.GetTagWithContext(ctx, tagName)
+	body, err := c.doRequest(ctx, url)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	return tag.ViewCount, nil
+
+	var response struct {
+		Success  bool            `json:"success"`
+		Response []FanslyAccount `json:"response"`
+	}
+	if err := json.Unmarshal(body, &response); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	if !response.Success {
+		return nil, fmt.Errorf("API returned success=false")
+	}
+
+	if len(response.Response) == 0 {
+		return nil, fmt.Errorf("account not found")
+	}
+
+	return &response.Response[0], nil
 }
 
 // ParseFanslyTimestamp converts Fansly timestamp (milliseconds) to time.Time

@@ -320,10 +320,10 @@ func (h *TagHandler) RequestTag(c *fiber.Ctx) error {
 
 	// Insert tag into database
 	newTag := models.Tag{
-		ID:              fanslyTag.ID,
-		Tag:             fanslyTag.Tag,
-		ViewCount:       fanslyTag.ViewCount,
-		FanslyCreatedAt: time.Unix(fanslyTag.CreatedAt/1000, 0),
+		ID:              fanslyTag.MediaOfferSuggestionTag.ID,
+		Tag:             fanslyTag.MediaOfferSuggestionTag.Tag,
+		ViewCount:       fanslyTag.MediaOfferSuggestionTag.ViewCount,
+		FanslyCreatedAt: time.Unix(fanslyTag.MediaOfferSuggestionTag.CreatedAt/1000, 0),
 		LastCheckedAt:   &[]time.Time{time.Now()}[0],
 	}
 

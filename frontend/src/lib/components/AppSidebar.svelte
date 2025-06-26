@@ -15,7 +15,7 @@
     SidebarMenuItem,
     SidebarSeparator
   } from '$lib/components/ui/sidebar';
-  import { HomeIcon, Loader2, Moon, Package2, Sun, Tag } from 'lucide-svelte';
+  import { HomeIcon, Loader2, Moon, Package2, Sun, Tag, Users } from 'lucide-svelte';
   import { mode, toggleMode } from 'mode-watcher';
   import { onMount } from 'svelte';
 
@@ -49,7 +49,8 @@
 
   const menuItems = [
     { href: '/', label: 'Home', icon: HomeIcon },
-    { href: '/tags', label: 'Tags', icon: Tag }
+    { href: '/tags', label: 'Tags', icon: Tag },
+    { href: '/creators', label: 'Creators', icon: Users }
   ];
 </script>
 

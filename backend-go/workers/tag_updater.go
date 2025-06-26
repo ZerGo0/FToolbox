@@ -79,7 +79,7 @@ func (w *TagUpdaterWorker) Run(ctx context.Context) error {
 
 func (w *TagUpdaterWorker) updateTag(ctx context.Context, tag *models.Tag) error {
 	// Fetch current view count from Fansly
-	viewCount, err := w.client.FetchTagViewCountWithContext(ctx, tag.Tag)
+	viewCount, err := w.client.GetTagWithContext(ctx, tag.Tag)
 	if err != nil {
 		// Check if tag no longer exists on Fansly
 		if errors.Is(err, fansly.ErrTagNotFound) {
@@ -116,14 +116,14 @@ func (w *TagUpdaterWorker) updateTag(ctx context.Context, tag *models.Tag) error
 	}
 
 	// Calculate changes
-	viewCountChange := viewCount - tag.ViewCount
+	viewCountChange := viewCount.MediaOfferSuggestionTag.ViewCount - tag.ViewCount
 
 	// Start transaction
 	tx := w.db.Begin()
 
 	// Update tag
 	now := time.Now()
-	tag.ViewCount = viewCount
+	tag.ViewCount = viewCount.MediaOfferSuggestionTag.ViewCount
 	tag.LastCheckedAt = &now
 	tag.UpdatedAt = now
 
@@ -134,7 +134,7 @@ func (w *TagUpdaterWorker) updateTag(ctx context.Context, tag *models.Tag) error
 
 	history := models.TagHistory{
 		TagID:     tag.ID,
-		ViewCount: viewCount,
+		ViewCount: viewCount.MediaOfferSuggestionTag.ViewCount,
 		Change:    viewCountChange,
 	}
 
@@ -150,7 +150,7 @@ func (w *TagUpdaterWorker) updateTag(ctx context.Context, tag *models.Tag) error
 
 	zap.L().Debug("Updated tag",
 		zap.String("tag", tag.Tag),
-		zap.Int64("viewCount", viewCount),
+		zap.Int64("viewCount", viewCount.MediaOfferSuggestionTag.ViewCount),
 		zap.Int64("viewCountChange", viewCountChange))
 
 	return nil

@@ -101,13 +101,13 @@ func (w *TagDiscoveryWorker) Run(ctx context.Context) error {
 	}
 
 	// Fetch posts for this tag using its ID
-	result, err := w.client.GetPostsForTagWithPaginationAndContext(ctx, tagDetails.ID, 20, "0")
+	result, err := w.client.GetSuggestionsData(ctx, []string{tagDetails.MediaOfferSuggestionTag.ID}, "0", "0", 20, 0)
 	if err != nil {
 		return fmt.Errorf("failed to fetch posts: %w", err)
 	}
 
 	// Extract and process tags from mediaOfferSuggestions
-	discoveredTags := w.extractTagsFromSuggestions(result.Suggestions)
+	discoveredTags := w.extractTagsFromSuggestions(result.MediaOfferSuggestions)
 	newTags := 0
 
 	for _, tag := range discoveredTags {
@@ -131,6 +131,14 @@ func (w *TagDiscoveryWorker) Run(ctx context.Context) error {
 		zap.String("source_tag", tagToUse),
 		zap.Int("discovered", len(discoveredTags)),
 		zap.Int("new", newTags))
+
+	tempCreatorWorker := NewCreatorUpdaterWorker(w.db, w.client)
+
+	// Discover creators from the same tag
+	if err := tempCreatorWorker.ProcessCreators(result.AggregationData.Accounts); err != nil {
+		zap.L().Error("Failed to discover creators", zap.Error(err))
+		// Don't return error, as tag discovery succeeded
+	}
 
 	return nil
 }
