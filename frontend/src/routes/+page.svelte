@@ -6,7 +6,7 @@
     CardHeader,
     CardTitle
   } from '$lib/components/ui/card';
-  import { Clock, Tag } from 'lucide-svelte';
+  import { Clock, Tag, Users } from 'lucide-svelte';
 </script>
 
 <div>
@@ -28,6 +28,16 @@
           Tag Analytics
         </CardTitle>
         <CardDescription>Track and analyze Fansly tag popularity trends</CardDescription>
+      </CardHeader>
+    </Card>
+
+    <Card class="mb-6">
+      <CardHeader>
+        <CardTitle class="flex items-center gap-2">
+          <Users class="h-5 w-5" />
+          Creator Analytics
+        </CardTitle>
+        <CardDescription>Monitor and analyze Fansly creator performance over time</CardDescription>
       </CardHeader>
     </Card>
 
