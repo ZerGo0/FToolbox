@@ -135,7 +135,7 @@ func (w *TagDiscoveryWorker) Run(ctx context.Context) error {
 	tempCreatorWorker := NewCreatorUpdaterWorker(w.db, w.client)
 
 	// Discover creators from the same tag
-	if result.AggregationData != nil && len(result.AggregationData.Accounts) > 0 {
+	if result.AggregationData != nil && result.AggregationData.Accounts != nil {
 		if err := tempCreatorWorker.ProcessCreators(result.AggregationData.Accounts); err != nil {
 			zap.L().Error("Failed to discover creators", zap.Error(err))
 			// Don't return error, as tag discovery succeeded

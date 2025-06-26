@@ -58,6 +58,11 @@ func (w *CreatorUpdaterWorker) Run(ctx context.Context) error {
 }
 
 func (w *CreatorUpdaterWorker) ProcessCreators(accounts []fansly.FanslyAccount) error {
+	if len(accounts) == 0 {
+		zap.L().Debug("No creators to process")
+		return nil
+	}
+
 	zap.L().Info("Processing creators", zap.Int("accounts", len(accounts)))
 
 	newCreators := 0

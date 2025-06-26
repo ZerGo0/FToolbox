@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"ftoolbox/models"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -151,6 +152,32 @@ func (m *WorkerManager) GetStatus() ([]models.Worker, error) {
 func (m *WorkerManager) runWorker(ctx context.Context, worker Worker) {
 	defer m.wg.Done()
 
+	// Panic recovery for the entire worker loop
+	defer func() {
+		if r := recover(); r != nil {
+			zap.L().Error("Worker loop panicked",
+				zap.String("worker", worker.Name()),
+				zap.Any("panic", r),
+				zap.String("stack", string(debug.Stack())))
+
+			// Update worker status to reflect the panic
+			updates := map[string]interface{}{
+				"status":        "failed",
+				"failure_count": gorm.Expr("failure_count + 1"),
+				"last_error":    fmt.Sprintf("Worker loop panic: %v", r),
+				"updated_at":    time.Now(),
+			}
+
+			if err := m.db.Model(&models.Worker{}).
+				Where("name = ?", worker.Name()).
+				Updates(updates).Error; err != nil {
+				zap.L().Error("Failed to update worker status after panic",
+					zap.String("worker", worker.Name()),
+					zap.Error(err))
+			}
+		}
+	}()
+
 	ticker := time.NewTicker(worker.Interval())
 	defer ticker.Stop()
 
@@ -203,9 +230,28 @@ func (m *WorkerManager) executeWorker(ctx context.Context, worker Worker) {
 		return
 	}
 
-	// Run the worker
+	// Run the worker with panic recovery
 	startTime := time.Now()
-	err := worker.Run(ctx)
+	var err error
+
+	// Panic recovery
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				// Convert panic to error
+				panicErr := fmt.Errorf("worker panic: %v\nStack trace:\n%s", r, debug.Stack())
+				err = panicErr
+
+				zap.L().Error("Worker panicked",
+					zap.String("worker", name),
+					zap.Any("panic", r),
+					zap.String("stack", string(debug.Stack())))
+			}
+		}()
+
+		err = worker.Run(ctx)
+	}()
+
 	duration := time.Since(startTime)
 
 	// Update worker status based on result
