@@ -96,8 +96,8 @@
 
   function handleSort(column: string) {
     const params = new URLSearchParams($page.url.searchParams);
-    const currentSortBy = params.get('sortBy') || 'followers';
-    const currentSortOrder = params.get('sortOrder') || 'desc';
+    const currentSortBy = params.get('sortBy') || 'rank';
+    const currentSortOrder = params.get('sortOrder') || 'asc';
 
     if (currentSortBy === column) {
       params.set('sortOrder', currentSortOrder === 'desc' ? 'asc' : 'desc');
