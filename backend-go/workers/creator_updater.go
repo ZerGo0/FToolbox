@@ -19,10 +19,42 @@ type CreatorUpdaterWorker struct {
 
 func NewCreatorUpdaterWorker(db *gorm.DB, client *fansly.Client) *CreatorUpdaterWorker {
 	return &CreatorUpdaterWorker{
-		BaseWorker: NewBaseWorker("creator-updater", 24*time.Hour),
+		BaseWorker: NewBaseWorker("creator-updater", 10*time.Second),
 		db:         db,
 		client:     client,
 	}
+}
+
+func (w *CreatorUpdaterWorker) Run(ctx context.Context) error {
+	zap.L().Info("Running creator updater")
+
+	// Get creators that need updating (haven't been checked in 24 hours)
+	twentyFourHoursAgo := time.Now().Add(-24 * time.Hour)
+
+	var creatorIDs []string
+	if err := w.db.Model(&models.Creator{}).
+		Where("last_checked_at IS NULL OR last_checked_at < ?", twentyFourHoursAgo).
+		Order("followers DESC").
+		Limit(25).
+		Pluck("id", &creatorIDs).Error; err != nil {
+		return fmt.Errorf("failed to fetch creator IDs: %w", err)
+	}
+
+	if len(creatorIDs) == 0 {
+		zap.L().Debug("No creators need updating")
+		return nil
+	}
+
+	zap.L().Info("Updating creators", zap.Int("count", len(creatorIDs)))
+
+	// Fetch account data from Fansly API
+	accounts, err := w.client.GetAccountsWithContext(ctx, creatorIDs)
+	if err != nil {
+		return fmt.Errorf("failed to fetch creator accounts: %w", err)
+	}
+
+	// Process the fetched accounts
+	return w.ProcessCreators(accounts)
 }
 
 func (w *CreatorUpdaterWorker) ProcessCreators(accounts []fansly.FanslyAccount) error {
@@ -131,38 +163,6 @@ func (w *CreatorUpdaterWorker) createCreator(account *fansly.FanslyAccount) erro
 		zap.Int64("followers", account.FollowCount))
 
 	return nil
-}
-
-func (w *CreatorUpdaterWorker) Run(ctx context.Context) error {
-	zap.L().Info("Running creator updater")
-
-	// Get creators that need updating (haven't been checked in 24 hours)
-	twentyFourHoursAgo := time.Now().Add(-24 * time.Hour)
-
-	var creatorIDs []string
-	if err := w.db.Model(&models.Creator{}).
-		Where("last_checked_at IS NULL OR last_checked_at < ?", twentyFourHoursAgo).
-		Order("followers DESC").
-		Limit(25).
-		Pluck("id", &creatorIDs).Error; err != nil {
-		return fmt.Errorf("failed to fetch creator IDs: %w", err)
-	}
-
-	if len(creatorIDs) == 0 {
-		zap.L().Debug("No creators need updating")
-		return nil
-	}
-
-	zap.L().Info("Updating creators", zap.Int("count", len(creatorIDs)))
-
-	// Fetch account data from Fansly API
-	accounts, err := w.client.GetAccountsWithContext(ctx, creatorIDs)
-	if err != nil {
-		return fmt.Errorf("failed to fetch creator accounts: %w", err)
-	}
-
-	// Process the fetched accounts
-	return w.ProcessCreators(accounts)
 }
 
 func (w *CreatorUpdaterWorker) updateCreator(creator *models.Creator, account *fansly.FanslyAccount) error {
