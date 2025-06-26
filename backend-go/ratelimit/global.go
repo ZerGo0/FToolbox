@@ -51,7 +51,7 @@ func (g *GlobalRateLimiter) Wait(ctx context.Context) error {
 		waitTime := oldestRequest.Add(g.window).Sub(now)
 
 		if waitTime > 0 {
-			g.logger.Info("Global rate limit reached, waiting",
+			g.logger.Debug("Global rate limit reached, waiting",
 				zap.Int("current_requests", len(g.requestTimestamps)),
 				zap.Int("max_requests", g.maxRequests),
 				zap.Duration("window", g.window),

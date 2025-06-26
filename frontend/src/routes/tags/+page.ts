@@ -41,8 +41,18 @@ export const load: PageLoad = async ({ fetch, url }) => {
   const sortBy = url.searchParams.get('sortBy') || 'viewCount';
   const sortOrder = url.searchParams.get('sortOrder') || 'desc';
   const includeHistory = url.searchParams.get('includeHistory') || 'true';
-  const historyStartDate = url.searchParams.get('historyStartDate') || '';
-  const historyEndDate = url.searchParams.get('historyEndDate') || '';
+
+  // Default to last 7 days if no dates provided
+  const now = new Date();
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+  // Set end date to end of day
+  const endOfDay = new Date(now);
+  endOfDay.setHours(23, 59, 59, 999);
+
+  const historyStartDate = url.searchParams.get('historyStartDate') || sevenDaysAgo.toISOString();
+  const historyEndDate = url.searchParams.get('historyEndDate') || endOfDay.toISOString();
 
   try {
     const params = new URLSearchParams({
