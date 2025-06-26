@@ -38,8 +38,8 @@ interface TagsResponse {
 export const load: PageLoad = async ({ fetch, url }) => {
   const page = url.searchParams.get('page') || '1';
   const search = url.searchParams.get('search') || '';
-  const sortBy = url.searchParams.get('sortBy') || 'viewCount';
-  const sortOrder = url.searchParams.get('sortOrder') || 'desc';
+  const sortBy = url.searchParams.get('sortBy') || 'rank';
+  const sortOrder = url.searchParams.get('sortOrder') || 'asc';
   const includeHistory = url.searchParams.get('includeHistory') || 'true';
 
   // Default to last 7 days if no dates provided
