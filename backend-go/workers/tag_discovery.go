@@ -147,12 +147,12 @@ func (w *TagDiscoveryWorker) Run(ctx context.Context) error {
 
 func (w *TagDiscoveryWorker) getTagForDiscovery() (string, error) {
 	// First, try to get a tag from the database that hasn't been used recently
-	sevenDaysAgo := time.Now().Add(-7 * 24 * time.Hour)
+	twentyFourHoursAgo := time.Now().Add(-24 * time.Hour)
 
 	var tags []models.Tag
-	// Get multiple tags that haven't been used recently and aren't deleted, ordered by view count
-	if err := w.db.Where("(last_used_for_discovery IS NULL OR last_used_for_discovery < ?) AND is_deleted = ?", sevenDaysAgo, false).
-		Order("view_count DESC").
+	// Get multiple tags that haven't been used recently and aren't deleted, ordered by rank
+	if err := w.db.Where("(last_used_for_discovery IS NULL OR last_used_for_discovery < ?) AND is_deleted = ?", twentyFourHoursAgo, false).
+		Order("rank ASC").
 		Limit(10).
 		Find(&tags).Error; err == nil && len(tags) > 0 {
 		// Select a random tag from the top 10 to avoid always picking the same one
