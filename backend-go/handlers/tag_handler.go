@@ -134,30 +134,43 @@ func (h *TagHandler) GetTags(c *fiber.Ctx) error {
 			tagMap[tag.ID] = tag
 		}
 
-		// Build base query for all histories
-		histQuery := h.db.Model(&models.TagHistory{}).
-			Where("tag_id IN ?", tagIDs).
-			Order("tag_id, created_at DESC")
-
-		// Apply date filters if provided
-		if historyStartDate != "" && historyEndDate != "" {
-			// Try parsing as RFC3339 (ISO 8601) first, then fall back to date-only format
-			startDate, err := time.Parse(time.RFC3339, historyStartDate)
-			if err != nil {
-				startDate, _ = time.Parse("2006-01-02", historyStartDate)
-			}
-			endDate, err := time.Parse(time.RFC3339, historyEndDate)
-			if err != nil {
-				endDate, _ = time.Parse("2006-01-02", historyEndDate)
-			}
-			histQuery = histQuery.Where("created_at >= ? AND created_at <= ?", startDate, endDate)
-		}
-
-		// Fetch all histories in one query
+		// Process in batches to avoid too many placeholders
+		const batchSize = 100
 		var allHistories []models.TagHistory
-		if err := histQuery.Find(&allHistories).Error; err != nil {
-			zap.L().Error("Failed to fetch tag histories", zap.Error(err))
-			return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch tag histories"})
+
+		for i := 0; i < len(tagIDs); i += batchSize {
+			end := i + batchSize
+			if end > len(tagIDs) {
+				end = len(tagIDs)
+			}
+			batchIDs := tagIDs[i:end]
+
+			// Build base query for this batch
+			histQuery := h.db.Model(&models.TagHistory{}).
+				Where("tag_id IN ?", batchIDs).
+				Order("tag_id, created_at DESC")
+
+			// Apply date filters if provided
+			if historyStartDate != "" && historyEndDate != "" {
+				// Try parsing as RFC3339 (ISO 8601) first, then fall back to date-only format
+				startDate, err := time.Parse(time.RFC3339, historyStartDate)
+				if err != nil {
+					startDate, _ = time.Parse("2006-01-02", historyStartDate)
+				}
+				endDate, err := time.Parse(time.RFC3339, historyEndDate)
+				if err != nil {
+					endDate, _ = time.Parse("2006-01-02", historyEndDate)
+				}
+				histQuery = histQuery.Where("created_at >= ? AND created_at <= ?", startDate, endDate)
+			}
+
+			// Fetch histories for this batch
+			var batchHistories []models.TagHistory
+			if err := histQuery.Find(&batchHistories).Error; err != nil {
+				zap.L().Error("Failed to fetch tag histories", zap.Error(err))
+				return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch tag histories"})
+			}
+			allHistories = append(allHistories, batchHistories...)
 		}
 
 		// Group histories by tag ID
