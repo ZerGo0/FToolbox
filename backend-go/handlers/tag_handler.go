@@ -135,7 +135,7 @@ func (h *TagHandler) GetTags(c *fiber.Ctx) error {
 		}
 
 		// Process in batches to avoid too many placeholders
-		const batchSize = 100
+		const batchSize = 1000
 		var allHistories []models.TagHistory
 
 		for i := 0; i < len(tagIDs); i += batchSize {
