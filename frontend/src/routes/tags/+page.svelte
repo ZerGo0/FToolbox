@@ -206,6 +206,19 @@
     </div>
   </div>
 
+  <div
+    class="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/20"
+  >
+    <AlertCircle class="mt-0.5 h-5 w-5 text-amber-600 dark:text-amber-400" />
+    <div class="text-sm text-amber-800 dark:text-amber-200">
+      <p class="font-medium">Data Notice</p>
+      <p class="mt-1">
+        This data is incomplete and continuously growing. Some tags may be missing as we discover
+        and add new ones regularly.
+      </p>
+    </div>
+  </div>
+
   <Card>
     <CardHeader>
       <CardTitle>Tag Statistics</CardTitle>
