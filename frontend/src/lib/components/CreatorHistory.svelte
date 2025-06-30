@@ -92,7 +92,7 @@
       pointHoverBackgroundColor: 'rgb(99, 102, 241)',
       pointHoverBorderColor: '#fff',
       pointHoverBorderWidth: 2,
-      yAxisID: 'y-followers'
+      yAxisID: 'y'
     });
 
     datasets.push({
@@ -111,7 +111,7 @@
       pointHoverBackgroundColor: 'rgb(52, 211, 153)',
       pointHoverBorderColor: '#fff',
       pointHoverBorderWidth: 2,
-      yAxisID: 'y-likes'
+      yAxisID: 'y1'
     });
 
     datasets.push({
@@ -130,7 +130,7 @@
       pointHoverBackgroundColor: 'rgb(251, 146, 60)',
       pointHoverBorderColor: '#fff',
       pointHoverBorderWidth: 2,
-      yAxisID: 'y-likes'
+      yAxisID: 'y2'
     });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -160,7 +160,7 @@
     };
 
     // Configure scales for all metrics
-    scales['y-followers'] = {
+    scales['y'] = {
       type: 'linear',
       display: true,
       position: 'left',
@@ -194,7 +194,7 @@
       }
     };
 
-    scales['y-likes'] = {
+    scales['y1'] = {
       type: 'linear',
       display: true,
       position: 'right',
@@ -205,7 +205,7 @@
         display: false
       },
       ticks: {
-        color: 'rgb(107, 114, 128)',
+        color: 'rgb(52, 211, 153)',
         font: {
           size: 11
         },
@@ -219,8 +219,41 @@
       },
       title: {
         display: true,
-        text: 'Likes',
-        color: 'rgb(107, 114, 128)',
+        text: 'Media Likes',
+        color: 'rgb(52, 211, 153)',
+        font: {
+          size: 12
+        }
+      }
+    };
+
+    scales['y2'] = {
+      type: 'linear',
+      display: true,
+      position: 'right',
+      grid: {
+        drawOnChartArea: false
+      },
+      border: {
+        display: false
+      },
+      ticks: {
+        color: 'rgb(251, 146, 60)',
+        font: {
+          size: 11
+        },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        callback: function (value: any) {
+          return new Intl.NumberFormat('en-US', {
+            notation: 'compact',
+            compactDisplay: 'short'
+          }).format(value as number);
+        }
+      },
+      title: {
+        display: true,
+        text: 'Post Likes',
+        color: 'rgb(251, 146, 60)',
         font: {
           size: 12
         }
