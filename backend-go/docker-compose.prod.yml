@@ -2,7 +2,6 @@ services:
   mariadb:
     image: mariadb:lts
     container_name: ftoolbox-mariadb
-    restart: unless-stopped
     env_file:
       - ./ftoolbox-backend.env
     volumes:
