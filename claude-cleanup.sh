@@ -4,6 +4,7 @@
 # This script tears down the development environment and cleans up resources
 
 set -e  # Exit on error
+set -u  # Exit on undefined variable
 
 # Colors for output
 RED='\033[0;31m'
@@ -40,8 +41,8 @@ kill_port() {
     local process_name=$2
     
     if command_exists lsof; then
-        local pid=$(lsof -ti:$port 2>/dev/null || true)
-        if [[ -n "$pid" ]]; then
+        local pid=$(lsof -ti:$port 2>/dev/null | head -1 || true)
+        if [[ -n "$pid" && "$pid" =~ ^[0-9]+$ ]]; then
             log_info "Killing $process_name process on port $port (PID: $pid)"
             kill -9 $pid 2>/dev/null || true
             log_success "$process_name process killed"
@@ -49,8 +50,18 @@ kill_port() {
             log_info "No process found on port $port"
         fi
     elif command_exists netstat; then
-        local pid=$(netstat -tlnp 2>/dev/null | grep ":$port " | awk '{print $7}' | cut -d/ -f1 | head -1)
-        if [[ -n "$pid" && "$pid" != "-" ]]; then
+        local pid=$(netstat -tlnp 2>/dev/null | grep ":$port " | awk '{print $7}' | cut -d/ -f1 | head -1 || true)
+        if [[ -n "$pid" && "$pid" != "-" && "$pid" =~ ^[0-9]+$ ]]; then
+            log_info "Killing $process_name process on port $port (PID: $pid)"
+            kill -9 $pid 2>/dev/null || true
+            log_success "$process_name process killed"
+        else
+            log_info "No process found on port $port"
+        fi
+    elif command_exists ss; then
+        # Alternative using ss command if netstat is not available
+        local pid=$(ss -tlnp 2>/dev/null | grep ":$port " | sed 's/.*pid=\([0-9]*\).*/\1/' | head -1 || true)
+        if [[ -n "$pid" && "$pid" != "-" && "$pid" =~ ^[0-9]+$ ]]; then
             log_info "Killing $process_name process on port $port (PID: $pid)"
             kill -9 $pid 2>/dev/null || true
             log_success "$process_name process killed"
@@ -58,7 +69,17 @@ kill_port() {
             log_info "No process found on port $port"
         fi
     else
-        log_warning "Cannot check port $port - neither lsof nor netstat available"
+        log_warning "Cannot check port $port - neither lsof, netstat, nor ss available"
+        # Try a simple approach - kill any process that might be using the port
+        local processes=$(ps aux | grep ":$port" | grep -v grep | awk '{print $2}' || true)
+        if [[ -n "$processes" ]]; then
+            for p in $processes; do
+                if [[ "$p" =~ ^[0-9]+$ ]]; then
+                    log_info "Killing process $p that might be using port $port"
+                    kill -9 $p 2>/dev/null || true
+                fi
+            done
+        fi
     fi
 }
 
@@ -68,31 +89,36 @@ cleanup_docker() {
         log_info "Cleaning up Docker containers and volumes..."
         
         # Stop and remove containers from docker-compose files
-        if [[ -f "backend-go/docker-compose.yml" ]]; then
-            log_info "Stopping development docker-compose services..."
-            cd backend-go
-            docker-compose down --remove-orphans 2>/dev/null || true
-            docker-compose down -v --remove-orphans 2>/dev/null || true
-            cd ..
-        fi
-        
-        if [[ -f "backend-go/docker-compose.prod.yml" ]]; then
-            log_info "Stopping production docker-compose services..."
-            cd backend-go
-            docker-compose -f docker-compose.prod.yml down --remove-orphans 2>/dev/null || true
-            docker-compose -f docker-compose.prod.yml down -v --remove-orphans 2>/dev/null || true
-            cd ..
+        if command_exists docker-compose; then
+            if [[ -f "backend-go/docker-compose.yml" ]]; then
+                log_info "Stopping development docker-compose services..."
+                cd backend-go
+                docker-compose down --remove-orphans 2>/dev/null || true
+                docker-compose down -v --remove-orphans 2>/dev/null || true
+                cd ..
+            fi
+            
+            if [[ -f "backend-go/docker-compose.prod.yml" ]]; then
+                log_info "Stopping production docker-compose services..."
+                cd backend-go
+                docker-compose -f docker-compose.prod.yml down --remove-orphans 2>/dev/null || true
+                docker-compose -f docker-compose.prod.yml down -v --remove-orphans 2>/dev/null || true
+                cd ..
+            fi
+        else
+            log_warning "docker-compose not found, skipping compose cleanup"
         fi
         
         # Remove FToolbox-specific containers
         log_info "Removing FToolbox containers..."
-        docker ps -a --filter "name=ftoolbox" -q | xargs -r docker rm -f 2>/dev/null || true
-        docker ps -a --filter "name=backend-go" -q | xargs -r docker rm -f 2>/dev/null || true
-        docker ps -a --filter "name=mariadb" -q | xargs -r docker rm -f 2>/dev/null || true
+        # Use alternative approach for BusyBox compatibility
+        docker ps -a 2>/dev/null | grep "ftoolbox" | awk '{print $1}' | xargs -r docker rm -f 2>/dev/null || true
+        docker ps -a 2>/dev/null | grep "backend-go" | awk '{print $1}' | xargs -r docker rm -f 2>/dev/null || true
+        docker ps -a 2>/dev/null | grep "mariadb" | awk '{print $1}' | xargs -r docker rm -f 2>/dev/null || true
         
         # Remove FToolbox images
         log_info "Removing FToolbox images..."
-        docker images --filter "reference=ftoolbox-backend*" -q | xargs -r docker rmi -f 2>/dev/null || true
+        docker images 2>/dev/null | grep "ftoolbox-backend" | awk '{print $3}' | xargs -r docker rmi -f 2>/dev/null || true
         
         # Clean up dangling volumes
         log_info "Cleaning up dangling volumes..."
@@ -175,10 +201,16 @@ cleanup_database() {
     fi
     
     # Remove any SQLite files if they exist
-    find . -name "*.db" -o -name "*.sqlite" -o -name "*.sqlite3" 2>/dev/null | while read -r file; do
-        log_info "Removing database file: $file"
-        rm -f "$file" 2>/dev/null || true
-    done
+    if command_exists find; then
+        find . -name "*.db" -o -name "*.sqlite" -o -name "*.sqlite3" 2>/dev/null | while read -r file; do
+            if [[ -n "$file" ]]; then
+                log_info "Removing database file: $file"
+                rm -f "$file" 2>/dev/null || true
+            fi
+        done
+    else
+        log_warning "find command not available, skipping SQLite file cleanup"
+    fi
 }
 
 # Clean up environment files (optional)
@@ -214,17 +246,23 @@ cleanup_logs_and_temp() {
     log_info "Cleaning up logs and temporary files..."
     
     # Remove log files
-    find . -name "*.log" -type f 2>/dev/null | while read -r file; do
-        log_info "Removing log file: $file"
-        rm -f "$file" 2>/dev/null || true
-    done
+    if command_exists find; then
+        find . -name "*.log" -type f 2>/dev/null | while read -r file; do
+            if [[ -n "$file" ]]; then
+                log_info "Removing log file: $file"
+                rm -f "$file" 2>/dev/null || true
+            fi
+        done
+        
+        # Clean up OS-specific temporary files
+        find . -name ".DS_Store" -type f -delete 2>/dev/null || true
+        find . -name "Thumbs.db" -type f -delete 2>/dev/null || true
+    else
+        log_warning "find command not available, skipping log file cleanup"
+    fi
     
     # Remove temporary directories
     rm -rf .temp tmp .cache 2>/dev/null || true
-    
-    # Clean up OS-specific temporary files
-    find . -name ".DS_Store" -type f -delete 2>/dev/null || true
-    find . -name "Thumbs.db" -type f -delete 2>/dev/null || true
     
     log_success "Logs and temporary files cleaned"
 }
@@ -281,6 +319,8 @@ main() {
     if command_exists pkill; then
         log_info "Stopping Task processes..."
         pkill -f "task watch-" 2>/dev/null || true
+    else
+        log_warning "pkill not available, unable to stop Task processes automatically"
     fi
     
     # Clean up Docker
