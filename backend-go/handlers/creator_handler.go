@@ -254,6 +254,46 @@ func (h *CreatorHandler) GetCreators(c *fiber.Ctx) error {
 	})
 }
 
+func (h *CreatorHandler) GetCreatorStatistics(c *fiber.Ctx) error {
+	// Get the most recent creator statistics from the database
+	var stats models.CreatorStatistics
+	if err := h.db.Order("calculated_at DESC").First(&stats).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			// No statistics exist yet, return zeros
+			return c.JSON(fiber.Map{
+				"totalFollowers":             0,
+				"followersChange24h":         0,
+				"followersChangePercent24h":  0,
+				"totalMediaLikes":            0,
+				"mediaLikesChange24h":        0,
+				"mediaLikesChangePercent24h": 0,
+				"totalPostLikes":             0,
+				"postLikesChange24h":         0,
+				"postLikesChangePercent24h":  0,
+				"calculatedAt":               nil,
+			})
+		}
+		zap.L().Error("Failed to fetch creator statistics", zap.Error(err))
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to fetch creator statistics",
+		})
+	}
+
+	// Return the statistics
+	return c.JSON(fiber.Map{
+		"totalFollowers":             stats.TotalFollowers,
+		"followersChange24h":         stats.FollowersChange24h,
+		"followersChangePercent24h":  stats.FollowersChangePercent24h,
+		"totalMediaLikes":            stats.TotalMediaLikes,
+		"mediaLikesChange24h":        stats.MediaLikesChange24h,
+		"mediaLikesChangePercent24h": stats.MediaLikesChangePercent24h,
+		"totalPostLikes":             stats.TotalPostLikes,
+		"postLikesChange24h":         stats.PostLikesChange24h,
+		"postLikesChangePercent24h":  stats.PostLikesChangePercent24h,
+		"calculatedAt":               stats.CalculatedAt.Unix(),
+	})
+}
+
 func (h *CreatorHandler) RequestCreator(c *fiber.Ctx) error {
 	var req struct {
 		Username string `json:"username"`

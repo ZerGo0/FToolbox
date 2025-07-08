@@ -97,6 +97,7 @@ func main() {
 	tagDiscovery := workers.NewTagDiscoveryWorker(db, cfg, fanslyClient)
 	rankCalculator := workers.NewRankCalculatorWorker(db, cfg)
 	creatorUpdater := workers.NewCreatorUpdaterWorker(db, fanslyClient)
+	statisticsCalculator := workers.NewStatisticsCalculatorWorker(db, cfg)
 
 	if err := workerManager.Register(tagUpdater); err != nil {
 		zap.L().Error("Failed to register tag updater", zap.Error(err))
@@ -109,6 +110,9 @@ func main() {
 	}
 	if err := workerManager.Register(creatorUpdater); err != nil {
 		zap.L().Error("Failed to register creator updater", zap.Error(err))
+	}
+	if err := workerManager.Register(statisticsCalculator); err != nil {
+		zap.L().Error("Failed to register statistics calculator", zap.Error(err))
 	}
 
 	// Start workers if enabled
@@ -125,6 +129,9 @@ func main() {
 			}
 			if err := workerManager.Start("creator-updater"); err != nil {
 				zap.L().Error("Failed to start creator updater", zap.Error(err))
+			}
+			if err := workerManager.Start("statistics-calculator"); err != nil {
+				zap.L().Error("Failed to start statistics calculator", zap.Error(err))
 			}
 		}()
 	}

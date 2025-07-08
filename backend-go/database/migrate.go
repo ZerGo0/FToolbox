@@ -13,5 +13,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&models.Worker{},
 		&models.Creator{},
 		&models.CreatorHistory{},
+		&models.TagStatistics{},
+		&models.CreatorStatistics{},
 	)
 }

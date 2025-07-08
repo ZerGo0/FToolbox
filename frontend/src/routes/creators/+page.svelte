@@ -37,7 +37,9 @@
     ChevronsLeft,
     ChevronsRight,
     ChevronUp,
-    Search
+    Search,
+    TrendingDown,
+    TrendingUp
   } from 'lucide-svelte';
 
   let { data } = $props();
@@ -205,6 +207,102 @@
       </p>
     </div>
   </div>
+
+  {#if data.statistics}
+    <Card class="mb-6">
+      <CardHeader>
+        <CardTitle>Global Creator Statistics</CardTitle>
+        <CardDescription>Platform-wide creator performance metrics</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div class="grid gap-4 md:grid-cols-3">
+          <!-- Followers -->
+          <div class="space-y-2">
+            <p class="text-muted-foreground text-sm">Total Followers</p>
+            <p class="text-2xl font-bold">{formatNumber(data.statistics.totalFollowers)}</p>
+            {#if data.statistics.followersChange24h !== 0}
+              <div class="flex items-center gap-1">
+                {#if data.statistics.followersChange24h > 0}
+                  <TrendingUp class="h-4 w-4 text-green-500" />
+                  <span class="text-sm font-semibold text-green-500">
+                    +{formatNumber(data.statistics.followersChange24h)}
+                  </span>
+                {:else}
+                  <TrendingDown class="h-4 w-4 text-red-500" />
+                  <span class="text-sm font-semibold text-red-500">
+                    {formatNumber(data.statistics.followersChange24h)}
+                  </span>
+                {/if}
+                <span class="text-muted-foreground text-sm">
+                  ({data.statistics.followersChangePercent24h > 0
+                    ? '+'
+                    : ''}{data.statistics.followersChangePercent24h.toFixed(2)}%)
+                </span>
+              </div>
+            {:else}
+              <p class="text-muted-foreground text-sm">No change (24h)</p>
+            {/if}
+          </div>
+
+          <!-- Media Likes -->
+          <div class="space-y-2">
+            <p class="text-muted-foreground text-sm">Total Media Likes</p>
+            <p class="text-2xl font-bold">{formatNumber(data.statistics.totalMediaLikes)}</p>
+            {#if data.statistics.mediaLikesChange24h !== 0}
+              <div class="flex items-center gap-1">
+                {#if data.statistics.mediaLikesChange24h > 0}
+                  <TrendingUp class="h-4 w-4 text-green-500" />
+                  <span class="text-sm font-semibold text-green-500">
+                    +{formatNumber(data.statistics.mediaLikesChange24h)}
+                  </span>
+                {:else}
+                  <TrendingDown class="h-4 w-4 text-red-500" />
+                  <span class="text-sm font-semibold text-red-500">
+                    {formatNumber(data.statistics.mediaLikesChange24h)}
+                  </span>
+                {/if}
+                <span class="text-muted-foreground text-sm">
+                  ({data.statistics.mediaLikesChangePercent24h > 0
+                    ? '+'
+                    : ''}{data.statistics.mediaLikesChangePercent24h.toFixed(2)}%)
+                </span>
+              </div>
+            {:else}
+              <p class="text-muted-foreground text-sm">No change (24h)</p>
+            {/if}
+          </div>
+
+          <!-- Post Likes -->
+          <div class="space-y-2">
+            <p class="text-muted-foreground text-sm">Total Post Likes</p>
+            <p class="text-2xl font-bold">{formatNumber(data.statistics.totalPostLikes)}</p>
+            {#if data.statistics.postLikesChange24h !== 0}
+              <div class="flex items-center gap-1">
+                {#if data.statistics.postLikesChange24h > 0}
+                  <TrendingUp class="h-4 w-4 text-green-500" />
+                  <span class="text-sm font-semibold text-green-500">
+                    +{formatNumber(data.statistics.postLikesChange24h)}
+                  </span>
+                {:else}
+                  <TrendingDown class="h-4 w-4 text-red-500" />
+                  <span class="text-sm font-semibold text-red-500">
+                    {formatNumber(data.statistics.postLikesChange24h)}
+                  </span>
+                {/if}
+                <span class="text-muted-foreground text-sm">
+                  ({data.statistics.postLikesChangePercent24h > 0
+                    ? '+'
+                    : ''}{data.statistics.postLikesChangePercent24h.toFixed(2)}%)
+                </span>
+              </div>
+            {:else}
+              <p class="text-muted-foreground text-sm">No change (24h)</p>
+            {/if}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  {/if}
 
   <Card>
     <CardHeader>
