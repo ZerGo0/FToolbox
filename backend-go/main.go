@@ -23,6 +23,7 @@ import (
 
 func main() {
 	fmt.Println("test 1")
+	fmt.Println("test 2")
 	cfg := config.Load()
 
 	// Initialize zap logger
