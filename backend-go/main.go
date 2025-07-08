@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"ftoolbox/config"
 	"ftoolbox/database"
 	"ftoolbox/fansly"
@@ -21,6 +22,7 @@ import (
 )
 
 func main() {
+	fmt.Println("test 1")
 	cfg := config.Load()
 
 	// Initialize zap logger
