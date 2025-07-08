@@ -36,6 +36,7 @@ interface TagsResponse {
 }
 
 export const load: PageLoad = async ({ fetch, url }) => {
+  console.log('hello world');
   const page = url.searchParams.get('page') || '1';
   const search = url.searchParams.get('search') || '';
   const sortBy = url.searchParams.get('sortBy') || 'rank';
