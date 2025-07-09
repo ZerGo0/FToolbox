@@ -10,95 +10,49 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
-# Install system dependencies
-echo "\n[1/8] Installing system dependencies..."
-apk update
-apk add --no-cache \
-    curl \
-    wget \
-    git \
-    bash \
-    build-base \
-    mariadb \
-    mariadb-client \
-    mariadb-dev
+# Check tools
+echo "\n[1/6] Checking required tools..."
+TOOLS_OK=true
+for tool in go node npm pnpm task; do
+    if command_exists $tool; then
+        case $tool in
+            go) echo "✓ Go $(go version | cut -d' ' -f3)" ;;
+            node) echo "✓ Node.js $(node --version)" ;;
+            npm) echo "✓ npm v$(npm --version 2>/dev/null | head -1)" ;;
+            pnpm) echo "✓ pnpm v$(pnpm --version)" ;;
+            task) echo "✓ Task v$(task --version | grep -o '[0-9.]*' | head -1)" ;;
+        esac
+    else
+        echo "✗ $tool not found"
+        TOOLS_OK=false
+    fi
+done
 
-# Install Go 1.24.4
-echo "\n[2/8] Installing Go 1.24.4..."
-if ! command_exists go || ! go version | grep -q "go1.24.4"; then
-    GO_VERSION="1.24.4"
-    wget -q "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz"
-    rm -rf /usr/local/go
-    tar -C /usr/local -xzf "go${GO_VERSION}.linux-amd64.tar.gz"
-    rm "go${GO_VERSION}.linux-amd64.tar.gz"
-    export PATH="/usr/local/go/bin:$PATH"
-    echo 'export PATH="/usr/local/go/bin:$PATH"' >> ~/.profile
+if [ "$TOOLS_OK" = "false" ]; then
+    echo "\nSome required tools are missing. Please install them first."
+    exit 1
 fi
-echo "Go version: $(go version)"
-
-# Install Node.js (LTS)
-echo "\n[3/8] Installing Node.js..."
-if ! command_exists node; then
-    NODE_VERSION="20"
-    curl -fsSL https://raw.githubusercontent.com/tj/n/master/bin/n | bash -s lts
-    export PATH="/usr/local/bin:$PATH"
-fi
-echo "Node.js version: $(node --version)"
-
-# Install pnpm
-echo "\n[4/8] Installing pnpm..."
-if ! command_exists pnpm; then
-    npm install -g pnpm
-fi
-echo "pnpm version: $(pnpm --version)"
-
-# Install Task runner
-echo "\n[5/8] Installing Task runner..."
-if ! command_exists task; then
-    curl -sL https://taskfile.dev/install.sh | sh -s -- -d -b /usr/local/bin
-fi
-echo "Task version: $(task --version)"
 
 # Install Air (Go live reload)
-echo "\n[6/8] Installing Air..."
-export GOPATH="/root/go"
-export PATH="$GOPATH/bin:$PATH"
-echo 'export GOPATH="/root/go"' >> ~/.profile
-echo 'export PATH="$GOPATH/bin:$PATH"' >> ~/.profile
-go install github.com/cosmtrek/air@latest
-echo "Air installed at: $(which air)"
-
-# Setup MariaDB
-echo "\n[7/8] Setting up MariaDB..."
-if [ ! -d "/run/mysqld" ]; then
-    mkdir -p /run/mysqld
-    chown mysql:mysql /run/mysqld
+echo "\n[2/6] Installing Air..."
+if ! command_exists air; then
+    echo "Installing Air for Go hot reload..."
+    go install github.com/air-verse/air@latest
+    echo "✓ Air installed"
+else
+    echo "✓ Air already installed"
 fi
-
-# Initialize MariaDB if needed
-if [ ! -d "/var/lib/mysql/mysql" ]; then
-    mysql_install_db --user=mysql --ldata=/var/lib/mysql
-fi
-
-# Start MariaDB
-echo "Starting MariaDB..."
-mysqld_safe --user=mysql --datadir=/var/lib/mysql &
-sleep 5
-
-# Create database and user
-mysql -u root <<EOF || true
-CREATE DATABASE IF NOT EXISTS ftoolbox;
-CREATE USER IF NOT EXISTS 'mysql'@'localhost' IDENTIFIED BY 'mysql';
-GRANT ALL PRIVILEGES ON ftoolbox.* TO 'mysql'@'localhost';
-FLUSH PRIVILEGES;
-EOF
 
 # Create .env files
-echo "\n[8/8] Creating .env files..."
+echo "\n[3/6] Creating .env files..."
 
 # Backend .env
 if [ ! -f "backend-go/.env" ]; then
-    cat > backend-go/.env <<EOF
+    if [ -f "backend-go/.env.example" ]; then
+        cp backend-go/.env.example backend-go/.env
+        echo "✓ Created backend-go/.env from .env.example"
+    else
+        cat > backend-go/.env <<'EOF'
 # Database Configuration
 DB_HOST=localhost
 DB_PORT=3306
@@ -121,41 +75,49 @@ FANSLY_AUTH_TOKEN=
 FANSLY_GLOBAL_RATE_LIMIT=5
 FANSLY_GLOBAL_RATE_LIMIT_WINDOW=10
 EOF
-    echo "Created backend-go/.env"
+        echo "✓ Created backend-go/.env with defaults"
+    fi
+else
+    echo "✓ backend-go/.env already exists"
 fi
 
 # Frontend .env
 if [ ! -f "frontend/.env" ]; then
-    cat > frontend/.env <<EOF
+    if [ -f "frontend/.env.example" ]; then
+        cp frontend/.env.example frontend/.env
+        echo "✓ Created frontend/.env from .env.example"
+    else
+        cat > frontend/.env <<'EOF'
 PUBLIC_API_URL=http://localhost:3000
 EOF
-    echo "Created frontend/.env"
+        echo "✓ Created frontend/.env with defaults"
+    fi
+else
+    echo "✓ frontend/.env already exists"
 fi
 
 # Install dependencies
-echo "\n======================================"
-echo "Installing project dependencies..."
-echo "======================================"
+echo "\n[4/6] Installing project dependencies..."
 
 # Backend dependencies
-echo "\n[Backend] Installing Go dependencies..."
+echo "\nInstalling Go dependencies..."
 cd backend-go
 go mod download
 cd ..
+echo "✓ Go dependencies installed"
 
 # Frontend dependencies
-echo "\n[Frontend] Installing pnpm dependencies..."
+echo "\nInstalling frontend dependencies..."
 cd frontend
 pnpm install
 cd ..
+echo "✓ Frontend dependencies installed"
 
 # Verify setup
-echo "\n======================================"
-echo "Verifying setup..."
-echo "======================================"
+echo "\n[5/6] Verifying setup..."
 
 # Test backend commands
-echo "\n[Backend] Testing Go commands..."
+echo "\nTesting backend commands..."
 cd backend-go
 go fmt ./...
 go vet ./...
@@ -163,33 +125,61 @@ cd ..
 echo "✓ Backend commands working"
 
 # Test frontend commands  
-echo "\n[Frontend] Testing pnpm commands..."
+echo "\nTesting frontend commands..."
 cd frontend
-pnpm check || echo "Note: pnpm check may fail if there are type errors in the codebase"
-pnpm lint || echo "Note: pnpm lint may fail if there are linting issues in the codebase"
+echo "Running pnpm check (may show existing type errors)..."
+pnpm check || true
+echo "\nRunning pnpm lint (may show existing lint issues)..."
+pnpm lint || true
 cd ..
 echo "✓ Frontend commands available"
 
 # Test task runner
-echo "\n[Task Runner] Checking task availability..."
+echo "\nChecking task commands..."
 if task --list >/dev/null 2>&1; then
     echo "✓ Task runner working"
-    echo "Available tasks:"
+    echo "\nAvailable development tasks:"
     task --list | grep -E "watch-frontend|watch-backend" || true
 else
     echo "✗ Task runner not working properly"
 fi
 
+# Database setup note
+echo "\n[6/6] Database Setup..."
+if [ -f "/app/workspaces/bc70c60e-ef9a-4e5f-9038-cc8173f11f09/database-setup-note.txt" ]; then
+    rm -f /app/workspaces/bc70c60e-ef9a-4e5f-9038-cc8173f11f09/database-setup-note.txt
+fi
+
+cat > database-setup-note.txt <<'EOF'
+MariaDB/MySQL Setup Required:
+=============================
+The application requires a database connection.
+
+Expected configuration (from .env files):
+- Database: ftoolbox
+- Username: mysql  
+- Password: mysql
+- Host: localhost
+- Port: 3306
+
+If you have Docker, you can run:
+  docker run -d --name ftoolbox-db \
+    -e MYSQL_ROOT_PASSWORD=root \
+    -e MYSQL_DATABASE=ftoolbox \
+    -e MYSQL_USER=mysql \
+    -e MYSQL_PASSWORD=mysql \
+    -p 3306:3306 \
+    mariadb:latest
+
+Or use any existing MariaDB/MySQL instance.
+EOF
+
+echo "⚠️  Database setup required - see database-setup-note.txt"
+
 echo "\n======================================"
 echo "Setup complete!"
 echo "======================================"
-echo "\nEnvironment ready with:"
-echo "- Go $(go version | cut -d' ' -f3)"
-echo "- Node.js $(node --version)"
-echo "- pnpm $(pnpm --version)"
-echo "- Task $(task --version | head -1)"
-echo "- Air (Go live reload)"
-echo "- MariaDB running on localhost:3306"
-echo "\nYou can now run:"
-echo "  task watch-frontend  # Start frontend dev server"
-echo "  task watch-backend   # Start backend with live reload"
+echo "\nEnvironment ready. You can now run:"
+echo "  task watch-frontend  # Start frontend dev server (port 5173)"
+echo "  task watch-backend   # Start backend with live reload (port 3000)"
+echo "\nNote: Ensure database is running before starting the backend."
