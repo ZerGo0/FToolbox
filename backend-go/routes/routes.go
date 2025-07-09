@@ -18,10 +18,12 @@ func Setup(app *fiber.App, db *gorm.DB, workerManager *workers.WorkerManager, fa
 
 	// Tag routes
 	api.Get("/tags", tagHandler.GetTags)
+	api.Get("/tags/statistics", tagHandler.GetTagStatistics)
 	api.Post("/tags/request", tagHandler.RequestTag)
 
 	// Creator routes
 	api.Get("/creators", creatorHandler.GetCreators)
+	api.Get("/creators/statistics", creatorHandler.GetCreatorStatistics)
 	api.Post("/creators/request", creatorHandler.RequestCreator)
 
 	// Worker routes

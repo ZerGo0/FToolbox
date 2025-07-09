@@ -301,6 +301,34 @@ func (h *TagHandler) GetTags(c *fiber.Ctx) error {
 	})
 }
 
+func (h *TagHandler) GetTagStatistics(c *fiber.Ctx) error {
+	// Get the most recent tag statistics from the database
+	var stats models.TagStatistics
+	if err := h.db.Order("calculated_at DESC").First(&stats).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			// No statistics exist yet, return zeros
+			return c.JSON(fiber.Map{
+				"totalViewCount":   0,
+				"change24h":        0,
+				"changePercent24h": 0,
+				"calculatedAt":     nil,
+			})
+		}
+		zap.L().Error("Failed to fetch tag statistics", zap.Error(err))
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to fetch tag statistics",
+		})
+	}
+
+	// Return the statistics
+	return c.JSON(fiber.Map{
+		"totalViewCount":   stats.TotalViewCount,
+		"change24h":        stats.Change24h,
+		"changePercent24h": stats.ChangePercent24h,
+		"calculatedAt":     stats.CalculatedAt.Unix(),
+	})
+}
+
 func (h *TagHandler) RequestTag(c *fiber.Ctx) error {
 	var req struct {
 		Tag string `json:"tag"`

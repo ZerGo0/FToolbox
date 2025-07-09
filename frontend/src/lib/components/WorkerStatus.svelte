@@ -23,7 +23,7 @@
   let workers: WorkerStatus[] = [];
   let loading = true;
   let error: string | null = null;
-  let refreshInterval: number;
+  let refreshInterval: ReturnType<typeof setInterval>;
 
   async function fetchWorkerStatus() {
     try {

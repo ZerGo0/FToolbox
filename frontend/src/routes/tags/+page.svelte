@@ -219,6 +219,47 @@
     </div>
   </div>
 
+  {#if data.statistics}
+    <Card class="mb-6">
+      <CardHeader>
+        <CardTitle>Global Tag Statistics</CardTitle>
+        <CardDescription>Platform-wide tag performance metrics</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-muted-foreground text-sm">Total View Count</p>
+            <p class="text-3xl font-bold">{formatNumber(data.statistics.totalViewCount)}</p>
+          </div>
+          <div class="text-right">
+            {#if data.statistics.change24h !== 0}
+              <div class="flex items-center justify-end gap-1">
+                {#if data.statistics.change24h > 0}
+                  <TrendingUp class="h-4 w-4 text-green-500" />
+                  <span class="font-semibold text-green-500">
+                    +{formatNumber(data.statistics.change24h)} views
+                  </span>
+                {:else}
+                  <TrendingDown class="h-4 w-4 text-red-500" />
+                  <span class="font-semibold text-red-500">
+                    {formatNumber(data.statistics.change24h)} views
+                  </span>
+                {/if}
+              </div>
+              <p class="text-muted-foreground text-sm">
+                {data.statistics.changePercent24h > 0
+                  ? '+'
+                  : ''}{data.statistics.changePercent24h.toFixed(2)}% (24h)
+              </p>
+            {:else}
+              <p class="text-muted-foreground text-sm">No change (24h)</p>
+            {/if}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  {/if}
+
   <Card>
     <CardHeader>
       <CardTitle>Tag Statistics</CardTitle>
