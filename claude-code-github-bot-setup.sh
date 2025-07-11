@@ -144,42 +144,7 @@ else
     echo "✗ Task runner not working properly"
 fi
 
-# Database setup note
-echo "\n[6/6] Database Setup..."
-if [ -f "/app/workspaces/bc70c60e-ef9a-4e5f-9038-cc8173f11f09/database-setup-note.txt" ]; then
-    rm -f /app/workspaces/bc70c60e-ef9a-4e5f-9038-cc8173f11f09/database-setup-note.txt
-fi
-
-cat > database-setup-note.txt <<'EOF'
-MariaDB/MySQL Setup Required:
-=============================
-The application requires a database connection.
-
-Expected configuration (from .env files):
-- Database: ftoolbox
-- Username: mysql  
-- Password: mysql
-- Host: localhost
-- Port: 3306
-
-If you have Docker, you can run:
-  docker run -d --name ftoolbox-db \
-    -e MYSQL_ROOT_PASSWORD=root \
-    -e MYSQL_DATABASE=ftoolbox \
-    -e MYSQL_USER=mysql \
-    -e MYSQL_PASSWORD=mysql \
-    -p 3306:3306 \
-    mariadb:latest
-
-Or use any existing MariaDB/MySQL instance.
-EOF
-
-echo "⚠️  Database setup required - see database-setup-note.txt"
 
 echo "\n======================================"
 echo "Setup complete!"
 echo "======================================"
-echo "\nEnvironment ready. You can now run:"
-echo "  task watch-frontend  # Start frontend dev server (port 5173)"
-echo "  task watch-backend   # Start backend with live reload (port 3000)"
-echo "\nNote: Ensure database is running before starting the backend."
