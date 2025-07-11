@@ -91,6 +91,7 @@ jobs:
         run: |
           go install github.com/go-task/task/v3/cmd/task@latest
           go install -tags 'mysql' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+          go install github.com/air-verse/air@latest
           echo "$HOME/go/bin" >> $GITHUB_PATH
 
       - name: Execute command
