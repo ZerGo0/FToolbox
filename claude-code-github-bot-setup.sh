@@ -11,9 +11,9 @@ command_exists() {
 }
 
 # Check tools
-echo "\n[1/6] Checking required tools..."
+echo "\n[1/7] Checking required tools..."
 TOOLS_OK=true
-for tool in go node npm pnpm task; do
+for tool in go node npm pnpm task bun; do
     if command_exists $tool; then
         case $tool in
             go) echo "✓ Go $(go version | cut -d' ' -f3)" ;;
@@ -21,6 +21,7 @@ for tool in go node npm pnpm task; do
             npm) echo "✓ npm v$(npm --version 2>/dev/null | head -1)" ;;
             pnpm) echo "✓ pnpm v$(pnpm --version)" ;;
             task) echo "✓ Task v$(task --version | grep -o '[0-9.]*' | head -1)" ;;
+            bun) echo "✓ Bun v$(bun --version)" ;;
         esac
     else
         echo "✗ $tool not found"
@@ -34,7 +35,7 @@ if [ "$TOOLS_OK" = "false" ]; then
 fi
 
 # Install Air (Go live reload)
-echo "\n[2/6] Installing Air..."
+echo "\n[2/7] Installing Air..."
 if ! command_exists air; then
     echo "Installing Air for Go hot reload..."
     go install github.com/air-verse/air@latest
@@ -44,7 +45,7 @@ else
 fi
 
 # Create .env files
-echo "\n[3/6] Creating .env files..."
+echo "\n[3/7] Creating .env files..."
 
 # Backend .env
 if [ ! -f "backend-go/.env" ]; then
@@ -97,7 +98,7 @@ else
 fi
 
 # Install dependencies
-echo "\n[4/6] Installing project dependencies..."
+echo "\n[4/7] Installing project dependencies..."
 
 # Backend dependencies
 echo "\nInstalling Go dependencies..."
@@ -113,26 +114,51 @@ pnpm install
 cd ..
 echo "✓ Frontend dependencies installed"
 
-# Verify setup
-echo "\n[5/6] Verifying setup..."
+# Run mandatory checks
+echo "\n[5/7] Running mandatory checks from CLAUDE.md..."
 
-# Test backend commands
-echo "\nTesting backend commands..."
+# Backend mandatory checks (from CLAUDE.md)
+echo "\nRunning backend mandatory checks..."
 cd backend-go
+echo "Running go fmt ./..."
 go fmt ./...
+echo "Running go vet ./..."
 go vet ./...
 cd ..
-echo "✓ Backend commands working"
+echo "✓ Backend checks passed"
 
-# Test frontend commands  
-echo "\nTesting frontend commands..."
+# Frontend mandatory checks (from CLAUDE.md)
+echo "\nRunning frontend mandatory checks..."
 cd frontend
-echo "Running pnpm check (may show existing type errors)..."
-pnpm check || true
-echo "\nRunning pnpm lint (may show existing lint issues)..."
-pnpm lint || true
+echo "Running pnpm check && pnpm lint..."
+if pnpm check && pnpm lint; then
+    echo "✓ Frontend checks passed"
+else
+    echo "⚠️  Frontend checks failed - please fix errors before committing"
+    exit 1
+fi
 cd ..
-echo "✓ Frontend commands available"
+
+# Bot mandatory checks (if in bot project)
+echo "\n[6/7] Checking for bot project..."
+if [ -f "../../package.json" ] && command_exists bun; then
+    echo "Running bot mandatory checks (bun tsc && bun lint)..."
+    cd ../..
+    if [ -f "tsconfig.json" ]; then
+        echo "Running bun tsc..."
+        bun tsc || echo "⚠️  Bot TypeScript check failed"
+    fi
+    if [ -f ".eslintrc.json" ] || [ -f "eslint.config.js" ]; then
+        echo "Running bun lint..."
+        bun lint || echo "⚠️  Bot lint check failed"
+    fi
+    cd workspaces/*/ 2>/dev/null || cd -
+else
+    echo "✓ Not in bot project workspace - skipping bot checks"
+fi
+
+# Verify setup
+echo "\n[7/7] Final verification..."
 
 # Test task runner
 echo "\nChecking task commands..."
@@ -144,7 +170,10 @@ else
     echo "✗ Task runner not working properly"
 fi
 
-
 echo "\n======================================"
 echo "Setup complete!"
 echo "======================================"
+echo "\n⚠️  IMPORTANT REMINDERS FROM CLAUDE.md:"
+echo "  Frontend: ALWAYS run 'pnpm check && pnpm lint' after changes"
+echo "  Backend:  ALWAYS run 'go fmt ./...' and 'go vet ./...' after changes"
+echo "  Bot:      ALWAYS run 'bun tsc && bun lint' after changes (if applicable)"
