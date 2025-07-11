@@ -226,33 +226,36 @@
         <CardDescription>Platform-wide tag performance metrics</CardDescription>
       </CardHeader>
       <CardContent>
-        <div class="flex items-center justify-between">
-          <div>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div class="space-y-2">
             <p class="text-muted-foreground text-sm">Total View Count</p>
-            <p class="text-3xl font-bold">{formatNumber(data.statistics.totalViewCount)}</p>
+            <p class="text-2xl font-bold sm:text-3xl">
+              {formatNumber(data.statistics.totalViewCount)}
+            </p>
           </div>
-          <div class="text-right">
+          <div class="space-y-2 sm:text-right">
+            <p class="text-muted-foreground text-sm">24-hour Change</p>
             {#if data.statistics.change24h !== 0}
-              <div class="flex items-center justify-end gap-1">
+              <div class="flex items-center gap-1 sm:justify-end">
                 {#if data.statistics.change24h > 0}
                   <TrendingUp class="h-4 w-4 text-green-500" />
-                  <span class="font-semibold text-green-500">
-                    +{formatNumber(data.statistics.change24h)} views
+                  <span class="text-sm font-semibold text-green-500">
+                    +{formatNumber(data.statistics.change24h)}
                   </span>
                 {:else}
                   <TrendingDown class="h-4 w-4 text-red-500" />
-                  <span class="font-semibold text-red-500">
-                    {formatNumber(data.statistics.change24h)} views
+                  <span class="text-sm font-semibold text-red-500">
+                    {formatNumber(data.statistics.change24h)}
                   </span>
                 {/if}
+                <span class="text-muted-foreground text-sm">
+                  ({data.statistics.changePercent24h > 0
+                    ? '+'
+                    : ''}{data.statistics.changePercent24h.toFixed(2)}%)
+                </span>
               </div>
-              <p class="text-muted-foreground text-sm">
-                {data.statistics.changePercent24h > 0
-                  ? '+'
-                  : ''}{data.statistics.changePercent24h.toFixed(2)}% (24h)
-              </p>
             {:else}
-              <p class="text-muted-foreground text-sm">No change (24h)</p>
+              <p class="text-muted-foreground text-sm">No change</p>
             {/if}
           </div>
         </div>
