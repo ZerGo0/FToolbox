@@ -222,6 +222,7 @@
             <p class="text-2xl font-bold sm:text-3xl">
               {formatNumber(data.statistics.totalFollowers)}
             </p>
+            <p class="text-muted-foreground text-sm">24-hour Change</p>
             {#if data.statistics.followersChange24h !== 0}
               <div class="flex items-center gap-1">
                 {#if data.statistics.followersChange24h > 0}
@@ -252,6 +253,7 @@
             <p class="text-2xl font-bold sm:text-3xl">
               {formatNumber(data.statistics.totalMediaLikes)}
             </p>
+            <p class="text-muted-foreground text-sm">24-hour Change</p>
             {#if data.statistics.mediaLikesChange24h !== 0}
               <div class="flex items-center gap-1 sm:justify-center">
                 {#if data.statistics.mediaLikesChange24h > 0}
@@ -282,6 +284,7 @@
             <p class="text-2xl font-bold sm:text-3xl">
               {formatNumber(data.statistics.totalPostLikes)}
             </p>
+            <p class="text-muted-foreground text-sm">24-hour Change</p>
             {#if data.statistics.postLikesChange24h !== 0}
               <div class="flex items-center gap-1 sm:justify-end">
                 {#if data.statistics.postLikesChange24h > 0}
