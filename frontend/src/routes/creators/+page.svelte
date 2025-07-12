@@ -215,9 +215,9 @@
         <CardDescription>Platform-wide creator performance metrics</CardDescription>
       </CardHeader>
       <CardContent>
-        <div class="grid gap-4 sm:grid-cols-3">
+        <div class="flex flex-col gap-4 lg:flex-row lg:justify-between">
           <!-- Followers -->
-          <div class="space-y-2">
+          <div class="space-y-2 lg:flex-1">
             <p class="text-muted-foreground text-sm">Total Followers</p>
             <p class="text-2xl font-bold sm:text-3xl">
               {formatNumber(data.statistics.totalFollowers)}
@@ -248,14 +248,14 @@
           </div>
 
           <!-- Media Likes -->
-          <div class="space-y-2 sm:text-center">
+          <div class="space-y-2 lg:flex-1 lg:text-center">
             <p class="text-muted-foreground text-sm">Total Media Likes</p>
             <p class="text-2xl font-bold sm:text-3xl">
               {formatNumber(data.statistics.totalMediaLikes)}
             </p>
             <p class="text-muted-foreground text-sm">24-hour Change</p>
             {#if data.statistics.mediaLikesChange24h !== 0}
-              <div class="flex items-center gap-1 sm:justify-center">
+              <div class="flex items-center gap-1 lg:justify-center">
                 {#if data.statistics.mediaLikesChange24h > 0}
                   <TrendingUp class="h-4 w-4 text-green-500" />
                   <span class="text-sm font-semibold text-green-500">
@@ -279,14 +279,14 @@
           </div>
 
           <!-- Post Likes -->
-          <div class="space-y-2 sm:text-right">
+          <div class="space-y-2 lg:flex-1 lg:text-right">
             <p class="text-muted-foreground text-sm">Total Post Likes</p>
             <p class="text-2xl font-bold sm:text-3xl">
               {formatNumber(data.statistics.totalPostLikes)}
             </p>
             <p class="text-muted-foreground text-sm">24-hour Change</p>
             {#if data.statistics.postLikesChange24h !== 0}
-              <div class="flex items-center gap-1 sm:justify-end">
+              <div class="flex items-center gap-1 lg:justify-end">
                 {#if data.statistics.postLikesChange24h > 0}
                   <TrendingUp class="h-4 w-4 text-green-500" />
                   <span class="text-sm font-semibold text-green-500">
