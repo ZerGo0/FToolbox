@@ -8,12 +8,11 @@ on:
 
 jobs:
   handle-command:
-    runs-on: runs-on=${{ github.run_id }}/runner=2cpu-linux-x64
+    runs-on: ubicloud-standard-2
     # Replace with your GitHub username
     if: github.event.comment.user.login == 'ZerGo0'
 
     steps:
-      - uses: runs-on/action@v2
       - name: Check for command
         id: check-command
         run: |
