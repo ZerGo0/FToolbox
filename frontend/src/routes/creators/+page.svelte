@@ -215,11 +215,14 @@
         <CardDescription>Platform-wide creator performance metrics</CardDescription>
       </CardHeader>
       <CardContent>
-        <div class="grid gap-4 md:grid-cols-3">
+        <div class="grid gap-4 sm:grid-cols-3">
           <!-- Followers -->
           <div class="space-y-2">
             <p class="text-muted-foreground text-sm">Total Followers</p>
-            <p class="text-2xl font-bold">{formatNumber(data.statistics.totalFollowers)}</p>
+            <p class="text-2xl font-bold sm:text-3xl">
+              {formatNumber(data.statistics.totalFollowers)}
+            </p>
+            <p class="text-muted-foreground text-sm">24-hour Change</p>
             {#if data.statistics.followersChange24h !== 0}
               <div class="flex items-center gap-1">
                 {#if data.statistics.followersChange24h > 0}
@@ -240,16 +243,19 @@
                 </span>
               </div>
             {:else}
-              <p class="text-muted-foreground text-sm">No change (24h)</p>
+              <p class="text-muted-foreground text-sm">No change</p>
             {/if}
           </div>
 
           <!-- Media Likes -->
-          <div class="space-y-2">
+          <div class="space-y-2 sm:text-center">
             <p class="text-muted-foreground text-sm">Total Media Likes</p>
-            <p class="text-2xl font-bold">{formatNumber(data.statistics.totalMediaLikes)}</p>
+            <p class="text-2xl font-bold sm:text-3xl">
+              {formatNumber(data.statistics.totalMediaLikes)}
+            </p>
+            <p class="text-muted-foreground text-sm">24-hour Change</p>
             {#if data.statistics.mediaLikesChange24h !== 0}
-              <div class="flex items-center gap-1">
+              <div class="flex items-center gap-1 sm:justify-center">
                 {#if data.statistics.mediaLikesChange24h > 0}
                   <TrendingUp class="h-4 w-4 text-green-500" />
                   <span class="text-sm font-semibold text-green-500">
@@ -268,16 +274,19 @@
                 </span>
               </div>
             {:else}
-              <p class="text-muted-foreground text-sm">No change (24h)</p>
+              <p class="text-muted-foreground text-sm">No change</p>
             {/if}
           </div>
 
           <!-- Post Likes -->
-          <div class="space-y-2">
+          <div class="space-y-2 sm:text-right">
             <p class="text-muted-foreground text-sm">Total Post Likes</p>
-            <p class="text-2xl font-bold">{formatNumber(data.statistics.totalPostLikes)}</p>
+            <p class="text-2xl font-bold sm:text-3xl">
+              {formatNumber(data.statistics.totalPostLikes)}
+            </p>
+            <p class="text-muted-foreground text-sm">24-hour Change</p>
             {#if data.statistics.postLikesChange24h !== 0}
-              <div class="flex items-center gap-1">
+              <div class="flex items-center gap-1 sm:justify-end">
                 {#if data.statistics.postLikesChange24h > 0}
                   <TrendingUp class="h-4 w-4 text-green-500" />
                   <span class="text-sm font-semibold text-green-500">
@@ -296,7 +305,7 @@
                 </span>
               </div>
             {:else}
-              <p class="text-muted-foreground text-sm">No change (24h)</p>
+              <p class="text-muted-foreground text-sm">No change</p>
             {/if}
           </div>
         </div>
