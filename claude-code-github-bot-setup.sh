@@ -10,8 +10,34 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
-# Check tools
-echo "\n[1/7] Checking required tools..."
+# Install missing tools first
+echo "\n[1/7] Installing missing development tools..."
+
+# Install pnpm if not present
+if ! command_exists pnpm; then
+    echo "Installing pnpm..."
+    npm install -g pnpm
+    echo "✓ pnpm installed"
+fi
+
+# Install task if not present
+if ! command_exists task; then
+    echo "Installing Task (Taskfile runner)..."
+    curl -sL https://taskfile.dev/install.sh | sh
+    # Move to a directory in PATH (try with sudo first, fallback to user directory)
+    if sudo mv ./bin/task /usr/local/bin/task 2>/dev/null; then
+        echo "✓ Task installed globally"
+    else
+        # Fallback to user directory
+        mkdir -p "$HOME/.local/bin"
+        mv ./bin/task "$HOME/.local/bin/task"
+        export PATH="$HOME/.local/bin:$PATH"
+        echo "✓ Task installed in user directory"
+    fi
+fi
+
+# Check all required tools
+echo "\n[2/7] Verifying all required tools..."
 TOOLS_OK=true
 for tool in go node npm pnpm task bun; do
     if command_exists $tool; then
@@ -30,12 +56,12 @@ for tool in go node npm pnpm task bun; do
 done
 
 if [ "$TOOLS_OK" = "false" ]; then
-    echo "\nSome required tools are missing. Please install them first."
+    echo "\nSome required tools are still missing after installation attempts."
     exit 1
 fi
 
 # Install Air (Go live reload)
-echo "\n[2/7] Installing Air..."
+echo "\n[3/8] Installing Air..."
 if ! command_exists air; then
     echo "Installing Air for Go hot reload..."
     go install github.com/air-verse/air@latest
@@ -45,7 +71,7 @@ else
 fi
 
 # Create .env files
-echo "\n[3/7] Creating .env files..."
+echo "\n[4/8] Creating .env files..."
 
 # Backend .env
 if [ ! -f "backend-go/.env" ]; then
@@ -98,7 +124,7 @@ else
 fi
 
 # Install dependencies
-echo "\n[4/7] Installing project dependencies..."
+echo "\n[5/8] Installing project dependencies..."
 
 # Backend dependencies
 echo "\nInstalling Go dependencies..."
@@ -115,7 +141,7 @@ cd ..
 echo "✓ Frontend dependencies installed"
 
 # Run mandatory checks
-echo "\n[5/7] Running mandatory checks from CLAUDE.md..."
+echo "\n[6/8] Running mandatory checks from CLAUDE.md..."
 
 # Backend mandatory checks (from CLAUDE.md)
 echo "\nRunning backend mandatory checks..."
@@ -140,7 +166,7 @@ fi
 cd ..
 
 # Bot mandatory checks (if in bot project)
-echo "\n[6/7] Checking for bot project..."
+echo "\n[7/8] Checking for bot project..."
 if [ -f "../../package.json" ] && command_exists bun; then
     echo "Running bot mandatory checks (bun tsc && bun lint)..."
     cd ../..
@@ -158,7 +184,7 @@ else
 fi
 
 # Verify setup
-echo "\n[7/7] Final verification..."
+echo "\n[8/8] Final verification..."
 
 # Test task runner
 echo "\nChecking task commands..."
