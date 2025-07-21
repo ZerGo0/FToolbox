@@ -40,7 +40,8 @@
     ChevronRight,
     ChevronsLeft,
     ChevronsRight,
-    AlertCircle
+    AlertCircle,
+    Info
   } from 'lucide-svelte';
 
   let { data } = $props();
@@ -132,6 +133,25 @@
 
   function formatNumber(num: number): string {
     return new Intl.NumberFormat().format(num);
+  }
+
+  // TODO: Replace with actual API call when /api/tags/statistics/history endpoint is implemented
+  function getMockTagHistoryData() {
+    const baseTotal = data.statistics?.totalViewCount || 1000000;
+    const dates = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const dayTotal = Math.floor(baseTotal * (0.9 + Math.random() * 0.2));
+      const change24h = Math.floor((Math.random() - 0.5) * 100000);
+      dates.push({
+        date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        totalViews: dayTotal,
+        change24h: change24h,
+        changePercent: (change24h / dayTotal) * 100
+      });
+    }
+    return dates;
   }
 
   function formatDate(date: Date | string | number | null | undefined): string {
@@ -226,17 +246,72 @@
         <CardDescription>Platform-wide tag performance metrics</CardDescription>
       </CardHeader>
       <CardContent>
-        <div class="grid gap-4 sm:grid-cols-2">
+        <div class="space-y-4">
           <div class="space-y-2">
             <p class="text-muted-foreground text-sm">Total View Count</p>
             <p class="text-2xl font-bold sm:text-3xl">
               {formatNumber(data.statistics.totalViewCount)}
             </p>
           </div>
-          <div class="space-y-2 sm:text-right">
-            <p class="text-muted-foreground text-sm">24-hour Change</p>
+          <div class="space-y-2">
+            <div class="flex items-center gap-2">
+              <p class="text-muted-foreground text-sm">24-hour Change</p>
+              <Tooltip.Root>
+                <Tooltip.Trigger>
+                  <Info class="text-muted-foreground h-3 w-3" />
+                </Tooltip.Trigger>
+                <Tooltip.Content class="max-w-sm">
+                  <div class="space-y-2">
+                    <p class="text-xs font-semibold">7-Day Statistics History</p>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead class="h-6 px-2 text-xs">Date</TableHead>
+                          <TableHead class="h-6 px-2 text-xs">Total Views</TableHead>
+                          <TableHead class="h-6 px-2 text-xs">24h Change</TableHead>
+                          <TableHead class="h-6 px-2 text-xs">Change %</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {#each getMockTagHistoryData() as history, index (index)}
+                          <TableRow>
+                            <TableCell class="h-6 px-2 py-1 text-xs">{history.date}</TableCell>
+                            <TableCell class="h-6 px-2 py-1 text-xs"
+                              >{formatNumber(history.totalViews)}</TableCell
+                            >
+                            <TableCell class="h-6 px-2 py-1 text-xs">
+                              {#if history.change24h > 0}
+                                <span class="text-green-500"
+                                  >+{formatNumber(history.change24h)}</span
+                                >
+                              {:else if history.change24h < 0}
+                                <span class="text-red-500">{formatNumber(history.change24h)}</span>
+                              {:else}
+                                0
+                              {/if}
+                            </TableCell>
+                            <TableCell class="h-6 px-2 py-1 text-xs">
+                              {#if history.changePercent > 0}
+                                <span class="text-green-500"
+                                  >+{history.changePercent.toFixed(2)}%</span
+                                >
+                              {:else if history.changePercent < 0}
+                                <span class="text-red-500">{history.changePercent.toFixed(2)}%</span
+                                >
+                              {:else}
+                                0.00%
+                              {/if}
+                            </TableCell>
+                          </TableRow>
+                        {/each}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </Tooltip.Content>
+              </Tooltip.Root>
+            </div>
             {#if data.statistics.change24h !== 0}
-              <div class="flex items-center gap-1 sm:justify-end">
+              <div class="flex items-center gap-1">
                 {#if data.statistics.change24h > 0}
                   <TrendingUp class="h-4 w-4 text-green-500" />
                   <span class="text-sm font-semibold text-green-500">

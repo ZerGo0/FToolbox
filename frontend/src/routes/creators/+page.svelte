@@ -39,7 +39,8 @@
     ChevronUp,
     Search,
     TrendingDown,
-    TrendingUp
+    TrendingUp,
+    Info
   } from 'lucide-svelte';
 
   let { data } = $props();
@@ -133,6 +134,30 @@
     return new Intl.NumberFormat().format(num);
   }
 
+  // TODO: Replace with actual API call when /api/creators/statistics/history endpoint is implemented
+  function getMockCreatorHistoryData(type: 'followers' | 'mediaLikes' | 'postLikes') {
+    const baseValues = {
+      followers: data.statistics?.totalFollowers || 500000,
+      mediaLikes: data.statistics?.totalMediaLikes || 2000000,
+      postLikes: data.statistics?.totalPostLikes || 1500000
+    };
+
+    const dates = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const dayTotal = Math.floor(baseValues[type] * (0.9 + Math.random() * 0.2));
+      const change24h = Math.floor((Math.random() - 0.5) * (baseValues[type] * 0.05));
+      dates.push({
+        date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        total: dayTotal,
+        change24h: change24h,
+        changePercent: (change24h / dayTotal) * 100
+      });
+    }
+    return dates;
+  }
+
   function formatDate(date: Date | string | number | null | undefined): string {
     if (!date) return 'Never';
     // Handle Unix timestamps (numbers)
@@ -222,7 +247,62 @@
             <p class="text-2xl font-bold sm:text-3xl">
               {formatNumber(data.statistics.totalFollowers)}
             </p>
-            <p class="text-muted-foreground text-sm">24-hour Change</p>
+            <div class="flex items-center gap-2">
+              <p class="text-muted-foreground text-sm">24-hour Change</p>
+              <Tooltip.Root>
+                <Tooltip.Trigger>
+                  <Info class="text-muted-foreground h-3 w-3" />
+                </Tooltip.Trigger>
+                <Tooltip.Content class="max-w-sm">
+                  <div class="space-y-2">
+                    <p class="text-xs font-semibold">7-Day Followers History</p>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead class="h-6 px-2 text-xs">Date</TableHead>
+                          <TableHead class="h-6 px-2 text-xs">Total</TableHead>
+                          <TableHead class="h-6 px-2 text-xs">24h Change</TableHead>
+                          <TableHead class="h-6 px-2 text-xs">Change %</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {#each getMockCreatorHistoryData('followers') as history, index (index)}
+                          <TableRow>
+                            <TableCell class="h-6 px-2 py-1 text-xs">{history.date}</TableCell>
+                            <TableCell class="h-6 px-2 py-1 text-xs"
+                              >{formatNumber(history.total)}</TableCell
+                            >
+                            <TableCell class="h-6 px-2 py-1 text-xs">
+                              {#if history.change24h > 0}
+                                <span class="text-green-500"
+                                  >+{formatNumber(history.change24h)}</span
+                                >
+                              {:else if history.change24h < 0}
+                                <span class="text-red-500">{formatNumber(history.change24h)}</span>
+                              {:else}
+                                0
+                              {/if}
+                            </TableCell>
+                            <TableCell class="h-6 px-2 py-1 text-xs">
+                              {#if history.changePercent > 0}
+                                <span class="text-green-500"
+                                  >+{history.changePercent.toFixed(2)}%</span
+                                >
+                              {:else if history.changePercent < 0}
+                                <span class="text-red-500">{history.changePercent.toFixed(2)}%</span
+                                >
+                              {:else}
+                                0.00%
+                              {/if}
+                            </TableCell>
+                          </TableRow>
+                        {/each}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </Tooltip.Content>
+              </Tooltip.Root>
+            </div>
             {#if data.statistics.followersChange24h !== 0}
               <div class="flex items-center gap-1">
                 {#if data.statistics.followersChange24h > 0}
@@ -253,7 +333,62 @@
             <p class="text-2xl font-bold sm:text-3xl">
               {formatNumber(data.statistics.totalMediaLikes)}
             </p>
-            <p class="text-muted-foreground text-sm">24-hour Change</p>
+            <div class="flex items-center gap-2 lg:justify-center">
+              <p class="text-muted-foreground text-sm">24-hour Change</p>
+              <Tooltip.Root>
+                <Tooltip.Trigger>
+                  <Info class="text-muted-foreground h-3 w-3" />
+                </Tooltip.Trigger>
+                <Tooltip.Content class="max-w-sm">
+                  <div class="space-y-2">
+                    <p class="text-xs font-semibold">7-Day Media Likes History</p>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead class="h-6 px-2 text-xs">Date</TableHead>
+                          <TableHead class="h-6 px-2 text-xs">Total</TableHead>
+                          <TableHead class="h-6 px-2 text-xs">24h Change</TableHead>
+                          <TableHead class="h-6 px-2 text-xs">Change %</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {#each getMockCreatorHistoryData('mediaLikes') as history, index (index)}
+                          <TableRow>
+                            <TableCell class="h-6 px-2 py-1 text-xs">{history.date}</TableCell>
+                            <TableCell class="h-6 px-2 py-1 text-xs"
+                              >{formatNumber(history.total)}</TableCell
+                            >
+                            <TableCell class="h-6 px-2 py-1 text-xs">
+                              {#if history.change24h > 0}
+                                <span class="text-green-500"
+                                  >+{formatNumber(history.change24h)}</span
+                                >
+                              {:else if history.change24h < 0}
+                                <span class="text-red-500">{formatNumber(history.change24h)}</span>
+                              {:else}
+                                0
+                              {/if}
+                            </TableCell>
+                            <TableCell class="h-6 px-2 py-1 text-xs">
+                              {#if history.changePercent > 0}
+                                <span class="text-green-500"
+                                  >+{history.changePercent.toFixed(2)}%</span
+                                >
+                              {:else if history.changePercent < 0}
+                                <span class="text-red-500">{history.changePercent.toFixed(2)}%</span
+                                >
+                              {:else}
+                                0.00%
+                              {/if}
+                            </TableCell>
+                          </TableRow>
+                        {/each}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </Tooltip.Content>
+              </Tooltip.Root>
+            </div>
             {#if data.statistics.mediaLikesChange24h !== 0}
               <div class="flex items-center gap-1 lg:justify-center">
                 {#if data.statistics.mediaLikesChange24h > 0}
@@ -284,7 +419,62 @@
             <p class="text-2xl font-bold sm:text-3xl">
               {formatNumber(data.statistics.totalPostLikes)}
             </p>
-            <p class="text-muted-foreground text-sm">24-hour Change</p>
+            <div class="flex items-center gap-2 lg:justify-end">
+              <p class="text-muted-foreground text-sm">24-hour Change</p>
+              <Tooltip.Root>
+                <Tooltip.Trigger>
+                  <Info class="text-muted-foreground h-3 w-3" />
+                </Tooltip.Trigger>
+                <Tooltip.Content class="max-w-sm">
+                  <div class="space-y-2">
+                    <p class="text-xs font-semibold">7-Day Post Likes History</p>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead class="h-6 px-2 text-xs">Date</TableHead>
+                          <TableHead class="h-6 px-2 text-xs">Total</TableHead>
+                          <TableHead class="h-6 px-2 text-xs">24h Change</TableHead>
+                          <TableHead class="h-6 px-2 text-xs">Change %</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {#each getMockCreatorHistoryData('postLikes') as history, index (index)}
+                          <TableRow>
+                            <TableCell class="h-6 px-2 py-1 text-xs">{history.date}</TableCell>
+                            <TableCell class="h-6 px-2 py-1 text-xs"
+                              >{formatNumber(history.total)}</TableCell
+                            >
+                            <TableCell class="h-6 px-2 py-1 text-xs">
+                              {#if history.change24h > 0}
+                                <span class="text-green-500"
+                                  >+{formatNumber(history.change24h)}</span
+                                >
+                              {:else if history.change24h < 0}
+                                <span class="text-red-500">{formatNumber(history.change24h)}</span>
+                              {:else}
+                                0
+                              {/if}
+                            </TableCell>
+                            <TableCell class="h-6 px-2 py-1 text-xs">
+                              {#if history.changePercent > 0}
+                                <span class="text-green-500"
+                                  >+{history.changePercent.toFixed(2)}%</span
+                                >
+                              {:else if history.changePercent < 0}
+                                <span class="text-red-500">{history.changePercent.toFixed(2)}%</span
+                                >
+                              {:else}
+                                0.00%
+                              {/if}
+                            </TableCell>
+                          </TableRow>
+                        {/each}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </Tooltip.Content>
+              </Tooltip.Root>
+            </div>
             {#if data.statistics.postLikesChange24h !== 0}
               <div class="flex items-center gap-1 lg:justify-end">
                 {#if data.statistics.postLikesChange24h > 0}
