@@ -40,9 +40,9 @@
     ChevronRight,
     ChevronsLeft,
     ChevronsRight,
-    AlertCircle,
-    Loader2
+    AlertCircle
   } from 'lucide-svelte';
+  import { toast } from 'svelte-sonner';
 
   let { data } = $props();
 
@@ -51,8 +51,8 @@
   let searchValue = $state(data.search || '');
   let pageJumpValue = $state<string>('');
   let showPageJump = $state(false);
-  let showLoadingIndicator = $state(false);
   let loadingTimeout: ReturnType<typeof setTimeout> | undefined;
+  let loadingToastId: string | number | undefined;
 
   // Date range state
   let dateRangeValue = $state<DateRange>({
@@ -84,26 +84,32 @@
     }
   });
 
-  // Show loading indicator after 1 second of navigation
+  // Show loading toast after 1 second of navigation
   $effect(() => {
     if ($navigating) {
-      // Start a timer to show loading indicator after 1 second
+      // Start a timer to show loading toast after 1 second
       loadingTimeout = setTimeout(() => {
-        showLoadingIndicator = true;
+        loadingToastId = toast.loading('Sorting tags...');
       }, 1000);
     } else {
-      // Clear timeout and hide loading indicator when navigation completes
+      // Clear timeout and dismiss loading toast when navigation completes
       if (loadingTimeout) {
         clearTimeout(loadingTimeout);
         loadingTimeout = undefined;
       }
-      showLoadingIndicator = false;
+      if (loadingToastId !== undefined) {
+        toast.dismiss(loadingToastId);
+        loadingToastId = undefined;
+      }
     }
 
     return () => {
       // Cleanup timeout on effect destroy
       if (loadingTimeout) {
         clearTimeout(loadingTimeout);
+      }
+      if (loadingToastId !== undefined) {
+        toast.dismiss(loadingToastId);
       }
     };
   });
@@ -504,18 +510,6 @@
               {/each}
             </TableBody>
           </Table>
-
-          <!-- Loading overlay -->
-          {#if showLoadingIndicator}
-            <div
-              class="bg-background/80 absolute inset-0 flex items-center justify-center rounded-md backdrop-blur-sm"
-            >
-              <div class="flex items-center gap-2">
-                <Loader2 class="h-6 w-6 animate-spin" />
-                <span class="text-sm font-medium">Loading...</span>
-              </div>
-            </div>
-          {/if}
         </div>
       {/if}
 
