@@ -1,6 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { page } from '$app/stores';
+  import { page, navigating } from '$app/stores';
   import CreatorHistory from '$lib/components/CreatorHistory.svelte';
   import CreatorRequestDialog from '$lib/components/CreatorRequestDialog.svelte';
   import { Badge } from '$lib/components/ui/badge';
@@ -39,7 +39,8 @@
     ChevronUp,
     Search,
     TrendingDown,
-    TrendingUp
+    TrendingUp,
+    Loader2
   } from 'lucide-svelte';
 
   let { data } = $props();
@@ -49,6 +50,8 @@
   let searchValue = $state(data.search || '');
   let pageJumpValue = $state<string>('');
   let showPageJump = $state(false);
+  let showLoadingIndicator = $state(false);
+  let loadingTimeout: ReturnType<typeof setTimeout> | undefined;
 
   // Date range state
   let dateRangeValue = $state<DateRange>({
@@ -78,6 +81,30 @@
         // Invalid dates, keep defaults
       }
     }
+  });
+
+  // Show loading indicator after 1 second of navigation
+  $effect(() => {
+    if ($navigating) {
+      // Start a timer to show loading indicator after 1 second
+      loadingTimeout = setTimeout(() => {
+        showLoadingIndicator = true;
+      }, 1000);
+    } else {
+      // Clear timeout and hide loading indicator when navigation completes
+      if (loadingTimeout) {
+        clearTimeout(loadingTimeout);
+        loadingTimeout = undefined;
+      }
+      showLoadingIndicator = false;
+    }
+
+    return () => {
+      // Cleanup timeout on effect destroy
+      if (loadingTimeout) {
+        clearTimeout(loadingTimeout);
+      }
+    };
   });
 
   const dateRangePresets = [
@@ -361,7 +388,7 @@
           <p class="text-muted-foreground text-center">No creators found</p>
         </div>
       {:else}
-        <div class="rounded-md border">
+        <div class="relative rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
@@ -559,6 +586,18 @@
               {/each}
             </TableBody>
           </Table>
+
+          <!-- Loading overlay -->
+          {#if showLoadingIndicator}
+            <div
+              class="bg-background/80 absolute inset-0 flex items-center justify-center rounded-md backdrop-blur-sm"
+            >
+              <div class="flex items-center gap-2">
+                <Loader2 class="h-6 w-6 animate-spin" />
+                <span class="text-sm font-medium">Loading...</span>
+              </div>
+            </div>
+          {/if}
         </div>
       {/if}
 
