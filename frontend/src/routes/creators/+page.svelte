@@ -1,6 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { page } from '$app/stores';
+  import { page, navigating } from '$app/stores';
   import CreatorHistory from '$lib/components/CreatorHistory.svelte';
   import CreatorRequestDialog from '$lib/components/CreatorRequestDialog.svelte';
   import { Badge } from '$lib/components/ui/badge';
@@ -41,6 +41,7 @@
     TrendingDown,
     TrendingUp
   } from 'lucide-svelte';
+  import { toast } from 'svelte-sonner';
 
   let { data } = $props();
 
@@ -49,6 +50,8 @@
   let searchValue = $state(data.search || '');
   let pageJumpValue = $state<string>('');
   let showPageJump = $state(false);
+  let loadingTimeout: ReturnType<typeof setTimeout> | undefined;
+  let loadingToastId: string | number | undefined;
 
   // Date range state
   let dateRangeValue = $state<DateRange>({
@@ -78,6 +81,36 @@
         // Invalid dates, keep defaults
       }
     }
+  });
+
+  // Show loading toast after 1 second of navigation
+  $effect(() => {
+    if ($navigating) {
+      // Start a timer to show loading toast after 1 second
+      loadingTimeout = setTimeout(() => {
+        loadingToastId = toast.loading('Sorting creators...');
+      }, 1000);
+    } else {
+      // Clear timeout and dismiss loading toast when navigation completes
+      if (loadingTimeout) {
+        clearTimeout(loadingTimeout);
+        loadingTimeout = undefined;
+      }
+      if (loadingToastId !== undefined) {
+        toast.dismiss(loadingToastId);
+        loadingToastId = undefined;
+      }
+    }
+
+    return () => {
+      // Cleanup timeout on effect destroy
+      if (loadingTimeout) {
+        clearTimeout(loadingTimeout);
+      }
+      if (loadingToastId !== undefined) {
+        toast.dismiss(loadingToastId);
+      }
+    };
   });
 
   const dateRangePresets = [
@@ -361,7 +394,7 @@
           <p class="text-muted-foreground text-center">No creators found</p>
         </div>
       {:else}
-        <div class="rounded-md border">
+        <div class="relative rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>

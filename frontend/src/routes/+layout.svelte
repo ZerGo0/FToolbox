@@ -4,6 +4,7 @@
   import DynamicBreadcrumbs from '$lib/components/DynamicBreadcrumbs.svelte';
   import { Separator } from '$lib/components/ui/separator';
   import { SidebarProvider, SidebarTrigger } from '$lib/components/ui/sidebar';
+  import { Toaster } from '$lib/components/ui/sonner';
   import { ModeWatcher } from 'mode-watcher';
   import '../app.css';
 
@@ -22,6 +23,7 @@
 </script>
 
 <ModeWatcher />
+<Toaster />
 <SidebarProvider>
   <div class="flex h-screen w-full">
     <AppSidebar />

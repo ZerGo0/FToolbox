@@ -1,5 +1,5 @@
 import baseConfig from './svelte.config.js';
- 
+
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
   ...baseConfig,
