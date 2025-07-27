@@ -26,13 +26,15 @@ func NewTagHandler(db *gorm.DB, fanslyClient *fansly.Client) *TagHandler {
 }
 
 type HistoryPoint struct {
-	ID            uint    `json:"id"`
-	TagID         string  `json:"tagId"`
-	ViewCount     int64   `json:"viewCount"`
-	Change        int64   `json:"change"`
-	CreatedAt     int64   `json:"createdAt"`
-	UpdatedAt     int64   `json:"updatedAt"`
-	ChangePercent float64 `json:"changePercent"`
+	ID              uint    `json:"id"`
+	TagID           string  `json:"tagId"`
+	ViewCount       int64   `json:"viewCount"`
+	Change          int64   `json:"change"`
+	PostCount       int64   `json:"postCount"`
+	PostCountChange int64   `json:"postCountChange"`
+	CreatedAt       int64   `json:"createdAt"`
+	UpdatedAt       int64   `json:"updatedAt"`
+	ChangePercent   float64 `json:"changePercent"`
 }
 
 type TagWithHistory struct {
@@ -204,13 +206,15 @@ func (h *TagHandler) GetTags(c *fiber.Ctx) error {
 			historyPoints := make([]HistoryPoint, len(history))
 			for i, point := range history {
 				historyPoints[i] = HistoryPoint{
-					ID:            point.ID,
-					TagID:         point.TagID,
-					ViewCount:     point.ViewCount,
-					Change:        0,
-					CreatedAt:     point.CreatedAt.Unix(),
-					UpdatedAt:     point.UpdatedAt.Unix(),
-					ChangePercent: 0,
+					ID:              point.ID,
+					TagID:           point.TagID,
+					ViewCount:       point.ViewCount,
+					Change:          0,
+					PostCount:       point.PostCount,
+					PostCountChange: 0,
+					CreatedAt:       point.CreatedAt.Unix(),
+					UpdatedAt:       point.UpdatedAt.Unix(),
+					ChangePercent:   0,
 				}
 
 				// Calculate change from previous point
@@ -221,6 +225,8 @@ func (h *TagHandler) GetTags(c *fiber.Ctx) error {
 					if previousPoint.ViewCount > 0 {
 						historyPoints[i].ChangePercent = float64(change) / float64(previousPoint.ViewCount) * 100
 					}
+					// Calculate post count change
+					historyPoints[i].PostCountChange = point.PostCount - previousPoint.PostCount
 				}
 			}
 
@@ -282,6 +288,7 @@ func (h *TagHandler) GetTags(c *fiber.Ctx) error {
 			"id":                   tag.ID,
 			"tag":                  tag.Tag,
 			"viewCount":            tag.ViewCount,
+			"postCount":            tag.PostCount,
 			"rank":                 tag.Rank,
 			"fanslyCreatedAt":      ptr(timeToUnix(tag.FanslyCreatedAt)),
 			"lastCheckedAt":        timeToUnixPtr(tag.LastCheckedAt),

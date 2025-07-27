@@ -7,6 +7,8 @@ interface TagHistory {
   viewCount: number;
   change: number;
   changePercent: number;
+  postCount: number;
+  postCountChange: number;
   createdAt: Date;
   updatedAt: Date;
 }
