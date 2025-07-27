@@ -56,14 +56,14 @@ func (w *StatisticsCalculatorWorker) calculateTagStatistics(ctx context.Context)
 		}
 	}()
 
-	// Calculate current total view count
-	var totalViewCount int64
+	// Calculate current total view count and post count
+	var totalViewCount, totalPostCount int64
 	if err := tx.Model(&models.Tag{}).
 		Where("is_deleted = ?", false).
-		Select("COALESCE(SUM(view_count), 0)").
-		Scan(&totalViewCount).Error; err != nil {
+		Select("COALESCE(SUM(view_count), 0), COALESCE(SUM(post_count), 0)").
+		Row().Scan(&totalViewCount, &totalPostCount); err != nil {
 		tx.Rollback()
-		return fmt.Errorf("failed to calculate total view count: %w", err)
+		return fmt.Errorf("failed to calculate total counts: %w", err)
 	}
 
 	// Get the previous statistics record from 24 hours ago
@@ -89,6 +89,7 @@ func (w *StatisticsCalculatorWorker) calculateTagStatistics(ctx context.Context)
 	// Create new statistics record
 	newStats := models.TagStatistics{
 		TotalViewCount:   totalViewCount,
+		TotalPostCount:   totalPostCount,
 		Change24h:        change24h,
 		ChangePercent24h: changePercent24h,
 		CalculatedAt:     time.Now(),
@@ -106,6 +107,7 @@ func (w *StatisticsCalculatorWorker) calculateTagStatistics(ctx context.Context)
 
 	zap.L().Info("Tag statistics calculated successfully",
 		zap.Int64("totalViewCount", totalViewCount),
+		zap.Int64("totalPostCount", totalPostCount),
 		zap.Int64("change24h", change24h),
 		zap.Float64("changePercent24h", changePercent24h))
 

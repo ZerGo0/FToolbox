@@ -259,11 +259,17 @@
         <CardDescription>Platform-wide tag performance metrics</CardDescription>
       </CardHeader>
       <CardContent>
-        <div class="grid gap-4 sm:grid-cols-2">
+        <div class="grid gap-4 sm:grid-cols-3">
           <div class="space-y-2">
             <p class="text-muted-foreground text-sm">Total View Count</p>
             <p class="text-2xl font-bold sm:text-3xl">
               {formatNumber(data.statistics.totalViewCount)}
+            </p>
+          </div>
+          <div class="space-y-2">
+            <p class="text-muted-foreground text-sm">Total Posts</p>
+            <p class="text-2xl font-bold sm:text-3xl">
+              {formatNumber(data.statistics.totalPostCount || 0)}
             </p>
           </div>
           <div class="space-y-2 sm:text-right">
@@ -403,6 +409,23 @@
                 <TableHead>
                   <button
                     class="hover:text-foreground flex items-center gap-1 transition-colors"
+                    onclick={() => handleSort('postCount')}
+                  >
+                    Posts
+                    {#if data.sortBy === 'postCount'}
+                      {#if data.sortOrder === 'desc'}
+                        <ArrowDown class="h-4 w-4" />
+                      {:else}
+                        <ArrowUp class="h-4 w-4" />
+                      {/if}
+                    {:else}
+                      <ArrowUpDown class="h-4 w-4" />
+                    {/if}
+                  </button>
+                </TableHead>
+                <TableHead>
+                  <button
+                    class="hover:text-foreground flex items-center gap-1 transition-colors"
                     onclick={() => handleSort('change')}
                   >
                     Change
@@ -475,6 +498,7 @@
                     </div>
                   </TableCell>
                   <TableCell>{formatNumber(tag.viewCount)}</TableCell>
+                  <TableCell>{formatNumber(tag.postCount || 0)}</TableCell>
                   <TableCell>
                     {#if change !== 0}
                       <div class="flex items-center gap-1">
@@ -500,7 +524,7 @@
                 </TableRow>
                 {#if expandedTagId === tag.id}
                   <TableRow>
-                    <TableCell colspan={6} class="p-0">
+                    <TableCell colspan={7} class="p-0">
                       <div class="bg-muted/50 p-6">
                         <TagHistory history={tag.history} />
                       </div>

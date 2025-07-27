@@ -7,6 +7,8 @@ interface TagHistory {
   viewCount: number;
   change: number;
   changePercent: number;
+  postCount: number;
+  postCountChange: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -15,6 +17,7 @@ interface Tag {
   id: string;
   tag: string;
   viewCount: number;
+  postCount: number;
   fanslyCreatedAt: Date;
   lastCheckedAt: Date | null;
   createdAt: Date;
@@ -37,6 +40,7 @@ interface TagsResponse {
 
 interface TagStatistics {
   totalViewCount: number;
+  totalPostCount: number;
   change24h: number;
   changePercent24h: number;
   calculatedAt: number | null;
@@ -85,6 +89,7 @@ export const load: PageLoad = async ({ fetch, url }) => {
     // Fetch statistics data
     let statistics: TagStatistics = {
       totalViewCount: 0,
+      totalPostCount: 0,
       change24h: 0,
       changePercent24h: 0,
       calculatedAt: null
@@ -123,6 +128,7 @@ export const load: PageLoad = async ({ fetch, url }) => {
       },
       statistics: {
         totalViewCount: 0,
+        totalPostCount: 0,
         change24h: 0,
         changePercent24h: 0,
         calculatedAt: null

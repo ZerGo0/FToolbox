@@ -117,6 +117,7 @@ func (w *TagUpdaterWorker) updateTag(ctx context.Context, tag *models.Tag) error
 
 	// Calculate changes
 	viewCountChange := viewCount.MediaOfferSuggestionTag.ViewCount - tag.ViewCount
+	postCountChange := viewCount.MediaOfferSuggestionTag.PostCount - tag.PostCount
 
 	// Start transaction
 	tx := w.db.Begin()
@@ -124,6 +125,7 @@ func (w *TagUpdaterWorker) updateTag(ctx context.Context, tag *models.Tag) error
 	// Update tag
 	now := time.Now()
 	tag.ViewCount = viewCount.MediaOfferSuggestionTag.ViewCount
+	tag.PostCount = viewCount.MediaOfferSuggestionTag.PostCount
 	tag.LastCheckedAt = &now
 	tag.UpdatedAt = now
 
@@ -133,9 +135,11 @@ func (w *TagUpdaterWorker) updateTag(ctx context.Context, tag *models.Tag) error
 	}
 
 	history := models.TagHistory{
-		TagID:     tag.ID,
-		ViewCount: viewCount.MediaOfferSuggestionTag.ViewCount,
-		Change:    viewCountChange,
+		TagID:           tag.ID,
+		ViewCount:       viewCount.MediaOfferSuggestionTag.ViewCount,
+		Change:          viewCountChange,
+		PostCount:       viewCount.MediaOfferSuggestionTag.PostCount,
+		PostCountChange: postCountChange,
 	}
 
 	if err := tx.Create(&history).Error; err != nil {
@@ -151,7 +155,9 @@ func (w *TagUpdaterWorker) updateTag(ctx context.Context, tag *models.Tag) error
 	zap.L().Debug("Updated tag",
 		zap.String("tag", tag.Tag),
 		zap.Int64("viewCount", viewCount.MediaOfferSuggestionTag.ViewCount),
-		zap.Int64("viewCountChange", viewCountChange))
+		zap.Int64("viewCountChange", viewCountChange),
+		zap.Int64("postCount", viewCount.MediaOfferSuggestionTag.PostCount),
+		zap.Int64("postCountChange", postCountChange))
 
 	return nil
 }

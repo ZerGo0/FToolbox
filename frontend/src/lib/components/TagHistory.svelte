@@ -10,6 +10,8 @@
     viewCount: number;
     change: number;
     changePercent: number;
+    postCount: number;
+    postCountChange: number;
     createdAt: Date | string | number;
     updatedAt: Date | string | number;
   }
@@ -77,6 +79,17 @@
             .reverse()
         : [];
 
+    // Create post count data
+    const postCountData =
+      historyWithDates.length > 0
+        ? historyWithDates
+            .map((point) => ({
+              x: point.createdAt,
+              y: point.postCount
+            }))
+            .reverse()
+        : [];
+
     // Check if we have any non-zero change values
     const hasChangeData = changeData.some((d) => d.y !== 0);
 
@@ -125,7 +138,25 @@
                     yAxisID: 'y1'
                   }
                 ]
-              : [])
+              : []),
+            {
+              label: 'Post Count',
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              data: postCountData as any,
+              borderColor: 'rgb(251, 146, 60)',
+              backgroundColor: 'rgba(251, 146, 60, 0.1)',
+              fill: true,
+              tension: 0.4,
+              pointRadius: 0,
+              pointHoverRadius: 6,
+              pointBackgroundColor: 'rgb(251, 146, 60)',
+              pointBorderColor: '#fff',
+              pointBorderWidth: 2,
+              pointHoverBackgroundColor: 'rgb(251, 146, 60)',
+              pointHoverBorderColor: '#fff',
+              pointHoverBorderWidth: 2,
+              yAxisID: 'y'
+            }
           ]
         },
         options: {
@@ -326,6 +357,8 @@
                   <th class="py-2 text-left">Date</th>
                   <th class="py-2 text-right">View Count</th>
                   <th class="py-2 text-right">Change</th>
+                  <th class="py-2 text-right">Posts</th>
+                  <th class="py-2 text-right">Post Change</th>
                 </tr>
               </thead>
               <tbody>
@@ -343,6 +376,21 @@
                           0
                             ? '+'
                             : ''}{point.changePercent.toFixed(2)}%)
+                        </span>
+                      {:else}
+                        -
+                      {/if}
+                    </td>
+                    <td class="py-2 text-right">{formatNumber(point.postCount)}</td>
+                    <td class="py-2 text-right">
+                      {#if point.postCountChange !== 0}
+                        <span
+                          class:text-green-600={point.postCountChange > 0}
+                          class:text-red-600={point.postCountChange < 0}
+                        >
+                          {point.postCountChange > 0 ? '+' : ''}{formatNumber(
+                            point.postCountChange
+                          )}
                         </span>
                       {:else}
                         -
