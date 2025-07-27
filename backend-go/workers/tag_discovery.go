@@ -206,6 +206,7 @@ func (w *TagDiscoveryWorker) processDiscoveredTag(tag fansly.FanslyTag) error {
 		ID:              tag.ID,
 		Tag:             tag.Tag,
 		ViewCount:       tag.ViewCount,
+		PostCount:       tag.PostCount,
 		FanslyCreatedAt: fansly.ParseFanslyTimestamp(tag.CreatedAt),
 	}
 
@@ -215,7 +216,8 @@ func (w *TagDiscoveryWorker) processDiscoveredTag(tag fansly.FanslyTag) error {
 
 	zap.L().Info("Discovered new tag",
 		zap.String("tag", tag.Tag),
-		zap.Int64("viewCount", tag.ViewCount))
+		zap.Int64("viewCount", tag.ViewCount),
+		zap.Int64("postCount", tag.PostCount))
 
 	return nil
 }

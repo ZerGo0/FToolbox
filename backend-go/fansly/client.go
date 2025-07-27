@@ -168,6 +168,7 @@ type FanslyTag struct {
 	Tag         string `json:"tag"`
 	Description string `json:"description"`
 	ViewCount   int64  `json:"viewCount"`
+	PostCount   int64  `json:"postCount"`
 	Flags       int    `json:"flags"`
 	CreatedAt   int64  `json:"createdAt"`
 }

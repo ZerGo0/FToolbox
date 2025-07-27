@@ -39,6 +39,7 @@ type TagWithHistory struct {
 	ID                   string         `json:"id"`
 	Tag                  string         `json:"tag"`
 	ViewCount            int64          `json:"viewCount"`
+	PostCount            int64          `json:"postCount"`
 	Rank                 *int           `json:"rank"`
 	FanslyCreatedAt      *int64         `json:"fanslyCreatedAt"`
 	LastCheckedAt        *int64         `json:"lastCheckedAt"`
@@ -91,6 +92,7 @@ func (h *TagHandler) GetTags(c *fiber.Ctx) error {
 	// Map frontend sortBy values to database columns
 	columnMap := map[string]string{
 		"viewCount": "view_count",
+		"postCount": "post_count",
 		"updatedAt": "updated_at",
 		"tag":       "tag",
 		"rank":      "rank",
@@ -185,6 +187,7 @@ func (h *TagHandler) GetTags(c *fiber.Ctx) error {
 				ID:                   tag.ID,
 				Tag:                  tag.Tag,
 				ViewCount:            tag.ViewCount,
+				PostCount:            tag.PostCount,
 				Rank:                 tag.Rank,
 				FanslyCreatedAt:      ptr(timeToUnix(tag.FanslyCreatedAt)),
 				LastCheckedAt:        timeToUnixPtr(tag.LastCheckedAt),
@@ -364,6 +367,7 @@ func (h *TagHandler) RequestTag(c *fiber.Ctx) error {
 		ID:              fanslyTag.MediaOfferSuggestionTag.ID,
 		Tag:             fanslyTag.MediaOfferSuggestionTag.Tag,
 		ViewCount:       fanslyTag.MediaOfferSuggestionTag.ViewCount,
+		PostCount:       fanslyTag.MediaOfferSuggestionTag.PostCount,
 		FanslyCreatedAt: time.Unix(fanslyTag.MediaOfferSuggestionTag.CreatedAt/1000, 0),
 		LastCheckedAt:   &[]time.Time{time.Now()}[0],
 	}
@@ -375,9 +379,11 @@ func (h *TagHandler) RequestTag(c *fiber.Ctx) error {
 
 	// Insert initial history record
 	history := models.TagHistory{
-		TagID:     newTag.ID,
-		ViewCount: newTag.ViewCount,
-		Change:    0, // Initial entry has no change
+		TagID:           newTag.ID,
+		ViewCount:       newTag.ViewCount,
+		Change:          0, // Initial entry has no change
+		PostCount:       newTag.PostCount,
+		PostCountChange: 0, // Initial entry has no change
 	}
 
 	if err := h.db.Create(&history).Error; err != nil {
