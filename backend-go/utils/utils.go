@@ -11,7 +11,7 @@ func CalculateTagRanks(db *gorm.DB) error {
 		JOIN (
 			SELECT 
 				id,
-				DENSE_RANK() OVER (ORDER BY view_count DESC, created_at ASC) as new_rank
+				DENSE_RANK() OVER (ORDER BY post_count DESC, created_at ASC) as new_rank
 			FROM tags
 		) t2 ON t1.id = t2.id
 		SET t1.rank = t2.new_rank
