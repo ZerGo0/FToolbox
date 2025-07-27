@@ -259,17 +259,11 @@
         <CardDescription>Platform-wide tag performance metrics</CardDescription>
       </CardHeader>
       <CardContent>
-        <div class="grid gap-4 sm:grid-cols-3">
+        <div class="grid gap-4 sm:grid-cols-2">
           <div class="space-y-2">
             <p class="text-muted-foreground text-sm">Total Posts</p>
             <p class="text-2xl font-bold sm:text-3xl">
               {formatNumber(data.statistics.totalPostCount || 0)}
-            </p>
-          </div>
-          <div class="space-y-2">
-            <p class="text-muted-foreground text-sm">Total View Count</p>
-            <p class="text-2xl font-bold sm:text-3xl">
-              {formatNumber(data.statistics.totalViewCount)}
             </p>
           </div>
           <div class="space-y-2 sm:text-right">
