@@ -267,7 +267,7 @@
             </p>
           </div>
           <div class="space-y-2">
-            <p class="text-muted-foreground text-sm">Total Post Count</p>
+            <p class="text-muted-foreground text-sm">Total Posts</p>
             <p class="text-2xl font-bold sm:text-3xl">
               {formatNumber(data.statistics.totalPostCount || 0)}
             </p>
@@ -411,7 +411,7 @@
                     class="hover:text-foreground flex items-center gap-1 transition-colors"
                     onclick={() => handleSort('postCount')}
                   >
-                    Post Count
+                    Posts
                     {#if data.sortBy === 'postCount'}
                       {#if data.sortOrder === 'desc'}
                         <ArrowDown class="h-4 w-4" />
