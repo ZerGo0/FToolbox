@@ -217,23 +217,26 @@ func (h *TagHandler) GetTags(c *fiber.Ctx) error {
 					ChangePercent:   0,
 				}
 
-				// Calculate change from previous point
+				// Calculate change from previous point based on post count
 				if i < len(history)-1 {
 					previousPoint := history[i+1]
-					change := point.ViewCount - previousPoint.ViewCount
-					historyPoints[i].Change = change
-					if previousPoint.ViewCount > 0 {
-						historyPoints[i].ChangePercent = float64(change) / float64(previousPoint.ViewCount) * 100
+					// Still track view count change for reference
+					viewChange := point.ViewCount - previousPoint.ViewCount
+					historyPoints[i].Change = viewChange
+
+					// Calculate post count change as primary metric
+					postChange := point.PostCount - previousPoint.PostCount
+					historyPoints[i].PostCountChange = postChange
+					if previousPoint.PostCount > 0 {
+						historyPoints[i].ChangePercent = float64(postChange) / float64(previousPoint.PostCount) * 100
 					}
-					// Calculate post count change
-					historyPoints[i].PostCountChange = point.PostCount - previousPoint.PostCount
 				}
 			}
 
-			// Calculate total change
+			// Calculate total change based on post count
 			if len(history) > 0 {
-				newest := history[0].ViewCount
-				oldest := history[len(history)-1].ViewCount
+				newest := history[0].PostCount
+				oldest := history[len(history)-1].PostCount
 				tagWithHist.TotalChange = newest - oldest
 			}
 
@@ -319,6 +322,7 @@ func (h *TagHandler) GetTagStatistics(c *fiber.Ctx) error {
 			// No statistics exist yet, return zeros
 			return c.JSON(fiber.Map{
 				"totalViewCount":   0,
+				"totalPostCount":   0,
 				"change24h":        0,
 				"changePercent24h": 0,
 				"calculatedAt":     nil,
@@ -330,9 +334,10 @@ func (h *TagHandler) GetTagStatistics(c *fiber.Ctx) error {
 		})
 	}
 
-	// Return the statistics
+	// Return the statistics with post count as primary metric
 	return c.JSON(fiber.Map{
 		"totalViewCount":   stats.TotalViewCount,
+		"totalPostCount":   stats.TotalPostCount,
 		"change24h":        stats.Change24h,
 		"changePercent24h": stats.ChangePercent24h,
 		"calculatedAt":     stats.CalculatedAt.Unix(),

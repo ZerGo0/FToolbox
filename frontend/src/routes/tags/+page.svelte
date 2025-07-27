@@ -214,17 +214,17 @@
     updateDateRangeParams();
   }
 
-  // Calculate change from history data
-  function getTagChange(tag: { history?: Array<{ viewCount: number }> }) {
+  // Calculate change from history data based on post count
+  function getTagChange(tag: { history?: Array<{ viewCount: number; postCount: number }> }) {
     if (!tag.history || tag.history.length === 0) {
       return { change: 0, percentage: 0 };
     }
 
     // History is in descending order (newest first)
-    const newestViewCount = tag.history[0].viewCount;
-    const oldestViewCount = tag.history[tag.history.length - 1].viewCount;
-    const totalChange = newestViewCount - oldestViewCount;
-    const percentage = oldestViewCount > 0 ? (totalChange / oldestViewCount) * 100 : 0;
+    const newestPostCount = tag.history[0].postCount || 0;
+    const oldestPostCount = tag.history[tag.history.length - 1].postCount || 0;
+    const totalChange = newestPostCount - oldestPostCount;
+    const percentage = oldestPostCount > 0 ? (totalChange / oldestPostCount) * 100 : 0;
 
     return { change: totalChange, percentage };
   }
@@ -261,19 +261,19 @@
       <CardContent>
         <div class="grid gap-4 sm:grid-cols-3">
           <div class="space-y-2">
-            <p class="text-muted-foreground text-sm">Total View Count</p>
-            <p class="text-2xl font-bold sm:text-3xl">
-              {formatNumber(data.statistics.totalViewCount)}
-            </p>
-          </div>
-          <div class="space-y-2">
             <p class="text-muted-foreground text-sm">Total Posts</p>
             <p class="text-2xl font-bold sm:text-3xl">
               {formatNumber(data.statistics.totalPostCount || 0)}
             </p>
           </div>
+          <div class="space-y-2">
+            <p class="text-muted-foreground text-sm">Total View Count</p>
+            <p class="text-2xl font-bold sm:text-3xl">
+              {formatNumber(data.statistics.totalViewCount)}
+            </p>
+          </div>
           <div class="space-y-2 sm:text-right">
-            <p class="text-muted-foreground text-sm">24-hour Change</p>
+            <p class="text-muted-foreground text-sm">24-hour Post Change</p>
             {#if data.statistics.change24h !== 0}
               <div class="flex items-center gap-1 sm:justify-end">
                 {#if data.statistics.change24h > 0}
