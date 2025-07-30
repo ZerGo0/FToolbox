@@ -43,6 +43,7 @@ type TagWithHistory struct {
 	ViewCount            int64          `json:"viewCount"`
 	PostCount            int64          `json:"postCount"`
 	Rank                 *int           `json:"rank"`
+	Heat                 float64        `json:"heat"`
 	FanslyCreatedAt      *int64         `json:"fanslyCreatedAt"`
 	LastCheckedAt        *int64         `json:"lastCheckedAt"`
 	LastUsedForDiscovery *int64         `json:"lastUsedForDiscovery"`
@@ -98,6 +99,7 @@ func (h *TagHandler) GetTags(c *fiber.Ctx) error {
 		"updatedAt": "updated_at",
 		"tag":       "tag",
 		"rank":      "rank",
+		"heat":      "heat",
 	}
 
 	// For normal sorting
@@ -185,12 +187,19 @@ func (h *TagHandler) GetTags(c *fiber.Ctx) error {
 
 		// Process each tag with its history
 		for _, tag := range tags {
+			// Show 0 view count for deleted tags
+			viewCount := tag.ViewCount
+			if tag.IsDeleted {
+				viewCount = 0
+			}
+
 			tagWithHist := TagWithHistory{
 				ID:                   tag.ID,
 				Tag:                  tag.Tag,
-				ViewCount:            tag.ViewCount,
+				ViewCount:            viewCount,
 				PostCount:            tag.PostCount,
 				Rank:                 tag.Rank,
+				Heat:                 tag.Heat,
 				FanslyCreatedAt:      ptr(timeToUnix(tag.FanslyCreatedAt)),
 				LastCheckedAt:        timeToUnixPtr(tag.LastCheckedAt),
 				LastUsedForDiscovery: timeToUnixPtr(tag.LastUsedForDiscovery),
@@ -287,12 +296,19 @@ func (h *TagHandler) GetTags(c *fiber.Ctx) error {
 
 	tagsData := make([]map[string]interface{}, len(tags))
 	for i, tag := range tags {
+		// Show 0 view count for deleted tags
+		viewCount := tag.ViewCount
+		if tag.IsDeleted {
+			viewCount = 0
+		}
+
 		tagsData[i] = map[string]interface{}{
 			"id":                   tag.ID,
 			"tag":                  tag.Tag,
-			"viewCount":            tag.ViewCount,
+			"viewCount":            viewCount,
 			"postCount":            tag.PostCount,
 			"rank":                 tag.Rank,
+			"heat":                 tag.Heat,
 			"fanslyCreatedAt":      ptr(timeToUnix(tag.FanslyCreatedAt)),
 			"lastCheckedAt":        timeToUnixPtr(tag.LastCheckedAt),
 			"lastUsedForDiscovery": timeToUnixPtr(tag.LastUsedForDiscovery),
@@ -407,7 +423,12 @@ func (h *TagHandler) RequestTag(c *fiber.Ctx) error {
 		zap.L().Error("Failed to calculate ranks", zap.Error(err))
 	}
 
-	// Retrieve the tag again to get the calculated rank
+	// Calculate heat scores after adding the new tag
+	if err := utils.CalculateTagHeatScores(h.db); err != nil {
+		zap.L().Error("Failed to calculate heat scores", zap.Error(err))
+	}
+
+	// Retrieve the tag again to get the calculated rank and heat
 	var tagWithRank models.Tag
 	if err := h.db.Where("id = ?", newTag.ID).First(&tagWithRank).Error; err != nil {
 		zap.L().Error("Failed to retrieve tag with rank", zap.Error(err))
