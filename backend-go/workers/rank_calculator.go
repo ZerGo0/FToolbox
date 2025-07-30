@@ -53,6 +53,11 @@ func (w *RankCalculatorWorker) calculateRanks() {
 		zap.L().Error("Failed to calculate tag ranks", zap.Error(err))
 	}
 
+	// Calculate tag heat scores
+	if err := utils.CalculateTagHeatScores(w.db); err != nil {
+		zap.L().Error("Failed to calculate tag heat scores", zap.Error(err))
+	}
+
 	// Calculate creator ranks
 	if err := utils.CalculateCreatorRanks(w.db); err != nil {
 		zap.L().Error("Failed to calculate creator ranks", zap.Error(err))

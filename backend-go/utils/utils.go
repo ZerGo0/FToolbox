@@ -1,6 +1,9 @@
 package utils
 
-import "gorm.io/gorm"
+import (
+	"ftoolbox/models"
+	"gorm.io/gorm"
+)
 
 // CalculateTagRanks recalculates ranks for all tags
 func CalculateTagRanks(db *gorm.DB) error {
@@ -45,4 +48,31 @@ func CalculateCreatorRanks(db *gorm.DB) error {
 	// Clear ranks for deleted creators
 	clearSql := `UPDATE creators SET rank = NULL WHERE is_deleted = 1`
 	return db.Exec(clearSql).Error
+}
+
+// CalculateTagHeatScores recalculates heat scores for all tags
+func CalculateTagHeatScores(db *gorm.DB) error {
+	// Fetch all tags to calculate heat scores
+	var tags []models.Tag
+	if err := db.Find(&tags).Error; err != nil {
+		return err
+	}
+
+	// Calculate heat score for each tag
+	for _, tag := range tags {
+		// Use lastCheckedAt if available, otherwise use updatedAt
+		lastActive := tag.UpdatedAt
+		if tag.LastCheckedAt != nil {
+			lastActive = *tag.LastCheckedAt
+		}
+
+		heatScore := CalculateHeatScore(tag.ViewCount, tag.PostCount, tag.FanslyCreatedAt, lastActive)
+
+		// Update the heat score in the database
+		if err := db.Model(&models.Tag{}).Where("id = ?", tag.ID).Update("heat", heatScore).Error; err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

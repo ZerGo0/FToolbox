@@ -420,6 +420,23 @@
                 <TableHead>
                   <button
                     class="hover:text-foreground flex items-center gap-1 transition-colors"
+                    onclick={() => handleSort('heat')}
+                  >
+                    Heat
+                    {#if data.sortBy === 'heat'}
+                      {#if data.sortOrder === 'desc'}
+                        <ArrowDown class="h-4 w-4" />
+                      {:else}
+                        <ArrowUp class="h-4 w-4" />
+                      {/if}
+                    {:else}
+                      <ArrowUpDown class="h-4 w-4" />
+                    {/if}
+                  </button>
+                </TableHead>
+                <TableHead>
+                  <button
+                    class="hover:text-foreground flex items-center gap-1 transition-colors"
                     onclick={() => handleSort('change')}
                   >
                     Change
@@ -493,6 +510,7 @@
                   </TableCell>
                   <TableCell>{formatNumber(tag.viewCount)}</TableCell>
                   <TableCell>{formatNumber(tag.postCount || 0)}</TableCell>
+                  <TableCell>{(tag.heat ?? 0).toFixed(2)}</TableCell>
                   <TableCell>
                     {#if change !== 0}
                       <div class="flex items-center gap-1">

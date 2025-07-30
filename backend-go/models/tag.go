@@ -10,6 +10,7 @@ type Tag struct {
 	ViewCount            int64      `gorm:"not null;column:view_count" json:"viewCount"`
 	PostCount            int64      `gorm:"not null;default:0;column:post_count" json:"postCount"`
 	Rank                 *int       `gorm:"column:rank;index" json:"rank"`
+	Heat                 float64    `gorm:"not null;default:0;column:heat;index" json:"heat"`
 	FanslyCreatedAt      time.Time  `gorm:"not null;column:fansly_created_at" json:"-"`
 	LastCheckedAt        *time.Time `gorm:"column:last_checked_at" json:"-"`
 	LastUsedForDiscovery *time.Time `gorm:"column:last_used_for_discovery" json:"-"`
