@@ -99,6 +99,7 @@ func (h *TagHandler) GetTags(c *fiber.Ctx) error {
 		"updatedAt": "updated_at",
 		"tag":       "tag",
 		"rank":      "rank",
+		"heat":      "heat",
 	}
 
 	// For normal sorting
