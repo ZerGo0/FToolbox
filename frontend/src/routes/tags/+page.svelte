@@ -437,18 +437,19 @@
                     <Tooltip.Content class="max-w-xs">
                       <p class="mb-1 font-medium">What is Heat?</p>
                       <p class="mb-2 text-sm">
-                        Heat measures how engaged viewers are with posts in this tag. It's
-                        calculated by dividing total views by the number of posts.
+                        Heat measures tag activity and freshness. It combines post count (70%
+                        weight) and views (30% weight), then applies time decay - the score halves
+                        every 48 hours since last activity to prioritize recent engagement.
                       </p>
                       <p class="mb-1 text-sm font-medium">How to use Heat:</p>
                       <ul class="list-inside list-disc space-y-1 text-sm">
-                        <li>High heat (10+) = Very engaged audience</li>
-                        <li>Medium heat (5-10) = Good engagement</li>
-                        <li>Low heat (0-5) = Less engaged viewers</li>
+                        <li>High heat (1000+) = Very active & fresh tag</li>
+                        <li>Medium heat (500-1000) = Good recent activity</li>
+                        <li>Low heat (0-500) = Less recent activity</li>
                       </ul>
                       <p class="mt-2 text-sm">
-                        Choose high-heat tags to reach more active viewers who are likely to
-                        interact with your content!
+                        Use high-heat tags to tap into currently trending topics where creators are
+                        actively posting and viewers are engaged!
                       </p>
                     </Tooltip.Content>
                   </Tooltip.Root>
