@@ -418,21 +418,40 @@
                   </button>
                 </TableHead>
                 <TableHead>
-                  <button
-                    class="hover:text-foreground flex items-center gap-1 transition-colors"
-                    onclick={() => handleSort('heat')}
-                  >
-                    Heat
-                    {#if data.sortBy === 'heat'}
-                      {#if data.sortOrder === 'desc'}
-                        <ArrowDown class="h-4 w-4" />
+                  <Tooltip.Root>
+                    <Tooltip.Trigger
+                      class="hover:text-foreground flex cursor-pointer items-center gap-1 transition-colors"
+                      onclick={() => handleSort('heat')}
+                    >
+                      Heat
+                      {#if data.sortBy === 'heat'}
+                        {#if data.sortOrder === 'desc'}
+                          <ArrowDown class="h-4 w-4" />
+                        {:else}
+                          <ArrowUp class="h-4 w-4" />
+                        {/if}
                       {:else}
-                        <ArrowUp class="h-4 w-4" />
+                        <ArrowUpDown class="h-4 w-4" />
                       {/if}
-                    {:else}
-                      <ArrowUpDown class="h-4 w-4" />
-                    {/if}
-                  </button>
+                    </Tooltip.Trigger>
+                    <Tooltip.Content class="max-w-xs">
+                      <p class="mb-1 font-medium">What is Heat?</p>
+                      <p class="mb-2 text-sm">
+                        Heat measures how engaged viewers are with posts in this tag. It's
+                        calculated by dividing total views by the number of posts.
+                      </p>
+                      <p class="mb-1 text-sm font-medium">How to use Heat:</p>
+                      <ul class="list-inside list-disc space-y-1 text-sm">
+                        <li>High heat (10+) = Very engaged audience</li>
+                        <li>Medium heat (5-10) = Good engagement</li>
+                        <li>Low heat (0-5) = Less engaged viewers</li>
+                      </ul>
+                      <p class="mt-2 text-sm">
+                        Choose high-heat tags to reach more active viewers who are likely to
+                        interact with your content!
+                      </p>
+                    </Tooltip.Content>
+                  </Tooltip.Root>
                 </TableHead>
                 <TableHead>
                   <button
