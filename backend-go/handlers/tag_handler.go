@@ -134,9 +134,13 @@ func (h *TagHandler) GetTags(c *fiber.Ctx) error {
 		}
 
 		orderClause := dbColumn + " " + sortOrder
-		// Special case: when sorting by viewCount desc, also sort by created_at desc as secondary
-		if sortBy == "viewCount" && sortOrder == "desc" {
-			orderClause = "view_count DESC, created_at DESC"
+		// Special case: when sorting by viewCount, treat deleted tags as having 0 view count
+		if sortBy == "viewCount" {
+			if sortOrder == "desc" {
+				orderClause = "CASE WHEN is_deleted THEN 0 ELSE view_count END DESC, created_at DESC"
+			} else {
+				orderClause = "CASE WHEN is_deleted THEN 0 ELSE view_count END ASC, created_at ASC"
+			}
 		}
 		query = query.Order(orderClause)
 
