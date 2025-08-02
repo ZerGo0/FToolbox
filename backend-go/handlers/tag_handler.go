@@ -6,6 +6,7 @@ import (
 	"ftoolbox/utils"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -64,6 +65,25 @@ func (h *TagHandler) GetTags(c *fiber.Ctx) error {
 	includeHistory := c.Query("includeHistory") == "true"
 	historyStartDate := c.Query("historyStartDate")
 	historyEndDate := c.Query("historyEndDate")
+	tagsParam := c.Query("tags")
+
+	// Parse tags parameter if provided
+	var targetTags []string
+	if tagsParam != "" {
+		// Split by comma and trim whitespace
+		targetTags = strings.Split(tagsParam, ",")
+		for i := range targetTags {
+			targetTags[i] = strings.TrimSpace(targetTags[i])
+		}
+		// Remove empty strings
+		filtered := targetTags[:0]
+		for _, tag := range targetTags {
+			if tag != "" {
+				filtered = append(filtered, tag)
+			}
+		}
+		targetTags = filtered
+	}
 
 	if page < 1 {
 		page = 1
@@ -77,7 +97,11 @@ func (h *TagHandler) GetTags(c *fiber.Ctx) error {
 	var tags []models.Tag
 	query := h.db.Model(&models.Tag{})
 
-	if search != "" {
+	// If tags parameter is provided, filter by those specific tags
+	if len(targetTags) > 0 {
+		query = query.Where("tag IN ?", targetTags)
+	} else if search != "" {
+		// Only apply search filter if tags parameter is not provided
 		query = query.Where("tag LIKE ?", "%"+search+"%")
 	}
 
@@ -114,7 +138,12 @@ func (h *TagHandler) GetTags(c *fiber.Ctx) error {
 		if sortBy == "viewCount" && sortOrder == "desc" {
 			orderClause = "view_count DESC, created_at DESC"
 		}
-		query = query.Order(orderClause).Limit(limit).Offset(offset)
+		query = query.Order(orderClause)
+
+		// Only apply pagination if tags parameter is not provided
+		if len(targetTags) == 0 {
+			query = query.Limit(limit).Offset(offset)
+		}
 
 		if err := query.Find(&tags).Error; err != nil {
 			zap.L().Error("Failed to fetch tags", zap.Error(err))
@@ -266,15 +295,17 @@ func (h *TagHandler) GetTags(c *fiber.Ctx) error {
 				return tagsWithHistory[i].TotalChange < tagsWithHistory[j].TotalChange
 			})
 
-			// Apply pagination after sorting
-			start := offset
-			end := offset + limit
-			if start > len(tagsWithHistory) {
-				tagsWithHistory = []TagWithHistory{}
-			} else if end > len(tagsWithHistory) {
-				tagsWithHistory = tagsWithHistory[start:]
-			} else {
-				tagsWithHistory = tagsWithHistory[start:end]
+			// Apply pagination after sorting only if tags parameter is not provided
+			if len(targetTags) == 0 {
+				start := offset
+				end := offset + limit
+				if start > len(tagsWithHistory) {
+					tagsWithHistory = []TagWithHistory{}
+				} else if end > len(tagsWithHistory) {
+					tagsWithHistory = tagsWithHistory[start:]
+				} else {
+					tagsWithHistory = tagsWithHistory[start:end]
+				}
 			}
 		}
 	}
