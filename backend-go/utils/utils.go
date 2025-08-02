@@ -9,12 +9,13 @@ import (
 func CalculateTagRanks(db *gorm.DB) error {
 	// Use raw SQL for better performance and to avoid hooks
 	// DENSE_RANK() ensures no gaps in ranking when there are ties
+	// Treat deleted tags as having 0 view count for ranking purposes
 	sql := `
 		UPDATE tags t1
 		JOIN (
 			SELECT 
 				id,
-				DENSE_RANK() OVER (ORDER BY post_count DESC, created_at ASC) as new_rank
+				DENSE_RANK() OVER (ORDER BY CASE WHEN is_deleted THEN 0 ELSE view_count END DESC, created_at ASC) as new_rank
 			FROM tags
 		) t2 ON t1.id = t2.id
 		SET t1.rank = t2.new_rank
