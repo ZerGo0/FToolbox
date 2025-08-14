@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import {
     Card,
     CardContent,
@@ -7,6 +8,13 @@
     CardTitle
   } from '$lib/components/ui/card';
   import { Clock, Tag, Users } from 'lucide-svelte';
+  import { showFBuddyToast } from '$lib/utils/fbuddy-toast';
+
+  onMount(() => {
+    setTimeout(() => {
+      showFBuddyToast();
+    }, 2000);
+  });
 </script>
 
 <div>
