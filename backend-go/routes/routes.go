@@ -18,6 +18,7 @@ func Setup(app *fiber.App, db *gorm.DB, workerManager *workers.WorkerManager, fa
 
 	// Tag routes
 	api.Get("/tags", tagHandler.GetTags)
+	api.Get("/tags/banned", tagHandler.GetBannedTags)
 	api.Get("/tags/statistics", tagHandler.GetTagStatistics)
 	api.Post("/tags/request", tagHandler.RequestTag)
 
