@@ -4,6 +4,7 @@ import (
 	"ftoolbox/fansly"
 	"ftoolbox/models"
 	"ftoolbox/utils"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -392,6 +393,90 @@ func (h *TagHandler) GetTagStatistics(c *fiber.Ctx) error {
 		"change24h":        stats.Change24h,
 		"changePercent24h": stats.ChangePercent24h,
 		"calculatedAt":     stats.CalculatedAt.Unix(),
+	})
+}
+
+func (h *TagHandler) GetBannedTags(c *fiber.Ctx) error {
+	page, _ := strconv.Atoi(c.Query("page", "1"))
+	limit, _ := strconv.Atoi(c.Query("limit", "20"))
+	search := c.Query("search")
+	sortBy := c.Query("sortBy", "deletedDetectedAt")
+	sortOrder := c.Query("sortOrder", "desc")
+
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 20
+	}
+
+	offset := (page - 1) * limit
+
+	var tags []models.Tag
+	query := h.db.Model(&models.Tag{}).Where("is_deleted = ?", true)
+
+	if search != "" {
+		query = query.Where("tag LIKE ?", "%"+search+"%")
+	}
+
+	var total int64
+	query.Count(&total)
+
+	// Map frontend sortBy values to database columns
+	columnMap := map[string]string{
+		"tag":               "tag",
+		"deletedDetectedAt": "deleted_detected_at",
+		"viewCount":         "view_count",
+		"postCount":         "post_count",
+	}
+
+	dbColumn, ok := columnMap[sortBy]
+	if !ok {
+		dbColumn = "deleted_detected_at" // default
+	}
+
+	orderClause := dbColumn + " " + sortOrder
+	query = query.Order(orderClause)
+
+	query = query.Limit(limit).Offset(offset)
+
+	if err := query.Find(&tags).Error; err != nil {
+		zap.L().Error("Failed to fetch banned tags", zap.Error(err))
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch banned tags"})
+	}
+
+	// Calculate statistics for banned tags
+	var stats struct {
+		TotalBanned   int64 `json:"totalBanned"`
+		BannedLast24h int64 `json:"bannedLast24h"`
+		BannedLast7d  int64 `json:"bannedLast7d"`
+		BannedLast30d int64 `json:"bannedLast30d"`
+	}
+
+	// Total banned tags
+	h.db.Model(&models.Tag{}).Where("is_deleted = ?", true).Count(&stats.TotalBanned)
+
+	// Banned in last 24 hours
+	oneDayAgo := time.Now().Add(-24 * time.Hour)
+	h.db.Model(&models.Tag{}).Where("is_deleted = ? AND deleted_detected_at >= ?", true, oneDayAgo).Count(&stats.BannedLast24h)
+
+	// Banned in last 7 days
+	sevenDaysAgo := time.Now().Add(-7 * 24 * time.Hour)
+	h.db.Model(&models.Tag{}).Where("is_deleted = ? AND deleted_detected_at >= ?", true, sevenDaysAgo).Count(&stats.BannedLast7d)
+
+	// Banned in last 30 days
+	thirtyDaysAgo := time.Now().Add(-30 * 24 * time.Hour)
+	h.db.Model(&models.Tag{}).Where("is_deleted = ? AND deleted_detected_at >= ?", true, thirtyDaysAgo).Count(&stats.BannedLast30d)
+
+	return c.JSON(fiber.Map{
+		"tags": tags,
+		"pagination": fiber.Map{
+			"page":       page,
+			"limit":      limit,
+			"totalCount": total,
+			"totalPages": int(math.Ceil(float64(total) / float64(limit))),
+		},
+		"statistics": stats,
 	})
 }
 
