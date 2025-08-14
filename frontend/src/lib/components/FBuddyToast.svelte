@@ -33,19 +33,23 @@
   const Icon = randomFeature.icon;
 
   const clickbaitMessages = [
-    'Creators using FBuddy grew their revenue by 347% last month!',
-    "The #1 tool top creators don't want you to know about",
-    'Why 89% of successful creators switched to FBuddy',
-    'This one trick increased engagement by 500%',
-    'Unlock the secret to viral content with FBuddy Pro'
+    'Need help with your Fansly FYP? Try FBuddy',
+    'Streamline your Fansly workflow with FBuddy Pro',
+    'Track your Fansly performance better with FBuddy',
+    'Want more insights into your Fansly content? FBuddy can help',
+    'Simplify your Fansly analytics with FBuddy Pro'
   ];
 
   const randomMessage = clickbaitMessages[Math.floor(Math.random() * clickbaitMessages.length)];
 </script>
 
 <Card
-  class="fbuddy-toast-card relative overflow-hidden bg-gradient-to-br from-purple-900/10 via-pink-900/10 to-orange-900/10 backdrop-blur-sm"
+  class="relative overflow-hidden border border-purple-500/20 bg-gradient-to-br from-purple-900/10 via-pink-900/10 to-orange-900/10 backdrop-blur-sm"
 >
+  <div
+    class="pointer-events-none absolute inset-0 rounded-lg bg-gradient-to-br from-purple-500/5 to-pink-500/5"
+  ></div>
+
   <Button
     variant="ghost"
     size="icon"
@@ -117,29 +121,3 @@
     class="absolute right-0 -bottom-1 left-0 h-1 bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 opacity-75"
   ></div>
 </Card>
-
-<style>
-  :global(.fbuddy-toast-card) {
-    position: relative;
-    border: 1px solid transparent;
-    background-clip: padding-box;
-  }
-
-  :global(.fbuddy-toast-card)::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    padding: 1px;
-    background: linear-gradient(135deg, #a855f7, #ec4899, #f97316);
-    -webkit-mask:
-      linear-gradient(#fff 0 0) content-box,
-      linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask:
-      linear-gradient(#fff 0 0) content-box,
-      linear-gradient(#fff 0 0);
-    mask-composite: exclude;
-    pointer-events: none;
-  }
-</style>
