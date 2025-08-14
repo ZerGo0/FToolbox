@@ -43,10 +43,10 @@
 </script>
 
 <Card
-  class="relative overflow-hidden border border-red-500/20 bg-gradient-to-br from-red-900/10 to-red-950/10 backdrop-blur-sm"
+  class="relative overflow-hidden border border-red-500/30 bg-gradient-to-br from-red-900/30 to-red-950/30 backdrop-blur-sm"
 >
   <div
-    class="pointer-events-none absolute inset-0 rounded-lg bg-gradient-to-br from-red-500/5 to-red-600/5"
+    class="pointer-events-none absolute inset-0 rounded-lg bg-gradient-to-br from-red-500/10 to-red-600/10"
   ></div>
 
   <Button
