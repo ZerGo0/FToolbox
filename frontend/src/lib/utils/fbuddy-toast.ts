@@ -8,8 +8,9 @@ const COOLDOWN_HOURS = 24;
 export function shouldShowFBuddyToast(): boolean {
   if (!browser) return false;
 
-  const random = Math.random();
-  if (random > 0.1) return false;
+  // Temporarily set to 100% for testing
+  // const random = Math.random();
+  // if (random > 0.1) return false;
 
   const lastShown = localStorage.getItem(STORAGE_KEY);
   if (!lastShown) return true;
