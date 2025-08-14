@@ -33,22 +33,16 @@
 
   const clickbaitMessages = [
     'Need help with your Fansly FYP? Try FBuddy',
-    'Streamline your Fansly workflow with FBuddy Pro',
+    'Streamline your Fansly workflow with FBuddy',
     'Track your Fansly performance better with FBuddy',
     'Want more insights into your Fansly content? FBuddy can help',
-    'Simplify your Fansly analytics with FBuddy Pro'
+    'Simplify your Fansly analytics with FBuddy'
   ];
 
   const randomMessage = clickbaitMessages[Math.floor(Math.random() * clickbaitMessages.length)];
 </script>
 
-<Card
-  class="relative overflow-hidden border border-red-500/30 bg-gradient-to-br from-red-900/30 to-red-950/30 backdrop-blur-sm"
->
-  <div
-    class="pointer-events-none absolute inset-0 rounded-lg bg-gradient-to-br from-red-500/10 to-red-600/10"
-  ></div>
-
+<Card class="border-border bg-card relative overflow-hidden border">
   <Button
     variant="ghost"
     size="icon"
@@ -65,7 +59,7 @@
       </div>
       <div class="flex-1">
         <div class="mb-1 flex items-center gap-2">
-          <h3 class="text-sm font-bold text-white">FBuddy Pro</h3>
+          <h3 class="text-sm font-bold text-white">FBuddy</h3>
         </div>
         <p class="mb-2 text-xs font-medium text-yellow-400">{randomMessage}</p>
         <p class="mb-1 text-xs font-semibold text-white">{randomFeature.title}</p>
@@ -83,7 +77,7 @@
                 size="sm"
                 class="h-7 bg-gradient-to-r from-[#ff6b6b] to-[#ff4757] text-xs font-bold text-white hover:from-[#ff5252] hover:to-[#ff3838]"
               >
-                Get FBuddy Pro
+                Get FBuddy
               </Button>
             </a>
             <Button
