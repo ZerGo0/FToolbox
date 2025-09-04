@@ -15,5 +15,6 @@ func AutoMigrate(db *gorm.DB) error {
 		&models.CreatorHistory{},
 		&models.TagStatistics{},
 		&models.CreatorStatistics{},
+		&models.TagRelationDaily{},
 	)
 }

@@ -39,6 +39,3 @@ frontend/.eslintcache
 # Wrangler
 .wrangler
 .dev.vars
-
-# Serena cache
-.serena/cache

@@ -565,6 +565,106 @@ func (h *TagHandler) RequestTag(c *fiber.Ctx) error {
 	})
 }
 
+// GetRelatedTags returns related tags based on co-usage observed in the last 14 days
+func (h *TagHandler) GetRelatedTags(c *fiber.Ctx) error {
+	// Parse inputs
+	tagsParam := c.Query("tags", "")
+	if strings.TrimSpace(tagsParam) == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Query param 'tags' is required"})
+	}
+	limit, _ := strconv.Atoi(c.Query("limit", "10"))
+	if limit <= 0 {
+		limit = 10
+	}
+	if limit > 20 {
+		limit = 20
+	}
+
+	// Normalize and split tags
+	parts := strings.Split(tagsParam, ",")
+	inputs := make([]string, 0, len(parts))
+	for _, t := range parts {
+		v := strings.TrimSpace(strings.ToLower(t))
+		if v != "" {
+			inputs = append(inputs, v)
+		}
+	}
+	if len(inputs) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "No valid tags provided"})
+	}
+
+	// Resolve to IDs
+	var srcTags []models.Tag
+	if err := h.db.Model(&models.Tag{}).Where("tag IN ?", inputs).Find(&srcTags).Error; err != nil {
+		zap.L().Error("Failed to resolve tags", zap.Error(err))
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to resolve tags"})
+	}
+	if len(srcTags) == 0 {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "No matching tags found"})
+	}
+	srcIDs := make([]string, 0, len(srcTags))
+	for _, t := range srcTags {
+		srcIDs = append(srcIDs, t.ID)
+	}
+
+	// Cutoff date for 14-day window (use date-only)
+	cutoff := time.Now().UTC().AddDate(0, 0, -14).Truncate(24 * time.Hour)
+
+	// Query related tags strictly by co-occurrence counts in the window
+	// Filter out inputs themselves, deleted tags, and low-view tags (<5000)
+	type row struct {
+		ID    string `json:"id"`
+		Tag   string `json:"tag"`
+		Score int64  `json:"score"`
+	}
+	var rows []row
+
+	// Build query using GORM
+	// SELECT t.id, t.tag, SUM(tr.co_count) AS score
+	// FROM tag_relations_daily tr
+	// JOIN tags t ON t.id = tr.related_tag_id
+	// WHERE tr.tag_id IN (?) AND tr.bucket_date >= ?
+	//   AND t.is_deleted = FALSE AND t.view_count >= 5000
+	//   AND tr.related_tag_id NOT IN (?)
+	// GROUP BY t.id, t.tag
+	// ORDER BY score DESC
+	// LIMIT ?
+	qb := h.db.Table("tag_relations_daily tr").
+		Select("t.id as id, t.tag as tag, SUM(tr.co_count) as score").
+		Joins("JOIN tags t ON t.id = tr.related_tag_id").
+		Where("tr.tag_id IN ?", srcIDs).
+		Where("tr.bucket_date >= ?", cutoff).
+		Where("t.is_deleted = ?", false).
+		Where("t.view_count >= ?", 5000).
+		Where("tr.related_tag_id NOT IN ?", srcIDs).
+		Group("t.id, t.tag").
+		Order("score DESC").
+		Limit(limit)
+
+	if err := qb.Find(&rows).Error; err != nil {
+		zap.L().Error("Failed to query related tags", zap.Error(err))
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch related tags"})
+	}
+
+	// Build response
+	resp := make([]map[string]interface{}, 0, len(rows))
+	for _, r := range rows {
+		resp = append(resp, map[string]interface{}{
+			"id":    r.ID,
+			"tag":   r.Tag,
+			"score": r.Score,
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"tags":         resp,
+		"source":       "precomputed",
+		"windowDays":   14,
+		"minViewCount": 5000,
+		"usedTagIds":   srcIDs,
+	})
+}
+
 func timeToUnixPtr(t *time.Time) *int64 {
 	if t == nil {
 		return nil

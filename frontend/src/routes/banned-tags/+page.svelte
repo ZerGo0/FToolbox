@@ -152,7 +152,8 @@
       <p class="font-medium">Banned Content</p>
       <p class="mt-1">
         These tags have been detected as deleted or banned from Fansly. They may have been removed
-        due to policy violations, content guidelines, or other reasons. Some may have been false positives and are not actually deleted/banned.
+        due to policy violations, content guidelines, or other reasons. Some may have been false
+        positives and are not actually deleted/banned.
       </p>
     </div>
   </div>
