@@ -7,13 +7,14 @@ import (
 )
 
 func AutoMigrate(db *gorm.DB) error {
-	return db.AutoMigrate(
-		&models.Tag{},
-		&models.TagHistory{},
-		&models.Worker{},
-		&models.Creator{},
-		&models.CreatorHistory{},
-		&models.TagStatistics{},
-		&models.CreatorStatistics{},
-	)
+    return db.AutoMigrate(
+        &models.Tag{},
+        &models.TagHistory{},
+        &models.Worker{},
+        &models.Creator{},
+        &models.CreatorHistory{},
+        &models.TagStatistics{},
+        &models.CreatorStatistics{},
+        &models.TagRelationDaily{},
+    )
 }

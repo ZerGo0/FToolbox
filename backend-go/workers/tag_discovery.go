@@ -1,17 +1,18 @@
 package workers
 
 import (
-	"context"
-	"errors"
-	"fmt"
-	"ftoolbox/config"
-	"ftoolbox/fansly"
-	"ftoolbox/models"
-	"strings"
-	"time"
+    "context"
+    "errors"
+    "fmt"
+    "ftoolbox/config"
+    "ftoolbox/fansly"
+    "ftoolbox/models"
+    "strings"
+    "time"
 
-	"go.uber.org/zap"
-	"gorm.io/gorm"
+    "go.uber.org/zap"
+    "gorm.io/gorm"
+    "gorm.io/gorm/clause"
 )
 
 type TagDiscoveryWorker struct {
@@ -100,11 +101,11 @@ func (w *TagDiscoveryWorker) Run(ctx context.Context) error {
 		return fmt.Errorf("failed to fetch tag details: %w", err)
 	}
 
-	// Fetch posts for this tag using its ID
-	result, err := w.client.GetSuggestionsData(ctx, []string{tagDetails.MediaOfferSuggestionTag.ID}, "0", "0", 20, 0)
-	if err != nil {
-		return fmt.Errorf("failed to fetch posts: %w", err)
-	}
+    // Fetch posts for this tag using its ID
+    result, err := w.client.GetSuggestionsData(ctx, []string{tagDetails.MediaOfferSuggestionTag.ID}, "0", "0", 20, 0)
+    if err != nil {
+        return fmt.Errorf("failed to fetch posts: %w", err)
+    }
 
 	// Extract and process tags from mediaOfferSuggestions
 	discoveredTags := w.extractTagsFromSuggestions(result.MediaOfferSuggestions)
@@ -127,10 +128,20 @@ func (w *TagDiscoveryWorker) Run(ctx context.Context) error {
 		}
 	}
 
-	zap.L().Info("Tag discovery completed",
-		zap.String("source_tag", tagToUse),
-		zap.Int("discovered", len(discoveredTags)),
-		zap.Int("new", newTags))
+    // Update related tag relations from the suggestions
+    if err := w.updateTagRelationsFromSuggestions(ctx, tagDetails.MediaOfferSuggestionTag.ID, result.MediaOfferSuggestions); err != nil {
+        zap.L().Error("Failed to update tag relations", zap.Error(err))
+    }
+
+    // Purge old relation buckets beyond 14 days
+    if err := w.purgeOldTagRelations(14); err != nil {
+        zap.L().Error("Failed to purge old tag relations", zap.Error(err))
+    }
+
+    zap.L().Info("Tag discovery completed",
+        zap.String("source_tag", tagToUse),
+        zap.Int("discovered", len(discoveredTags)),
+        zap.Int("new", newTags))
 
 	tempCreatorWorker := NewCreatorUpdaterWorker(w.db, w.client)
 
@@ -220,4 +231,82 @@ func (w *TagDiscoveryWorker) processDiscoveredTag(tag fansly.FanslyTag) error {
 		zap.Int64("postCount", tag.PostCount))
 
 	return nil
+}
+
+// updateTagRelationsFromSuggestions records co-usage counts for the source tag to other tags per day
+func (w *TagDiscoveryWorker) updateTagRelationsFromSuggestions(ctx context.Context, sourceTagID string, suggestions []fansly.MediaOfferSuggestion) error {
+    if sourceTagID == "" || len(suggestions) == 0 {
+        return nil
+    }
+
+    // Bucket by date (UTC)
+    bucketDate := time.Now().UTC().Truncate(24 * time.Hour)
+    now := time.Now().UTC()
+
+    // Aggregate per (source, related, date)
+    type key struct{ related string }
+    counts := make(map[key]int64)
+
+    for _, s := range suggestions {
+        // Build a unique set of tag IDs observed in this suggestion
+        seen := make(map[string]struct{})
+        for _, t := range s.PostTags {
+            id := strings.TrimSpace(t.ID)
+            if id == "" || id == sourceTagID {
+                continue
+            }
+            seen[id] = struct{}{}
+        }
+        // Increment one per related tag for this suggestion (post)
+        for id := range seen {
+            counts[key{related: id}]++
+        }
+    }
+
+    if len(counts) == 0 {
+        return nil
+    }
+
+    // Prepare rows for upsert
+    rows := make([]models.TagRelationDaily, 0, len(counts))
+    for k, c := range counts {
+        rows = append(rows, models.TagRelationDaily{
+            TagID:        sourceTagID,
+            RelatedTagID: k.related,
+            BucketDate:   bucketDate,
+            CoCount:      c,
+            LastSeenAt:   now,
+        })
+    }
+
+    // Upsert with additive co_count and update last_seen_at
+    if err := w.db.Clauses(clause.OnConflict{
+        Columns:   []clause.Column{{Name: "tag_id"}, {Name: "related_tag_id"}, {Name: "bucket_date"}},
+        DoUpdates: clause.Assignments(map[string]interface{}{
+            "co_count":    gorm.Expr("co_count + VALUES(co_count)"),
+            "last_seen_at": gorm.Expr("VALUES(last_seen_at)"),
+        }),
+    }).Create(&rows).Error; err != nil {
+        return fmt.Errorf("failed to upsert tag relations: %w", err)
+    }
+
+    // Optional: ensure related tags exist locally; skip here to avoid extra churn
+    return nil
+}
+
+// purgeOldTagRelations removes data older than windowDays to cap storage
+func (w *TagDiscoveryWorker) purgeOldTagRelations(windowDays int) error {
+    if windowDays <= 0 {
+        return nil
+    }
+    cutoff := time.Now().UTC().AddDate(0, 0, -windowDays).Truncate(24 * time.Hour)
+    tx := w.db.Where("bucket_date < ?", cutoff).Delete(&models.TagRelationDaily{})
+    if tx.Error != nil {
+        return tx.Error
+    }
+    if tx.RowsAffected > 0 {
+        zap.L().Info("Purged old tag relations", zap.Int64("rows", tx.RowsAffected), zap.Time("cutoff", cutoff))
+    }
+    // Recalculate tag ranks/heat only if needed; not required for relations
+    return nil
 }
