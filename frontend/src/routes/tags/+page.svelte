@@ -519,7 +519,7 @@
                 </TableRow>
                 {#if expandedTagId === tag.id}
                   <TableRow>
-                    <TableCell colspan={6} class="p-0">
+                    <TableCell colspan={7} class="p-0">
                       <div class="bg-muted/50 p-6">
                         <TagHistory history={tag.history} />
                       </div>
