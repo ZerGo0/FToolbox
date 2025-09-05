@@ -226,7 +226,9 @@ func (w *TagDiscoveryWorker) processDiscoveredTag(tag fansly.FanslyTag) error {
 	return nil
 }
 
-// updateTagRelationsFromSuggestions records co-usage counts for the source tag to other tags per day
+// updateTagRelationsFromSuggestions records co-usage counts for all tags observed together per day.
+// For each suggestion (post), it generates directed pairs for every tag to every other tag
+// present on that post (A->B and B->A), counting each pair at most once per post.
 func (w *TagDiscoveryWorker) updateTagRelationsFromSuggestions(ctx context.Context, sourceTagID string, suggestions []fansly.MediaOfferSuggestion) error {
 	if sourceTagID == "" || len(suggestions) == 0 {
 		return nil
@@ -236,41 +238,54 @@ func (w *TagDiscoveryWorker) updateTagRelationsFromSuggestions(ctx context.Conte
 	bucketDate := time.Now().UTC().Truncate(24 * time.Hour)
 	now := time.Now().UTC()
 
-	// Aggregate per (source, related, date)
-	type key struct{ related string }
-	counts := make(map[key]int64)
+    // Aggregate per (source, related, date)
+    type key struct{ source, related string }
+    counts := make(map[key]int64)
 
-	for _, s := range suggestions {
-		// Build a unique set of tag IDs observed in this suggestion
-		seen := make(map[string]struct{})
-		for _, t := range s.PostTags {
-			id := strings.TrimSpace(t.ID)
-			if id == "" || id == sourceTagID {
-				continue
-			}
-			seen[id] = struct{}{}
-		}
-		// Increment one per related tag for this suggestion (post)
-		for id := range seen {
-			counts[key{related: id}]++
-		}
-	}
+    for _, s := range suggestions {
+        // Build a unique set of tag IDs observed in this suggestion
+        seen := make(map[string]struct{})
+        for _, t := range s.PostTags {
+            id := strings.TrimSpace(t.ID)
+            if id == "" {
+                continue
+            }
+            seen[id] = struct{}{}
+        }
+        // For all unique tags on this suggestion, generate directed pairs A->B (A != B)
+        if len(seen) == 0 {
+            continue
+        }
+        // Materialize keys to allow double loop without map iteration invalidation concerns
+        ids := make([]string, 0, len(seen))
+        for id := range seen {
+            ids = append(ids, id)
+        }
+        for i := 0; i < len(ids); i++ {
+            for j := 0; j < len(ids); j++ {
+                if i == j {
+                    continue
+                }
+                counts[key{source: ids[i], related: ids[j]}]++
+            }
+        }
+    }
 
 	if len(counts) == 0 {
 		return nil
 	}
 
 	// Prepare rows for upsert
-	rows := make([]models.TagRelationDaily, 0, len(counts))
-	for k, c := range counts {
-		rows = append(rows, models.TagRelationDaily{
-			TagID:        sourceTagID,
-			RelatedTagID: k.related,
-			BucketDate:   bucketDate,
-			CoCount:      c,
-			LastSeenAt:   now,
-		})
-	}
+    rows := make([]models.TagRelationDaily, 0, len(counts))
+    for k, c := range counts {
+        rows = append(rows, models.TagRelationDaily{
+            TagID:        k.source,
+            RelatedTagID: k.related,
+            BucketDate:   bucketDate,
+            CoCount:      c,
+            LastSeenAt:   now,
+        })
+    }
 
 	// Upsert with additive co_count and update last_seen_at
 	if err := w.db.Clauses(clause.OnConflict{
