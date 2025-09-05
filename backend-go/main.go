@@ -70,15 +70,7 @@ func main() {
 		}
 	}
 
-	// Calculate initial heat scores
-	var heatCount int64
-	db.Model(&models.Tag{}).Where("heat = 0").Count(&heatCount)
-	if heatCount > 0 {
-		zap.L().Info("Calculating initial heat scores for tags")
-		if err := utils.CalculateTagHeatScores(db); err != nil {
-			zap.L().Error("Failed to calculate initial tag heat scores", zap.Error(err))
-		}
-	}
+    // Heat calculation removed; backend will always return heat = 0
 
 	// Calculate initial ranks for creators if needed
 	var creatorCount int64

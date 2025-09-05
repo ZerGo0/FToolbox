@@ -45,23 +45,18 @@ func (w *RankCalculatorWorker) Run(ctx context.Context) error {
 }
 
 func (w *RankCalculatorWorker) calculateRanks() {
-	startTime := time.Now()
-	zap.L().Info("Starting rank calculation")
+    startTime := time.Now()
+    zap.L().Info("Starting rank calculation")
 
-	// Calculate tag ranks
-	if err := utils.CalculateTagRanks(w.db); err != nil {
-		zap.L().Error("Failed to calculate tag ranks", zap.Error(err))
-	}
+    // Calculate tag ranks
+    if err := utils.CalculateTagRanks(w.db); err != nil {
+        zap.L().Error("Failed to calculate tag ranks", zap.Error(err))
+    }
 
-	// Calculate tag heat scores
-	if err := utils.CalculateTagHeatScores(w.db); err != nil {
-		zap.L().Error("Failed to calculate tag heat scores", zap.Error(err))
-	}
-
-	// Calculate creator ranks
-	if err := utils.CalculateCreatorRanks(w.db); err != nil {
-		zap.L().Error("Failed to calculate creator ranks", zap.Error(err))
-	}
+    // Calculate creator ranks
+    if err := utils.CalculateCreatorRanks(w.db); err != nil {
+        zap.L().Error("Failed to calculate creator ranks", zap.Error(err))
+    }
 
 	duration := time.Since(startTime)
 	zap.L().Info("Rank calculation completed",

@@ -6,7 +6,6 @@ interface Tag {
   tag: string;
   viewCount: number;
   postCount: number;
-  heat: number;
   fanslyCreatedAt: Date;
   lastCheckedAt: Date | null;
   createdAt: Date;
