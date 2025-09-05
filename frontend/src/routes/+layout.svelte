@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onNavigate } from '$app/navigation';
+  import { onMount } from 'svelte';
   import AppSidebar from '$lib/components/AppSidebar.svelte';
   import DynamicBreadcrumbs from '$lib/components/DynamicBreadcrumbs.svelte';
   import { Separator } from '$lib/components/ui/separator';
@@ -19,6 +20,10 @@
         await navigation.complete;
       });
     });
+  });
+
+  onMount(() => {
+    console.log('Frontend loaded: +layout.svelte mounted');
   });
 </script>
 
