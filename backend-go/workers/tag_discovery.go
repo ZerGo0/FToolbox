@@ -30,7 +30,7 @@ func NewTagDiscoveryWorker(db *gorm.DB, cfg *config.Config, client *fansly.Clien
 		db:         db,
 		client:     client,
 		seedTags: []string{
-			"amateur", "teen", "milf", "anal", "blonde", "brunette", "redhead"
+			"amateur", "teen", "milf", "anal", "blonde", "brunette", "redhead",
 		},
 	}
 }
