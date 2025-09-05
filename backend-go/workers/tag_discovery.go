@@ -30,14 +30,7 @@ func NewTagDiscoveryWorker(db *gorm.DB, cfg *config.Config, client *fansly.Clien
 		db:         db,
 		client:     client,
 		seedTags: []string{
-			"amateur", "teen", "milf", "anal", "asian", "latina", "ebony",
-			"blonde", "brunette", "redhead", "bigboobs", "smalltits", "ass",
-			"pussy", "blowjob", "cumshot", "creampie", "threesome", "lesbian",
-			"fetish", "bdsm", "feet", "cosplay", "public", "outdoor", "shower",
-			"masturbation", "toys", "lingerie", "stockings", "solo", "couple",
-			"trans", "gay", "bisexual", "bbw", "mature", "hairy", "squirt",
-			"dp", "gangbang", "orgy", "swingers", "cuckold", "femdom", "findom",
-			"joi", "cei", "sph", "roleplay", "dirty", "naughty", "kinky",
+			"amateur", "teen", "milf", "anal", "blonde", "brunette", "redhead"
 		},
 	}
 }
@@ -158,11 +151,11 @@ func (w *TagDiscoveryWorker) Run(ctx context.Context) error {
 
 func (w *TagDiscoveryWorker) getTagForDiscovery() (string, error) {
 	// First, try to get a tag from the database that hasn't been used recently
-	twentyFourHoursAgo := time.Now().Add(-24 * time.Hour)
+	hoursAgo := time.Now().Add(-3 * time.Hour)
 
 	var tags []models.Tag
 	// Get multiple tags that haven't been used recently and aren't deleted, ordered by rank
-	if err := w.db.Where("(last_used_for_discovery IS NULL OR last_used_for_discovery < ?) AND is_deleted = ?", twentyFourHoursAgo, false).
+	if err := w.db.Where("(last_used_for_discovery IS NULL OR last_used_for_discovery < ?) AND is_deleted = ?", hoursAgo, false).
 		Order("rank ASC").
 		Limit(10).
 		Find(&tags).Error; err == nil && len(tags) > 0 {
