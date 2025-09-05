@@ -21,6 +21,7 @@ Go implementation of the FToolbox backend API.
 - `GET /api/tags/:name` - Get single tag details
 - `POST /api/tags/request` - Request new tag tracking
 - `GET /api/tags/:name/history` - Get tag history
+- `GET /api/tags/related` - Get related tags
 - `GET /api/workers/status` - Worker system status
 - `GET /api/health` - Health check
 
@@ -31,3 +32,26 @@ Go implementation of the FToolbox backend API.
 - **Zap** - Structured logging
 - **Air** - Hot reloading
 - **MariaDB** - Database
+
+## Related Tags Endpoint
+
+`GET /api/tags/related`
+
+Query params:
+
+- `tags` (required): comma-separated tag names to base the recommendations on.
+- `limit` (optional): number of results to return (default 10, max 20).
+- `windowDays` (optional): lookback window in days. Default 14, clamped to [7, 30].
+- `minViewCount` (optional): minimum `view_count` for candidate tags. Default 5000.
+- `minCoverage` (optional): minimum number of input tags a candidate must co-occur with. Default is ceil(40% of inputs).
+
+Responses include per-tag fields:
+
+- `id`, `tag`
+- `score`: numeric score (equals `finalScore`)
+- `normScore`, `coverage`, `finalScore`
+
+Top-level metadata:
+
+- `source`: `computed`
+- `mode`, `windowDays`, `minViewCount`, `minCoverage`, `usedTagIds`
