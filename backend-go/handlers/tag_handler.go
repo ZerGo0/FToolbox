@@ -565,7 +565,10 @@ func (h *TagHandler) RequestTag(c *fiber.Ctx) error {
 	})
 }
 
-// GetRelatedTags returns related tags based on co-usage observed in the last 14 days
+// GetRelatedTags returns related tags based on co-usage observed in a recent window
+// Modes:
+// - smart (default): per-source normalization, coverage weighting, light popularity shaping
+// - popular: legacy mode, sums co-occurrence counts
 func (h *TagHandler) GetRelatedTags(c *fiber.Ctx) error {
 	// Parse inputs
 	tagsParam := c.Query("tags", "")
@@ -578,6 +581,24 @@ func (h *TagHandler) GetRelatedTags(c *fiber.Ctx) error {
 	}
 	if limit > 20 {
 		limit = 20
+	}
+
+	mode := strings.ToLower(strings.TrimSpace(c.Query("mode", "smart")))
+	if mode != "smart" && mode != "popular" {
+		mode = "smart"
+	}
+
+	windowDays, _ := strconv.Atoi(c.Query("windowDays", "14"))
+	if windowDays < 7 {
+		windowDays = 14 // clamp to sane defaults
+	}
+	if windowDays > 30 {
+		windowDays = 30
+	}
+
+	minViewCount, _ := strconv.Atoi(c.Query("minViewCount", "5000"))
+	if minViewCount < 0 {
+		minViewCount = 0
 	}
 
 	// Normalize and split tags
@@ -607,60 +628,179 @@ func (h *TagHandler) GetRelatedTags(c *fiber.Ctx) error {
 		srcIDs = append(srcIDs, t.ID)
 	}
 
-	// Cutoff date for 14-day window (use date-only)
-	cutoff := time.Now().UTC().AddDate(0, 0, -14).Truncate(24 * time.Hour)
+	// Cutoff date for window (use date-only)
+	cutoff := time.Now().UTC().AddDate(0, 0, -windowDays).Truncate(24 * time.Hour)
 
-	// Query related tags strictly by co-occurrence counts in the window
-	// Filter out inputs themselves, deleted tags, and low-view tags (<5000)
-	type row struct {
-		ID    string `json:"id"`
-		Tag   string `json:"tag"`
-		Score int64  `json:"score"`
+	if mode == "popular" {
+		// Legacy behavior: sum co-occurrence counts
+		type row struct {
+			ID    string `json:"id"`
+			Tag   string `json:"tag"`
+			Score int64  `json:"score"`
+		}
+		var rows []row
+
+		qb := h.db.Table("tag_relations_daily tr").
+			Select("t.id as id, t.tag as tag, SUM(tr.co_count) as score").
+			Joins("JOIN tags t ON t.id = tr.related_tag_id").
+			Where("tr.tag_id IN ?", srcIDs).
+			Where("tr.bucket_date >= ?", cutoff).
+			Where("t.is_deleted = ?", false).
+			Where("t.view_count >= ?", minViewCount).
+			Where("tr.related_tag_id NOT IN ?", srcIDs).
+			Group("t.id, t.tag").
+			Order("score DESC").
+			Limit(limit)
+
+		if err := qb.Find(&rows).Error; err != nil {
+			zap.L().Error("Failed to query related tags (popular)", zap.Error(err))
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch related tags"})
+		}
+
+		resp := make([]map[string]interface{}, 0, len(rows))
+		for _, r := range rows {
+			resp = append(resp, map[string]interface{}{
+				"id":    r.ID,
+				"tag":   r.Tag,
+				"score": r.Score,
+			})
+		}
+
+		return c.JSON(fiber.Map{
+			"tags":         resp,
+			"source":       "precomputed",
+			"mode":         mode,
+			"windowDays":   windowDays,
+			"minViewCount": minViewCount,
+			"usedTagIds":   srcIDs,
+		})
 	}
-	var rows []row
 
-	// Build query using GORM
-	// SELECT t.id, t.tag, SUM(tr.co_count) AS score
-	// FROM tag_relations_daily tr
-	// JOIN tags t ON t.id = tr.related_tag_id
-	// WHERE tr.tag_id IN (?) AND tr.bucket_date >= ?
-	//   AND t.is_deleted = FALSE AND t.view_count >= 5000
-	//   AND tr.related_tag_id NOT IN (?)
-	// GROUP BY t.id, t.tag
-	// ORDER BY score DESC
-	// LIMIT ?
+	// Smart mode: per-source normalization + coverage weighting
+	// minCoverage: default to ceil(40% of inputs), bounded to [1, len(inputs)]
+	minCoverageDefault := int(math.Ceil(0.4 * float64(len(srcIDs))))
+	if minCoverageDefault < 1 {
+		minCoverageDefault = 1
+	}
+	if minCoverageDefault > len(srcIDs) {
+		minCoverageDefault = len(srcIDs)
+	}
+	minCoverage, _ := strconv.Atoi(c.Query("minCoverage", strconv.Itoa(minCoverageDefault)))
+	if minCoverage < 1 {
+		minCoverage = 1
+	}
+	if minCoverage > len(srcIDs) {
+		minCoverage = len(srcIDs)
+	}
+
+	// Query base aggregates; compute popularity shaping and final score in Go for portability
+	type smartRow struct {
+		ID           string  `json:"id"`
+		Tag          string  `json:"tag"`
+		RPostCount   int64   `json:"rPostCount"`
+		NormSum      float64 `json:"normSum"`
+		CoverageCnt  int64   `json:"coverageCnt"`
+	}
+	var srows []smartRow
+
+	// Use CAST to float to ensure floating division across dialects
+	selectExpr := strings.Join([]string{
+		"t.id as id",
+		"t.tag as tag",
+		"t.post_count as r_post_count",
+		"SUM(CAST(tr.co_count AS DOUBLE) / NULLIF(ts.post_count, 0)) as norm_sum",
+		"COUNT(DISTINCT tr.tag_id) as coverage_cnt",
+	}, ", ")
+
 	qb := h.db.Table("tag_relations_daily tr").
-		Select("t.id as id, t.tag as tag, SUM(tr.co_count) as score").
+		Select(selectExpr).
 		Joins("JOIN tags t ON t.id = tr.related_tag_id").
+		Joins("JOIN tags ts ON ts.id = tr.tag_id").
 		Where("tr.tag_id IN ?", srcIDs).
 		Where("tr.bucket_date >= ?", cutoff).
 		Where("t.is_deleted = ?", false).
-		Where("t.view_count >= ?", 5000).
+		Where("t.view_count >= ?", minViewCount).
 		Where("tr.related_tag_id NOT IN ?", srcIDs).
-		Group("t.id, t.tag").
-		Order("score DESC").
-		Limit(limit)
+		Group("t.id, t.tag, t.post_count").
+		Having("COUNT(DISTINCT tr.tag_id) >= ?", minCoverage)
 
-	if err := qb.Find(&rows).Error; err != nil {
-		zap.L().Error("Failed to query related tags", zap.Error(err))
+	if err := qb.Find(&srows).Error; err != nil {
+		zap.L().Error("Failed to query related tags (smart)", zap.Error(err))
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch related tags"})
 	}
 
-	// Build response
-	resp := make([]map[string]interface{}, 0, len(rows))
-	for _, r := range rows {
+	numInputs := float64(len(srcIDs))
+	// Compute final scores and sort
+	type scored struct {
+		ID         string
+		Tag        string
+		NormAvg    float64
+		Coverage   float64
+		FinalScore float64
+	}
+	scoredRows := make([]scored, 0, len(srows))
+	for _, r := range srows {
+		// Safety for division
+		na := 0.0
+		if numInputs > 0 {
+			na = r.NormSum / numInputs
+		}
+		cov := 0.0
+		if numInputs > 0 {
+			cov = float64(r.CoverageCnt) / numInputs
+		}
+		// Popularity shaping: gentle boost to avoid ultra-rare dominating
+		pc := float64(r.RPostCount)
+		if pc < 0 {
+			pc = 0
+		}
+		if pc > 50000 {
+			pc = 50000
+		}
+		popBoost := 1.0
+		// Avoid NaN if log1p(0) -> 0; keep boost >= 1 slightly for non-zero
+		logv := math.Log1p(pc)
+		if logv > 0 {
+			popBoost = math.Pow(logv, 0.2)
+		}
+		final := na * cov * popBoost
+		scoredRows = append(scoredRows, scored{
+			ID:         r.ID,
+			Tag:        r.Tag,
+			NormAvg:    na,
+			Coverage:   cov,
+			FinalScore: final,
+		})
+	}
+
+	sort.Slice(scoredRows, func(i, j int) bool {
+		return scoredRows[i].FinalScore > scoredRows[j].FinalScore
+	})
+
+	if limit > len(scoredRows) {
+		limit = len(scoredRows)
+	}
+	out := scoredRows[:limit]
+
+	resp := make([]map[string]interface{}, 0, len(out))
+	for _, r := range out {
 		resp = append(resp, map[string]interface{}{
-			"id":    r.ID,
-			"tag":   r.Tag,
-			"score": r.Score,
+			"id":         r.ID,
+			"tag":        r.Tag,
+			"normScore":  r.NormAvg,
+			"coverage":   r.Coverage,
+			"finalScore": r.FinalScore,
+			"score":      r.FinalScore, // Back-compat: keep 'score'
 		})
 	}
 
 	return c.JSON(fiber.Map{
 		"tags":         resp,
-		"source":       "precomputed",
-		"windowDays":   14,
-		"minViewCount": 5000,
+		"source":       "computed",
+		"mode":         mode,
+		"windowDays":   windowDays,
+		"minViewCount": minViewCount,
+		"minCoverage":  minCoverage,
 		"usedTagIds":   srcIDs,
 	})
 }
