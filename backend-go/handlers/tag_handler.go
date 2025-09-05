@@ -233,7 +233,7 @@ func (h *TagHandler) GetTags(c *fiber.Ctx) error {
 				ViewCount:            viewCount,
 				PostCount:            tag.PostCount,
 				Rank:                 tag.Rank,
-				Heat:                 tag.Heat,
+				Heat:                 0,
 				FanslyCreatedAt:      ptr(timeToUnix(tag.FanslyCreatedAt)),
 				LastCheckedAt:        timeToUnixPtr(tag.LastCheckedAt),
 				LastUsedForDiscovery: timeToUnixPtr(tag.LastUsedForDiscovery),
@@ -344,7 +344,7 @@ func (h *TagHandler) GetTags(c *fiber.Ctx) error {
 			"viewCount":            viewCount,
 			"postCount":            tag.PostCount,
 			"rank":                 tag.Rank,
-			"heat":                 tag.Heat,
+			"heat":                 0,
 			"fanslyCreatedAt":      ptr(timeToUnix(tag.FanslyCreatedAt)),
 			"lastCheckedAt":        timeToUnixPtr(tag.LastCheckedAt),
 			"lastUsedForDiscovery": timeToUnixPtr(tag.LastUsedForDiscovery),
@@ -445,6 +445,11 @@ func (h *TagHandler) GetBannedTags(c *fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch banned tags"})
 	}
 
+	// Force heat to 0 in responses
+	for i := range tags {
+		tags[i].Heat = 0
+	}
+
 	// Calculate statistics for banned tags
 	var stats struct {
 		TotalBanned   int64 `json:"totalBanned"`
@@ -543,11 +548,6 @@ func (h *TagHandler) RequestTag(c *fiber.Ctx) error {
 		zap.L().Error("Failed to calculate ranks", zap.Error(err))
 	}
 
-	// Calculate heat scores after adding the new tag
-	if err := utils.CalculateTagHeatScores(h.db); err != nil {
-		zap.L().Error("Failed to calculate heat scores", zap.Error(err))
-	}
-
 	// Retrieve the tag again to get the calculated rank and heat
 	var tagWithRank models.Tag
 	if err := h.db.Where("id = ?", newTag.ID).First(&tagWithRank).Error; err != nil {
@@ -558,6 +558,9 @@ func (h *TagHandler) RequestTag(c *fiber.Ctx) error {
 			"tag":     newTag,
 		})
 	}
+
+	// Ensure heat is 0 in response
+	tagWithRank.Heat = 0
 
 	return c.JSON(fiber.Map{
 		"message": "Tag added successfully",
