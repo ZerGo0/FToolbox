@@ -150,19 +150,20 @@ func (w *TagDiscoveryWorker) Run(ctx context.Context) error {
 }
 
 func (w *TagDiscoveryWorker) getTagForDiscovery() (string, error) {
-	// First, try to get a tag from the database that hasn't been used recently
-	hoursAgo := time.Now().Add(-3 * time.Hour)
+    // First, try to get a tag from the database that hasn't been used recently
+    hoursAgo := time.Now().Add(-3 * time.Hour)
 
-	var tags []models.Tag
-	// Get multiple tags that haven't been used recently and aren't deleted, ordered by rank
-	if err := w.db.Where("(last_used_for_discovery IS NULL OR last_used_for_discovery < ?) AND is_deleted = ?", hoursAgo, false).
-		Order("rank ASC").
-		Limit(10).
-		Find(&tags).Error; err == nil && len(tags) > 0 {
-		// Select a random tag from the top 10 to avoid always picking the same one
-		idx := time.Now().Unix() % int64(len(tags))
-		return tags[idx].Tag, nil
-	}
+    var tags []models.Tag
+    // Get multiple tags that haven't been used recently and aren't deleted, ordered by rank
+    if err := w.db.Where("(last_used_for_discovery IS NULL OR last_used_for_discovery < ?) AND is_deleted = ?", hoursAgo, false).
+        Where("tag NOT LIKE ?", "%&%").
+        Order("rank ASC").
+        Limit(10).
+        Find(&tags).Error; err == nil && len(tags) > 0 {
+        // Select a random tag from the top 10 to avoid always picking the same one
+        idx := time.Now().Unix() % int64(len(tags))
+        return tags[idx].Tag, nil
+    }
 
 	// If no suitable database tag, use a random seed tag
 	if len(w.seedTags) > 0 {
@@ -176,17 +177,18 @@ func (w *TagDiscoveryWorker) getTagForDiscovery() (string, error) {
 
 // extractTagsFromSuggestions extracts unique tags from media offer suggestions
 func (w *TagDiscoveryWorker) extractTagsFromSuggestions(suggestions []fansly.MediaOfferSuggestion) []fansly.FanslyTag {
-	tagMap := make(map[string]fansly.FanslyTag)
+    tagMap := make(map[string]fansly.FanslyTag)
 
-	for _, suggestion := range suggestions {
-		for _, tag := range suggestion.PostTags {
-			// Use the tag name as key to ensure uniqueness
-			tagName := strings.ToLower(strings.TrimSpace(tag.Tag))
-			if tagName != "" {
-				tagMap[tagName] = tag
-			}
-		}
-	}
+    for _, suggestion := range suggestions {
+        for _, tag := range suggestion.PostTags {
+            // Use the tag name as key to ensure uniqueness
+            tagName := strings.ToLower(strings.TrimSpace(tag.Tag))
+            // Ignore tags that contain '&' as Fansly truncates them before '&'
+            if tagName != "" && !strings.Contains(tagName, "&") {
+                tagMap[tagName] = tag
+            }
+        }
+    }
 
 	// Convert map to slice
 	tags := make([]fansly.FanslyTag, 0, len(tagMap))
@@ -198,11 +200,15 @@ func (w *TagDiscoveryWorker) extractTagsFromSuggestions(suggestions []fansly.Med
 }
 
 func (w *TagDiscoveryWorker) processDiscoveredTag(tag fansly.FanslyTag) error {
-	// Check if tag already exists
-	var existingTag models.Tag
-	if err := w.db.Where("tag = ?", tag.Tag).First(&existingTag).Error; err == nil {
-		// Tag already exists
-		return nil
+    // Ignore tags that contain '&' as Fansly truncates them before '&'
+    if strings.Contains(tag.Tag, "&") {
+        return nil
+    }
+    // Check if tag already exists
+    var existingTag models.Tag
+    if err := w.db.Where("tag = ?", tag.Tag).First(&existingTag).Error; err == nil {
+        // Tag already exists
+        return nil
 	}
 
 	// Create new tag using the data we already have
@@ -243,14 +249,18 @@ func (w *TagDiscoveryWorker) updateTagRelationsFromSuggestions(ctx context.Conte
 	counts := make(map[key]int64)
 
 	for _, s := range suggestions {
-		// Build a unique set of tag IDs observed in this suggestion
-		seen := make(map[string]struct{})
-		for _, t := range s.PostTags {
-			id := strings.TrimSpace(t.ID)
-			if id == "" {
-				continue
-			}
-			seen[id] = struct{}{}
+        // Build a unique set of tag IDs observed in this suggestion
+        seen := make(map[string]struct{})
+        for _, t := range s.PostTags {
+            // Skip tags that contain '&' to avoid polluted relations
+            if strings.Contains(strings.ToLower(strings.TrimSpace(t.Tag)), "&") {
+                continue
+            }
+            id := strings.TrimSpace(t.ID)
+            if id == "" {
+                continue
+            }
+            seen[id] = struct{}{}
 		}
 		// For all unique tags on this suggestion, generate directed pairs A->B (A != B)
 		if len(seen) == 0 {

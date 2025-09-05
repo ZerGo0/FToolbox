@@ -260,28 +260,28 @@ func (h *TagHandler) GetTags(c *fiber.Ctx) error {
 					ChangePercent:   0,
 				}
 
-        // Calculate change from previous point based on view count
-        if i < len(history)-1 {
-            previousPoint := history[i+1]
-            // Calculate view count change as primary metric
-            viewChange := point.ViewCount - previousPoint.ViewCount
-            historyPoints[i].Change = viewChange
+				// Calculate change from previous point based on view count
+				if i < len(history)-1 {
+					previousPoint := history[i+1]
+					// Calculate view count change as primary metric
+					viewChange := point.ViewCount - previousPoint.ViewCount
+					historyPoints[i].Change = viewChange
 
-            // Still track post count change for reference
-            postChange := point.PostCount - previousPoint.PostCount
-            historyPoints[i].PostCountChange = postChange
-            if previousPoint.ViewCount > 0 {
-                historyPoints[i].ChangePercent = float64(viewChange) / float64(previousPoint.ViewCount) * 100
-            }
-        }
-        }
+					// Still track post count change for reference
+					postChange := point.PostCount - previousPoint.PostCount
+					historyPoints[i].PostCountChange = postChange
+					if previousPoint.ViewCount > 0 {
+						historyPoints[i].ChangePercent = float64(viewChange) / float64(previousPoint.ViewCount) * 100
+					}
+				}
+			}
 
-        // Calculate total change based on view count
-        if len(history) > 0 {
-            newest := history[0].ViewCount
-            oldest := history[len(history)-1].ViewCount
-            tagWithHist.TotalChange = newest - oldest
-        }
+			// Calculate total change based on view count
+			if len(history) > 0 {
+				newest := history[0].ViewCount
+				oldest := history[len(history)-1].ViewCount
+				tagWithHist.TotalChange = newest - oldest
+			}
 
 			if includeHistory {
 				tagWithHist.History = historyPoints
