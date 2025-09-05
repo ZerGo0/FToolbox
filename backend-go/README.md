@@ -41,18 +41,17 @@ Query params:
 
 - `tags` (required): comma-separated tag names to base the recommendations on.
 - `limit` (optional): number of results to return (default 10, max 20).
-- `mode` (optional): scoring mode. Supported: `smart` (default), `popular`.
 - `windowDays` (optional): lookback window in days. Default 14, clamped to [7, 30].
 - `minViewCount` (optional): minimum `view_count` for candidate tags. Default 5000.
-- `minCoverage` (optional, smart mode): minimum number of input tags a candidate must co-occur with. Default is ceil(40% of inputs).
+- `minCoverage` (optional): minimum number of input tags a candidate must co-occur with. Default is ceil(40% of inputs).
 
 Responses include per-tag fields:
 
 - `id`, `tag`
-- `score`: numeric score (equals `finalScore` in smart mode)
-- `normScore`, `coverage`, `finalScore` (smart mode only)
+- `score`: numeric score (equals `finalScore`)
+- `normScore`, `coverage`, `finalScore`
 
 Top-level metadata:
 
-- `source`: `computed` for smart mode, `precomputed` for popular
+- `source`: `computed`
 - `mode`, `windowDays`, `minViewCount`, `minCoverage`, `usedTagIds`

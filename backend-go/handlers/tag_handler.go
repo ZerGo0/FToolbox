@@ -566,9 +566,7 @@ func (h *TagHandler) RequestTag(c *fiber.Ctx) error {
 }
 
 // GetRelatedTags returns related tags based on co-usage observed in a recent window
-// Modes:
-// - smart (default): per-source normalization, coverage weighting, light popularity shaping
-// - popular: legacy mode, sums co-occurrence counts
+// Smart scoring: per-source normalization, coverage weighting, light popularity shaping
 func (h *TagHandler) GetRelatedTags(c *fiber.Ctx) error {
 	// Parse inputs
 	tagsParam := c.Query("tags", "")
@@ -583,10 +581,8 @@ func (h *TagHandler) GetRelatedTags(c *fiber.Ctx) error {
 		limit = 20
 	}
 
-	mode := strings.ToLower(strings.TrimSpace(c.Query("mode", "smart")))
-	if mode != "smart" && mode != "popular" {
-		mode = "smart"
-	}
+	// Legacy "popular" mode removed; force smart mode
+	mode := "smart"
 
 	windowDays, _ := strconv.Atoi(c.Query("windowDays", "14"))
 	if windowDays < 7 {
@@ -631,50 +627,7 @@ func (h *TagHandler) GetRelatedTags(c *fiber.Ctx) error {
 	// Cutoff date for window (use date-only)
 	cutoff := time.Now().UTC().AddDate(0, 0, -windowDays).Truncate(24 * time.Hour)
 
-	if mode == "popular" {
-		// Legacy behavior: sum co-occurrence counts
-		type row struct {
-			ID    string `json:"id"`
-			Tag   string `json:"tag"`
-			Score int64  `json:"score"`
-		}
-		var rows []row
-
-		qb := h.db.Table("tag_relations_daily tr").
-			Select("t.id as id, t.tag as tag, SUM(tr.co_count) as score").
-			Joins("JOIN tags t ON t.id = tr.related_tag_id").
-			Where("tr.tag_id IN ?", srcIDs).
-			Where("tr.bucket_date >= ?", cutoff).
-			Where("t.is_deleted = ?", false).
-			Where("t.view_count >= ?", minViewCount).
-			Where("tr.related_tag_id NOT IN ?", srcIDs).
-			Group("t.id, t.tag").
-			Order("score DESC").
-			Limit(limit)
-
-		if err := qb.Find(&rows).Error; err != nil {
-			zap.L().Error("Failed to query related tags (popular)", zap.Error(err))
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch related tags"})
-		}
-
-		resp := make([]map[string]interface{}, 0, len(rows))
-		for _, r := range rows {
-			resp = append(resp, map[string]interface{}{
-				"id":    r.ID,
-				"tag":   r.Tag,
-				"score": r.Score,
-			})
-		}
-
-		return c.JSON(fiber.Map{
-			"tags":         resp,
-			"source":       "precomputed",
-			"mode":         mode,
-			"windowDays":   windowDays,
-			"minViewCount": minViewCount,
-			"usedTagIds":   srcIDs,
-		})
-	}
+	// Legacy "popular" mode branch removed
 
 	// Smart mode: per-source normalization + coverage weighting
 	// minCoverage: default to ceil(40% of inputs), bounded to [1, len(inputs)]
@@ -695,11 +648,11 @@ func (h *TagHandler) GetRelatedTags(c *fiber.Ctx) error {
 
 	// Query base aggregates; compute popularity shaping and final score in Go for portability
 	type smartRow struct {
-		ID           string  `json:"id"`
-		Tag          string  `json:"tag"`
-		RPostCount   int64   `json:"rPostCount"`
-		NormSum      float64 `json:"normSum"`
-		CoverageCnt  int64   `json:"coverageCnt"`
+		ID          string  `json:"id"`
+		Tag         string  `json:"tag"`
+		RPostCount  int64   `json:"rPostCount"`
+		NormSum     float64 `json:"normSum"`
+		CoverageCnt int64   `json:"coverageCnt"`
 	}
 	var srows []smartRow
 
