@@ -70,7 +70,7 @@ func main() {
 		}
 	}
 
-    // Heat calculation removed; backend will always return heat = 0
+	// Heat calculation removed; backend will always return heat = 0
 
 	// Calculate initial ranks for creators if needed
 	var creatorCount int64

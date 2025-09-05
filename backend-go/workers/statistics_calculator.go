@@ -76,15 +76,15 @@ func (w *StatisticsCalculatorWorker) calculateTagStatistics(ctx context.Context)
 		return fmt.Errorf("failed to fetch previous statistics: %w", err)
 	}
 
-	// Calculate 24-hour changes based on post count
-	var change24h int64
-	var changePercent24h float64
-	if previousStats.ID != 0 {
-		change24h = totalPostCount - previousStats.TotalPostCount
-		if previousStats.TotalPostCount > 0 {
-			changePercent24h = (float64(change24h) / float64(previousStats.TotalPostCount)) * 100
-		}
-	}
+    // Calculate 24-hour changes based on view count
+    var change24h int64
+    var changePercent24h float64
+    if previousStats.ID != 0 {
+        change24h = totalViewCount - previousStats.TotalViewCount
+        if previousStats.TotalViewCount > 0 {
+            changePercent24h = (float64(change24h) / float64(previousStats.TotalViewCount)) * 100
+        }
+    }
 
 	// Create new statistics record
 	newStats := models.TagStatistics{

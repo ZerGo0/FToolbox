@@ -1,7 +1,7 @@
 package utils
 
 import (
-    "gorm.io/gorm"
+	"gorm.io/gorm"
 )
 
 // CalculateTagRanks recalculates ranks for all tags

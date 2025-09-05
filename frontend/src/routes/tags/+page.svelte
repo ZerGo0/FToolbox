@@ -214,17 +214,17 @@
     updateDateRangeParams();
   }
 
-  // Calculate change from history data based on post count
+  // Calculate change from history data based on view count
   function getTagChange(tag: { history?: Array<{ viewCount: number; postCount: number }> }) {
     if (!tag.history || tag.history.length === 0) {
       return { change: 0, percentage: 0 };
     }
 
     // History is in descending order (newest first)
-    const newestPostCount = tag.history[0].postCount || 0;
-    const oldestPostCount = tag.history[tag.history.length - 1].postCount || 0;
-    const totalChange = newestPostCount - oldestPostCount;
-    const percentage = oldestPostCount > 0 ? (totalChange / oldestPostCount) * 100 : 0;
+    const newestViewCount = tag.history[0].viewCount || 0;
+    const oldestViewCount = tag.history[tag.history.length - 1].viewCount || 0;
+    const totalChange = newestViewCount - oldestViewCount;
+    const percentage = oldestViewCount > 0 ? (totalChange / oldestViewCount) * 100 : 0;
 
     return { change: totalChange, percentage };
   }
@@ -261,13 +261,13 @@
       <CardContent>
         <div class="grid gap-4 sm:grid-cols-2">
           <div class="space-y-2">
-            <p class="text-muted-foreground text-sm">Total Posts</p>
+            <p class="text-muted-foreground text-sm">Total Views</p>
             <p class="text-2xl font-bold sm:text-3xl">
-              {formatNumber(data.statistics.totalPostCount || 0)}
+              {formatNumber(data.statistics.totalViewCount || 0)}
             </p>
           </div>
           <div class="space-y-2 sm:text-right">
-            <p class="text-muted-foreground text-sm">24-hour Post Change</p>
+            <p class="text-muted-foreground text-sm">24-hour View Change</p>
             {#if data.statistics.change24h !== 0}
               <div class="flex items-center gap-1 sm:justify-end">
                 {#if data.statistics.change24h > 0}
@@ -417,7 +417,7 @@
                     {/if}
                   </button>
                 </TableHead>
-                
+
                 <TableHead>
                   <button
                     class="hover:text-foreground flex items-center gap-1 transition-colors"

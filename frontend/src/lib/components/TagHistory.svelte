@@ -338,7 +338,7 @@
   </CardHeader>
   <CardContent>
     <div class="space-y-4">
-      <div class="relative h-80">
+      <div class="relative h-80 w-full">
         <canvas bind:this={chartCanvas} class="h-full w-full"></canvas>
         {#if historyWithDates.length === 0}
           <div class="pointer-events-none absolute inset-0 flex items-center justify-center">
