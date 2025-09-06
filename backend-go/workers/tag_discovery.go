@@ -126,8 +126,8 @@ func (w *TagDiscoveryWorker) Run(ctx context.Context) error {
 		zap.L().Error("Failed to update tag relations", zap.Error(err))
 	}
 
-	// Purge old relation buckets beyond 14 days
-	if err := w.purgeOldTagRelations(14); err != nil {
+	// Purge old relation buckets beyond 2 days
+	if err := w.purgeOldTagRelations(2); err != nil {
 		zap.L().Error("Failed to purge old tag relations", zap.Error(err))
 	}
 
