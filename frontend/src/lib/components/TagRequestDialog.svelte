@@ -41,11 +41,16 @@
         body: JSON.stringify({ tag: tagInput.trim().replace(/^#/, '') })
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to request tag');
+        const ratelimited = response.status === 429;
+        if (ratelimited) {
+          throw new Error('You are sending too many requests. Please try again later.');
+        }
+
+        throw new Error('Failed to request tag');
       }
+
+      const data = await response.json();
 
       success = data.message || 'Tag requested successfully';
       const searchTag = tagInput.trim().replace(/^#/, '');

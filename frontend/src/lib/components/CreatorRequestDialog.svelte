@@ -56,11 +56,16 @@
         body: JSON.stringify({ username })
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to request creator');
+        const ratelimited = response.status === 429;
+        if (ratelimited) {
+          throw new Error('You are sending too many requests. Please try again later.');
+        }
+
+        throw new Error('Failed to request creator');
       }
+
+      const data = await response.json();
 
       success = data.message || 'Creator requested successfully';
       usernameInput = '';
