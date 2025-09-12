@@ -11,11 +11,13 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/compress"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/etag"
+	"github.com/gofiber/fiber/v2/middleware/limiter"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"go.uber.org/zap"
 )
@@ -150,6 +152,14 @@ func main() {
 	}()
 
 	app := fiber.New(fiber.Config{
+		// Trust proxy header for real client IP (set by nginx)
+		ProxyHeader: fiber.HeaderXForwardedFor,
+		// Only consider proxy headers from private networks / localhost
+		EnableTrustedProxyCheck: true,
+		TrustedProxies: []string{
+			"127.0.0.1", "::1",
+			"10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16",
+		},
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
 			code := fiber.StatusInternalServerError
 			if e, ok := err.(*fiber.Error); ok {
@@ -171,6 +181,24 @@ func main() {
 		Level: compress.LevelBestSpeed,
 	}))
 	app.Use(etag.New())
+
+	// Per-client HTTP rate limiter
+	app.Use(limiter.New(limiter.Config{
+		Max:        cfg.HTTPRateLimitMax,
+		Expiration: time.Duration(cfg.HTTPRateLimitWindow) * time.Second,
+		KeyGenerator: func(c *fiber.Ctx) string {
+			return c.IP()
+		},
+		Next: func(c *fiber.Ctx) bool {
+			// Don't rate limit health checks
+			return c.Path() == "/api/health"
+		},
+		LimitReached: func(c *fiber.Ctx) error {
+			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
+				"error": "Rate limit exceeded",
+			})
+		},
+	}))
 
 	routes.Setup(app, db, workerManager, fanslyClient)
 

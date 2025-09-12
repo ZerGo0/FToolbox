@@ -22,6 +22,8 @@ type Config struct {
 	WorkerStatisticsInterval int
 	GlobalRateLimit          int
 	GlobalRateLimitWindow    int
+	HTTPRateLimitMax         int
+	HTTPRateLimitWindow      int
 }
 
 func Load() *Config {
@@ -42,6 +44,9 @@ func Load() *Config {
 		WorkerStatisticsInterval: getEnvInt("WORKER_STATISTICS_INTERVAL", 3600000), // Default to 1 hour
 		GlobalRateLimit:          getEnvInt("FANSLY_GLOBAL_RATE_LIMIT", 50),
 		GlobalRateLimitWindow:    getEnvInt("FANSLY_GLOBAL_RATE_LIMIT_WINDOW", 10),
+		// Fiber (incoming HTTP) rate limiter
+		HTTPRateLimitMax:    getEnvInt("HTTP_RATE_LIMIT_MAX", 120),
+		HTTPRateLimitWindow: getEnvInt("HTTP_RATE_LIMIT_WINDOW", 60),
 	}
 }
 
