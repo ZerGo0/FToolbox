@@ -176,6 +176,9 @@ func main() {
 	app.Use(limiter.New(limiter.Config{
 		Max:        60,
 		Expiration: 1 * time.Minute,
+		KeyGenerator: func(c *fiber.Ctx) string {
+			return c.Get("X-Forwarded-For")
+		},
 	}))
 
 	routes.Setup(app, db, workerManager, fanslyClient)
