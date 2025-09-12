@@ -24,7 +24,7 @@ func Setup(app *fiber.App, db *gorm.DB, workerManager *workers.WorkerManager, fa
 	api.Get("/tags/statistics", tagHandler.GetTagStatistics)
 	api.Get("/tags/related", tagHandler.GetRelatedTags)
 	api.Use("/tags/request", limiter.New(limiter.Config{
-		Max:        5,
+		Max:        2,
 		Expiration: 1 * time.Minute,
 		KeyGenerator: func(c *fiber.Ctx) string {
 			return c.Get("X-Forwarded-For")
@@ -36,7 +36,7 @@ func Setup(app *fiber.App, db *gorm.DB, workerManager *workers.WorkerManager, fa
 	api.Get("/creators", creatorHandler.GetCreators)
 	api.Get("/creators/statistics", creatorHandler.GetCreatorStatistics)
 	api.Use("/creators/request", limiter.New(limiter.Config{
-		Max:        5,
+		Max:        2,
 		Expiration: 1 * time.Minute,
 		KeyGenerator: func(c *fiber.Ctx) string {
 			return c.Get("X-Forwarded-For")
