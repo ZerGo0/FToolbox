@@ -321,6 +321,11 @@ func (h *CreatorHandler) RequestCreator(c *fiber.Ctx) error {
 	fanslyAccount, err := h.fanslyClient.GetAccountByUsername(c.Context(), req.Username)
 
 	if err != nil || fanslyAccount == nil {
+		if err != nil {
+			zap.L().Error("Failed to fetch creator data from Fansly", zap.Error(err))
+		} else {
+			zap.L().Warn("DEBUGDEBUGDEBUGDEBUG Creator not found on Fansly")
+		}
 		return c.Status(404).JSON(fiber.Map{"error": "Creator not found on Fansly"})
 	}
 
