@@ -343,6 +343,9 @@ func (c *Client) GetAccountByUsername(ctx context.Context, username string) (*Fa
 		return nil, err
 	}
 
+	rawResponse := string(body)
+	zap.L().Info("Raw response", zap.String("response", rawResponse))
+
 	var response struct {
 		Success  bool            `json:"success"`
 		Response []FanslyAccount `json:"response"`
