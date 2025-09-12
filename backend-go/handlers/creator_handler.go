@@ -295,7 +295,7 @@ func (h *CreatorHandler) GetCreatorStatistics(c *fiber.Ctx) error {
 }
 
 func (h *CreatorHandler) RequestCreator(c *fiber.Ctx) error {
-	zap.L().Info("Requesting creator", zap.String("ip", c.IP()))
+	zap.L().Info("Requesting creator", zap.String("ip", c.Get("X-Forwarded-For")))
 
 	var req struct {
 		Username string `json:"username"`
