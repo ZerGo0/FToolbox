@@ -8,8 +8,8 @@ export function shouldShowFBuddyToast(): boolean {
   if (!browser) return false;
 
   // 15% chance to show
-  const random = Math.random();
-  if (random > 0.15) return false;
+  //const random = Math.random();
+  //if (random > 0.15) return false;
 
   // Check cooldown
   const lastShown = localStorage.getItem(STORAGE_KEY);
@@ -27,7 +27,7 @@ export function showFBuddyToast() {
   localStorage.setItem(STORAGE_KEY, Date.now().toString());
 
   toast('FBuddy: Browser extension for Fansly creators', {
-    description: 'Visit FBuddy.net (our landing page) to learn more and install.',
+    description: 'Visit FBuddy.net to learn more.',
     duration: 12000,
     position: 'bottom-right',
     dismissable: true,
