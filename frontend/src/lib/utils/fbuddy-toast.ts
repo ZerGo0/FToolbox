@@ -1,6 +1,5 @@
 import { toast } from 'svelte-sonner';
 import { browser } from '$app/environment';
-import FBuddyToast from '$lib/components/FBuddyToast.svelte';
 
 const STORAGE_KEY = 'fbuddy-toast-last-shown';
 const COOLDOWN_HOURS = 24;
@@ -27,10 +26,17 @@ export function showFBuddyToast() {
 
   localStorage.setItem(STORAGE_KEY, Date.now().toString());
 
-  toast.custom(FBuddyToast, {
-    duration: 15000,
+  toast('FBuddy: Powerful Fansly analytics and workflow tools', {
+    description: 'Open FBuddy to explore features built for creators.',
+    duration: 12000,
     position: 'bottom-right',
-    dismissable: true
+    dismissable: true,
+    action: {
+      label: 'Open FBuddy',
+      onClick: () => {
+        window.open('https://fbuddy.net/', '_blank', 'noopener,noreferrer');
+      }
+    }
   });
 }
 
