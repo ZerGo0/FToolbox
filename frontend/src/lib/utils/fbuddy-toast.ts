@@ -26,15 +26,16 @@ export function showFBuddyToast() {
 
   localStorage.setItem(STORAGE_KEY, Date.now().toString());
 
-  toast('FBuddy: Powerful Fansly analytics and workflow tools', {
-    description: 'Open FBuddy to explore features built for creators.',
+  toast('FBuddy: Browser extension for Fansly creators', {
+    description: 'Visit FBuddy.net (our landing page) to learn more and install.',
     duration: 12000,
     position: 'bottom-right',
     dismissable: true,
     action: {
-      label: 'Open FBuddy',
+      label: 'Visit FBuddy.net',
       onClick: () => {
-        window.open('https://fbuddy.net/', '_blank', 'noopener,noreferrer');
+        // Keep referrer by omitting `noreferrer`, retain `noopener` for safety
+        window.open('https://fbuddy.net/', '_blank', 'noopener');
       }
     }
   });
