@@ -9,6 +9,7 @@
   import '../app.css';
 
   let { children } = $props();
+  console.log('hello world');
 
   onNavigate((navigation) => {
     if (!document.startViewTransition) return;
