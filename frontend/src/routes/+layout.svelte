@@ -6,6 +6,7 @@
   import { SidebarProvider, SidebarTrigger } from '$lib/components/ui/sidebar';
   import { Toaster } from '$lib/components/ui/sonner';
   import { ModeWatcher } from 'mode-watcher';
+  import TestComponent from '$lib/components/TestComponent.svelte';
   import '../app.css';
 
   let { children } = $props();
@@ -35,6 +36,7 @@
         <DynamicBreadcrumbs />
       </div>
       <div class="p-6">
+        <TestComponent />
         {@render children()}
       </div>
     </main>
