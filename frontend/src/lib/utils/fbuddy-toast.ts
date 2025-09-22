@@ -1,5 +1,5 @@
-import { toast } from 'svelte-sonner';
 import { browser } from '$app/environment';
+import { toast } from 'svelte-sonner';
 
 const STORAGE_KEY = 'fbuddy-toast-last-shown';
 const COOLDOWN_HOURS = 24;
@@ -27,10 +27,10 @@ export function showFBuddyToast() {
   localStorage.setItem(STORAGE_KEY, Date.now().toString());
 
   toast('FBuddy: Browser extension for Fansly creators', {
-    description: 'Visit FBuddy.net to learn more.',
     duration: 12000,
     position: 'bottom-right',
     dismissable: true,
+    closeButton: true,
     action: {
       label: 'Visit FBuddy.net',
       onClick: () => {
