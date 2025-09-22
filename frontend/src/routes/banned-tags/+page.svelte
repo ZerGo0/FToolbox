@@ -1,9 +1,8 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { page, navigating } from '$app/stores';
+  import { navigating, page } from '$app/stores';
   import { Badge } from '$lib/components/ui/badge';
   import { Button } from '$lib/components/ui/button';
-  import * as Tooltip from '$lib/components/ui/tooltip';
   import {
     Card,
     CardContent,
@@ -22,15 +21,15 @@
     TableRow
   } from '$lib/components/ui/table';
   import {
+    AlertCircle,
     ArrowDown,
     ArrowUp,
     ArrowUpDown,
-    Search,
-    AlertCircle,
     ChevronLeft,
     ChevronRight,
     ChevronsLeft,
-    ChevronsRight
+    ChevronsRight,
+    Search
   } from 'lucide-svelte';
   import { toast } from 'svelte-sonner';
 
@@ -132,11 +131,6 @@
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays;
   }
-
-  function isRecentlyBanned(timestamp: number | null | undefined): boolean {
-    if (!timestamp) return false;
-    return daysSinceBan(timestamp) <= 7;
-  }
 </script>
 
 <div class="space-y-6">
@@ -206,7 +200,7 @@
         <div class="flex flex-1 gap-2">
           <div class="relative flex-1">
             <Search
-              class="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2"
+              class="text-muted-foreground absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2"
             />
             <input
               bind:this={searchInputElement}
@@ -218,7 +212,7 @@
                   handleSearch();
                 }
               }}
-              class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 pl-9 text-sm file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+              class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 pl-9 text-sm file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             />
           </div>
           <Button onclick={handleSearch} variant="default" size="default" class="h-10">
@@ -315,22 +309,10 @@
                   <TableCell class="font-medium">
                     <div class="flex items-center gap-2">
                       <Badge variant="destructive">#{tag.tag}</Badge>
-                      {#if isRecentlyBanned(tag.deletedDetectedAt)}
-                        <Tooltip.Root>
-                          <Tooltip.Trigger>
-                            <Badge variant="outline" class="border-red-500 text-red-500">New</Badge>
-                          </Tooltip.Trigger>
-                          <Tooltip.Content>Recently banned (within last 7 days)</Tooltip.Content>
-                        </Tooltip.Root>
-                      {/if}
                     </div>
                   </TableCell>
                   <TableCell>
-                    <span
-                      class={isRecentlyBanned(tag.deletedDetectedAt)
-                        ? 'font-semibold text-red-500'
-                        : ''}
-                    >
+                    <span>
                       {formatDate(tag.deletedDetectedAt)}
                     </span>
                   </TableCell>
