@@ -423,7 +423,7 @@
                     class="hover:text-foreground flex items-center gap-1 transition-colors"
                     onclick={() => handleSort('change')}
                   >
-                    Change
+                    Views Change
                     {#if data.sortBy === 'change'}
                       {#if data.sortOrder === 'desc'}
                         <ArrowDown class="h-4 w-4" />

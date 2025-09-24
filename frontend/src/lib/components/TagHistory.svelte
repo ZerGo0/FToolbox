@@ -283,7 +283,7 @@
                     },
                     title: {
                       display: true,
-                      text: 'Change',
+                      text: 'Views Change',
                       color: 'rgb(107, 114, 128)',
                       font: {
                         size: 12
@@ -388,7 +388,7 @@
                 <tr>
                   <th class="py-2 text-left">Date</th>
                   <th class="py-2 text-right">View Count</th>
-                  <th class="py-2 text-right">Change</th>
+                  <th class="py-2 text-right">Views Change</th>
                   <th class="py-2 text-right">Post Count</th>
                   <th class="py-2 text-right">Post Change</th>
                 </tr>
