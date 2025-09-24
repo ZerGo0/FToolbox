@@ -155,7 +155,7 @@
               pointHoverBackgroundColor: 'rgb(251, 146, 60)',
               pointHoverBorderColor: '#fff',
               pointHoverBorderWidth: 2,
-              yAxisID: 'y'
+              yAxisID: 'y2'
             }
           ]
         },
@@ -291,7 +291,39 @@
                     }
                   }
                 }
-              : {})
+              : {}),
+            y2: {
+              type: 'linear',
+              display: true,
+              position: 'right',
+              beginAtZero: false,
+              grid: {
+                drawOnChartArea: false
+              },
+              border: {
+                display: false
+              },
+              ticks: {
+                color: 'rgb(251, 146, 60)',
+                font: {
+                  size: 11
+                },
+                callback: function (value) {
+                  return new Intl.NumberFormat('en-US', {
+                    notation: 'compact',
+                    compactDisplay: 'short'
+                  }).format(value as number);
+                }
+              },
+              title: {
+                display: true,
+                text: 'Post Count',
+                color: 'rgb(251, 146, 60)',
+                font: {
+                  size: 12
+                }
+              }
+            }
           }
         }
       });
@@ -357,7 +389,7 @@
                   <th class="py-2 text-left">Date</th>
                   <th class="py-2 text-right">View Count</th>
                   <th class="py-2 text-right">Change</th>
-                  <th class="py-2 text-right">Posts</th>
+                  <th class="py-2 text-right">Post Count</th>
                   <th class="py-2 text-right">Post Change</th>
                 </tr>
               </thead>

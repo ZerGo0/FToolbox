@@ -405,7 +405,7 @@
                     class="hover:text-foreground flex items-center gap-1 transition-colors"
                     onclick={() => handleSort('postCount')}
                   >
-                    Posts
+                    Post Count
                     {#if data.sortBy === 'postCount'}
                       {#if data.sortOrder === 'desc'}
                         <ArrowDown class="h-4 w-4" />
