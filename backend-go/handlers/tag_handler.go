@@ -373,11 +373,13 @@ func (h *TagHandler) GetTagStatistics(c *fiber.Ctx) error {
 		if err == gorm.ErrRecordNotFound {
 			// No statistics exist yet, return zeros
 			return c.JSON(fiber.Map{
-				"totalViewCount":   0,
-				"totalPostCount":   0,
-				"change24h":        0,
-				"changePercent24h": 0,
-				"calculatedAt":     nil,
+				"totalViewCount":       0,
+				"totalPostCount":       0,
+				"change24h":            0,
+				"changePercent24h":     0,
+				"postChange24h":        0,
+				"postChangePercent24h": 0,
+				"calculatedAt":         nil,
 			})
 		}
 		zap.L().Error("Failed to fetch tag statistics", zap.Error(err))
@@ -386,13 +388,14 @@ func (h *TagHandler) GetTagStatistics(c *fiber.Ctx) error {
 		})
 	}
 
-	// Return the statistics with post count as primary metric
 	return c.JSON(fiber.Map{
-		"totalViewCount":   stats.TotalViewCount,
-		"totalPostCount":   stats.TotalPostCount,
-		"change24h":        stats.Change24h,
-		"changePercent24h": stats.ChangePercent24h,
-		"calculatedAt":     stats.CalculatedAt.Unix(),
+		"totalViewCount":       stats.TotalViewCount,
+		"totalPostCount":       stats.TotalPostCount,
+		"change24h":            stats.Change24h,
+		"changePercent24h":     stats.ChangePercent24h,
+		"postChange24h":        stats.PostChange24h,
+		"postChangePercent24h": stats.PostChangePercent24h,
+		"calculatedAt":         stats.CalculatedAt.Unix(),
 	})
 }
 

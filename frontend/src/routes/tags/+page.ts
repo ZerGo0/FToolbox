@@ -43,6 +43,8 @@ interface TagStatistics {
   totalPostCount: number;
   change24h: number;
   changePercent24h: number;
+  postChange24h: number;
+  postChangePercent24h: number;
   calculatedAt: number | null;
 }
 
@@ -92,6 +94,8 @@ export const load: PageLoad = async ({ fetch, url }) => {
       totalPostCount: 0,
       change24h: 0,
       changePercent24h: 0,
+      postChange24h: 0,
+      postChangePercent24h: 0,
       calculatedAt: null
     };
 
@@ -131,6 +135,8 @@ export const load: PageLoad = async ({ fetch, url }) => {
         totalPostCount: 0,
         change24h: 0,
         changePercent24h: 0,
+        postChange24h: 0,
+        postChangePercent24h: 0,
         calculatedAt: null
       },
       search,
