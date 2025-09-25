@@ -259,17 +259,15 @@
         <CardDescription>Platform-wide tag performance metrics</CardDescription>
       </CardHeader>
       <CardContent>
-        <div class="grid gap-4 sm:grid-cols-2">
-          <div class="space-y-2">
+        <div class="flex flex-col gap-4 lg:flex-row lg:justify-between">
+          <div class="space-y-2 lg:flex-1">
             <p class="text-muted-foreground text-sm">Total Views</p>
             <p class="text-2xl font-bold sm:text-3xl">
               {formatNumber(data.statistics.totalViewCount || 0)}
             </p>
-          </div>
-          <div class="space-y-2 sm:text-right">
-            <p class="text-muted-foreground text-sm">24-hour View Change</p>
+            <p class="text-muted-foreground text-sm">24-hour Change</p>
             {#if data.statistics.change24h !== 0}
-              <div class="flex items-center gap-1 sm:justify-end">
+              <div class="flex items-center gap-1">
                 {#if data.statistics.change24h > 0}
                   <TrendingUp class="h-4 w-4 text-green-500" />
                   <span class="text-sm font-semibold text-green-500">
@@ -285,6 +283,36 @@
                   ({data.statistics.changePercent24h > 0
                     ? '+'
                     : ''}{data.statistics.changePercent24h.toFixed(2)}%)
+                </span>
+              </div>
+            {:else}
+              <p class="text-muted-foreground text-sm">No change</p>
+            {/if}
+          </div>
+
+          <div class="space-y-2 lg:flex-1 lg:text-right">
+            <p class="text-muted-foreground text-sm">Total Posts</p>
+            <p class="text-2xl font-bold sm:text-3xl">
+              {formatNumber(data.statistics.totalPostCount || 0)}
+            </p>
+            <p class="text-muted-foreground text-sm">24-hour Change</p>
+            {#if data.statistics.postChange24h !== 0}
+              <div class="flex items-center gap-1 lg:justify-end">
+                {#if data.statistics.postChange24h > 0}
+                  <TrendingUp class="h-4 w-4 text-green-500" />
+                  <span class="text-sm font-semibold text-green-500">
+                    +{formatNumber(data.statistics.postChange24h)}
+                  </span>
+                {:else}
+                  <TrendingDown class="h-4 w-4 text-red-500" />
+                  <span class="text-sm font-semibold text-red-500">
+                    {formatNumber(data.statistics.postChange24h)}
+                  </span>
+                {/if}
+                <span class="text-muted-foreground text-sm">
+                  ({data.statistics.postChangePercent24h > 0
+                    ? '+'
+                    : ''}{data.statistics.postChangePercent24h.toFixed(2)}%)
                 </span>
               </div>
             {:else}

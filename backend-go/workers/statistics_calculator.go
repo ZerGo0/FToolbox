@@ -79,20 +79,28 @@ func (w *StatisticsCalculatorWorker) calculateTagStatistics(ctx context.Context)
 	// Calculate 24-hour changes based on view count
 	var change24h int64
 	var changePercent24h float64
+	var postChange24h int64
+	var postChangePercent24h float64
 	if previousStats.ID != 0 {
 		change24h = totalViewCount - previousStats.TotalViewCount
 		if previousStats.TotalViewCount > 0 {
 			changePercent24h = (float64(change24h) / float64(previousStats.TotalViewCount)) * 100
 		}
+		postChange24h = totalPostCount - previousStats.TotalPostCount
+		if previousStats.TotalPostCount > 0 {
+			postChangePercent24h = (float64(postChange24h) / float64(previousStats.TotalPostCount)) * 100
+		}
 	}
 
 	// Create new statistics record
 	newStats := models.TagStatistics{
-		TotalViewCount:   totalViewCount,
-		TotalPostCount:   totalPostCount,
-		Change24h:        change24h,
-		ChangePercent24h: changePercent24h,
-		CalculatedAt:     time.Now(),
+		TotalViewCount:       totalViewCount,
+		TotalPostCount:       totalPostCount,
+		Change24h:            change24h,
+		ChangePercent24h:     changePercent24h,
+		PostChange24h:        postChange24h,
+		PostChangePercent24h: postChangePercent24h,
+		CalculatedAt:         time.Now(),
 	}
 
 	if err := tx.Create(&newStats).Error; err != nil {
@@ -109,7 +117,9 @@ func (w *StatisticsCalculatorWorker) calculateTagStatistics(ctx context.Context)
 		zap.Int64("totalViewCount", totalViewCount),
 		zap.Int64("totalPostCount", totalPostCount),
 		zap.Int64("change24h", change24h),
-		zap.Float64("changePercent24h", changePercent24h))
+		zap.Float64("changePercent24h", changePercent24h),
+		zap.Int64("postChange24h", postChange24h),
+		zap.Float64("postChangePercent24h", postChangePercent24h))
 
 	return nil
 }
