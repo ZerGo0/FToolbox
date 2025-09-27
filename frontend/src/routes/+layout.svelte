@@ -25,9 +25,9 @@
 <ModeWatcher />
 <Toaster />
 <SidebarProvider>
-  <div class="flex h-screen w-full">
+  <div class="flex min-h-0 w-full flex-1">
     <AppSidebar />
-    <main class="flex-1 overflow-auto">
+    <main class="flex min-h-0 flex-1 overflow-y-auto">
       <div class="flex h-14 items-center gap-4 border-b px-4">
         <SidebarTrigger />
         <Separator orientation="vertical" />
