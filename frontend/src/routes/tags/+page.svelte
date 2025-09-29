@@ -349,7 +349,7 @@
         <div class="flex flex-1 gap-2">
           <div class="relative flex-1">
             <Search
-              class="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2"
+              class="text-muted-foreground absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2"
             />
             <input
               bind:this={searchInputElement}
@@ -361,7 +361,7 @@
                   handleSearch();
                 }
               }}
-              class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 pl-9 text-sm file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+              class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 pl-9 text-sm file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             />
           </div>
           <Button onclick={handleSearch} variant="default" size="default" class="h-10">
@@ -604,7 +604,6 @@
                 <Pagination.Item>
                   <Pagination.PrevButton class="h-9 px-3">
                     <ChevronLeft class="h-4 w-4" />
-                    <span class="sr-only sm:not-sr-only sm:ml-1">Previous</span>
                   </Pagination.PrevButton>
                 </Pagination.Item>
 
@@ -685,7 +684,6 @@
                 <!-- Next -->
                 <Pagination.Item>
                   <Pagination.NextButton class="h-9 px-3">
-                    <span class="sr-only sm:not-sr-only sm:mr-1">Next</span>
                     <ChevronRight class="h-4 w-4" />
                   </Pagination.NextButton>
                 </Pagination.Item>

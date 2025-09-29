@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import {
     Card,
     CardContent,
@@ -7,8 +6,9 @@
     CardHeader,
     CardTitle
   } from '$lib/components/ui/card';
-  import { Clock, Tag, Users } from 'lucide-svelte';
   import { showFBuddyToast } from '$lib/utils/fbuddy-toast';
+  import { Ban, Clock, Tag, Users } from 'lucide-svelte';
+  import { onMount } from 'svelte';
 
   onMount(() => {
     setTimeout(() => {
@@ -36,6 +36,16 @@
           Tag Analytics
         </CardTitle>
         <CardDescription>Track and analyze Fansly tag popularity trends</CardDescription>
+      </CardHeader>
+    </Card>
+
+    <Card class="mb-6">
+      <CardHeader>
+        <CardTitle class="flex items-center gap-2">
+          <Ban class="h-5 w-5" />
+          Banned Tags
+        </CardTitle>
+        <CardDescription>Browse tags detected as removed or banned on Fansly</CardDescription>
       </CardHeader>
     </Card>
 
