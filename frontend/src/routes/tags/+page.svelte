@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { resolve } from '$app/paths';
   import { page, navigating } from '$app/stores';
   import TagHistory from '$lib/components/TagHistory.svelte';
   import TagRequestDialog from '$lib/components/TagRequestDialog.svelte';
@@ -43,6 +44,7 @@
     AlertCircle
   } from 'lucide-svelte';
   import { toast } from 'svelte-sonner';
+  import { SvelteURLSearchParams } from 'svelte/reactivity';
 
   let { data } = $props();
 
@@ -124,14 +126,22 @@
   ];
 
   function handleSearch() {
-    const params = new URLSearchParams($page.url.searchParams);
-    params.set('search', searchValue);
+    const params = new SvelteURLSearchParams($page.url.searchParams);
+    const matches = Array.from(searchValue.matchAll(/#(\w+)/g)).map((m) => m[1].toLowerCase());
+    if (matches.length > 0) {
+      params.delete('search');
+      params.set('tags', matches.join(','));
+    } else {
+      const normalized = searchValue.replace(/^#/, '');
+      params.set('search', normalized);
+      params.delete('tags');
+    }
     params.set('page', '1');
-    goto(`?${params}`);
+    goto(resolve(`?${params}`));
   }
 
   function handleSort(column: string) {
-    const params = new URLSearchParams($page.url.searchParams);
+    const params = new SvelteURLSearchParams($page.url.searchParams);
     const currentSortBy = params.get('sortBy') || 'rank';
     const currentSortOrder = params.get('sortOrder') || 'asc';
 
@@ -142,13 +152,13 @@
       params.set('sortOrder', 'desc');
     }
     params.set('page', '1');
-    goto(`?${params}`);
+    goto(resolve(`?${params}`));
   }
 
   function handlePageChange(newPage: number) {
-    const params = new URLSearchParams($page.url.searchParams);
+    const params = new SvelteURLSearchParams($page.url.searchParams);
     params.set('page', newPage.toString());
-    goto(`?${params}`);
+    goto(resolve(`?${params}`));
   }
 
   function handlePageJump() {
@@ -195,7 +205,7 @@
   function updateDateRangeParams() {
     if (!dateRangeValue?.start || !dateRangeValue?.end) return;
 
-    const params = new URLSearchParams($page.url.searchParams);
+    const params = new SvelteURLSearchParams($page.url.searchParams);
 
     // Ensure endDate includes the full day by setting time to end of day
     const startDate = dateRangeValue.start.toDate(getLocalTimeZone());
@@ -206,7 +216,7 @@
     params.set('historyEndDate', endDate.toISOString());
     params.set('includeHistory', 'true');
 
-    goto(`?${params}`);
+    goto(resolve(`?${params}`));
   }
 
   // Manual update button for date range

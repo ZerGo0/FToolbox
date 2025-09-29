@@ -51,6 +51,7 @@ interface TagStatistics {
 export const load: PageLoad = async ({ fetch, url }) => {
   const page = url.searchParams.get('page') || '1';
   const search = url.searchParams.get('search') || '';
+  const tagsQuery = url.searchParams.get('tags') || '';
   const sortBy = url.searchParams.get('sortBy') || 'rank';
   const sortOrder = url.searchParams.get('sortOrder') || 'asc';
   const includeHistory = url.searchParams.get('includeHistory') || 'true';
@@ -71,13 +72,14 @@ export const load: PageLoad = async ({ fetch, url }) => {
     const params = new URLSearchParams({
       page,
       limit: '20',
-      search,
       sortBy,
       sortOrder,
       includeHistory,
       historyStartDate,
       historyEndDate
     });
+    if (tagsQuery) params.set('tags', tagsQuery);
+    else params.set('search', search);
 
     // Fetch tags data
     const response = await fetch(`${PUBLIC_API_URL}/api/tags?${params}`);
@@ -114,6 +116,7 @@ export const load: PageLoad = async ({ fetch, url }) => {
       pagination: data.pagination,
       statistics,
       search,
+      tagsQuery,
       sortBy,
       sortOrder,
       includeHistory: includeHistory === 'true',
@@ -140,6 +143,7 @@ export const load: PageLoad = async ({ fetch, url }) => {
         calculatedAt: null
       },
       search,
+      tagsQuery,
       sortBy,
       sortOrder,
       includeHistory: includeHistory === 'true',

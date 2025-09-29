@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { resolve } from '$app/paths';
   import { navigating, page } from '$app/stores';
   import { Badge } from '$lib/components/ui/badge';
   import { Button } from '$lib/components/ui/button';
@@ -32,6 +33,7 @@
     Search
   } from 'lucide-svelte';
   import { toast } from 'svelte-sonner';
+  import { SvelteURLSearchParams } from 'svelte/reactivity';
 
   let { data } = $props();
 
@@ -73,14 +75,14 @@
   });
 
   function handleSearch() {
-    const params = new URLSearchParams($page.url.searchParams);
+    const params = new SvelteURLSearchParams($page.url.searchParams);
     params.set('search', searchValue);
     params.set('page', '1');
-    goto(`?${params}`);
+    goto(resolve(`?${params}`));
   }
 
   function handleSort(column: string) {
-    const params = new URLSearchParams($page.url.searchParams);
+    const params = new SvelteURLSearchParams($page.url.searchParams);
     const currentSortBy = params.get('sortBy') || 'deletedDetectedAt';
     const currentSortOrder = params.get('sortOrder') || 'desc';
 
@@ -91,13 +93,13 @@
       params.set('sortOrder', column === 'deletedDetectedAt' ? 'desc' : 'asc');
     }
     params.set('page', '1');
-    goto(`?${params}`);
+    goto(resolve(`?${params}`));
   }
 
   function handlePageChange(newPage: number) {
-    const params = new URLSearchParams($page.url.searchParams);
+    const params = new SvelteURLSearchParams($page.url.searchParams);
     params.set('page', newPage.toString());
-    goto(`?${params}`);
+    goto(resolve(`?${params}`));
   }
 
   function handlePageJump() {

@@ -18,6 +18,7 @@
   import { Ban, HomeIcon, Loader2, Moon, Package2, Sun, Tag, Users } from 'lucide-svelte';
   import { mode, toggleMode } from 'mode-watcher';
   import { onMount } from 'svelte';
+  import { resolve } from '$app/paths';
 
   let workerStatus = $state<'idle' | 'running' | 'failed'>('idle');
   let checkingWorkerStatus = $state(false);
@@ -59,7 +60,7 @@
   <SidebarHeader>
     <SidebarMenu>
       <SidebarMenuItem>
-        <a href="/" class="flex items-center gap-2 px-2 py-1.5 text-lg font-semibold">
+        <a href={resolve('/')} class="flex items-center gap-2 px-2 py-1.5 text-lg font-semibold">
           <Package2 class="h-6 w-6" />
           <span>FToolbox</span>
         </a>
@@ -75,7 +76,7 @@
           {#each menuItems as item (item.href)}
             <SidebarMenuItem>
               <a
-                href={item.href}
+                href={resolve(item.href as string)}
                 class="hover:bg-accent hover:text-accent-foreground flex items-center gap-2 rounded-md px-2 py-1.5 text-sm {page
                   .url.pathname === item.href
                   ? 'bg-accent text-accent-foreground'

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto, invalidateAll } from '$app/navigation';
+  import { resolve } from '$app/paths';
   import { PUBLIC_API_URL } from '$env/static/public';
   import { Alert, AlertDescription } from '$lib/components/ui/alert';
   import { Button, buttonVariants } from '$lib/components/ui/button';
@@ -76,7 +77,7 @@
       // Navigate to creators page with search
       open = false;
       success = '';
-      await goto(`/creators?search=${encodeURIComponent(username)}`);
+      await goto(resolve(`/creators?search=${encodeURIComponent(username)}`));
     } catch (e) {
       error = e instanceof Error ? e.message : 'An error occurred';
     } finally {
