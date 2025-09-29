@@ -11,6 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - Tag “heat” is deprecated and forced to `0` in responses; do not build UI logic that depends on heat.
   - Fansly API access uses a global rate limiter with simple retries and special handling for HTTP 429. Configure with `FANSLY_GLOBAL_RATE_LIMIT` and `FANSLY_GLOBAL_RATE_LIMIT_WINDOW`; optional `FANSLY_AUTH_TOKEN` adds Authorization.
   - Frontend environment variables (e.g., `PUBLIC_API_URL`) are needed at build time on Cloudflare Pages; set them in the Pages dashboard. Do not assume `wrangler.toml [vars]` will be picked up by SvelteKit during build.
+  - Worker intervals are configured via env: `WORKER_UPDATE_INTERVAL`, `WORKER_DISCOVERY_INTERVAL`, `RANK_CALCULATION_INTERVAL`, `WORKER_STATISTICS_INTERVAL`.
 
 ## Global Rules
 
@@ -36,7 +37,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Checks:
   - Syntax Check: `pnpm check`
   - Lint: `pnpm lint`
-  - Claude must run these after every change
+  - Format: `pnpm format`
+  - **ALWAYS** run these after you are done making changes
 - Rules/conventions:
   - **ALWAYS** use shadcn‑svelte components from `frontend/src/lib/components/ui` where possible.
   - **NEVER** nest interactive components inside Trigger components (custom ESLint rule `local/no-nested-interactive`). Use the child‑snippet pattern or apply `class={buttonVariants(...)}` on the Trigger instead.
@@ -51,11 +53,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Language: Go (1.25+)
 - Framework/runtime: Fiber v2, Zap, GORM (MySQL), MariaDB
 - Package manager: Go modules
-- Important Packages: `github.com/gofiber/fiber/v2`, `gorm.io/gorm`, `gorm.io/driver/mysql`, `go.uber.org/zap`
+- Important Packages: `github.com/gofiber/fiber/v2`, `gorm.io/gorm`, `gorm.io/driver/mysql`, `go.uber.org/zap`, `github.com/joho/godotenv`
 - Checks:
   - Format: `go fmt ./...`
   - Vet: `go vet ./...`
-  - Claude must run these after every change
+  - **ALWAYS** run these after you are done making changes
 - Rules/conventions:
   - **ALWAYS** use the global Zap logger (`zap.L()`) and return JSON errors as `{ "error": string }` without exposing internal errors.
   - **ALWAYS** let AutoMigrate manage schema changes; edit GORM models in `backend-go/models` instead of hand‑editing tables.
@@ -68,6 +70,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - `backend-go/routes/routes.go` and `backend-go/handlers/*` — API surface and behavior.
   - `backend-go/workers/*` and `backend-go/models/worker.go` — worker manager, workers, and persisted status.
   - `backend-go/.env.example` — complete backend env reference.
+  - `backend-go/.air.toml` — Air dev loop configuration.
 
 ### root
 - Task Runner: Taskfile with helpers for local loops
