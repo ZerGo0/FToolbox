@@ -32,6 +32,7 @@
     Search
   } from 'lucide-svelte';
   import { toast } from 'svelte-sonner';
+  import { SvelteURLSearchParams } from 'svelte/reactivity';
 
   let { data } = $props();
 
@@ -73,14 +74,15 @@
   });
 
   function handleSearch() {
-    const params = new URLSearchParams($page.url.searchParams);
-    params.set('search', searchValue);
+    const params = new SvelteURLSearchParams($page.url.searchParams);
+    const v = searchValue.trim().replace(/^#/, '');
+    params.set('search', v);
     params.set('page', '1');
     goto(`?${params}`);
   }
 
   function handleSort(column: string) {
-    const params = new URLSearchParams($page.url.searchParams);
+    const params = new SvelteURLSearchParams($page.url.searchParams);
     const currentSortBy = params.get('sortBy') || 'deletedDetectedAt';
     const currentSortOrder = params.get('sortOrder') || 'desc';
 
@@ -95,7 +97,7 @@
   }
 
   function handlePageChange(newPage: number) {
-    const params = new URLSearchParams($page.url.searchParams);
+    const params = new SvelteURLSearchParams($page.url.searchParams);
     params.set('page', newPage.toString());
     goto(`?${params}`);
   }

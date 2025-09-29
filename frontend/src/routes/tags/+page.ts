@@ -51,6 +51,7 @@ interface TagStatistics {
 export const load: PageLoad = async ({ fetch, url }) => {
   const page = url.searchParams.get('page') || '1';
   const search = url.searchParams.get('search') || '';
+  const tags = url.searchParams.get('tags') || '';
   const sortBy = url.searchParams.get('sortBy') || 'rank';
   const sortOrder = url.searchParams.get('sortOrder') || 'asc';
   const includeHistory = url.searchParams.get('includeHistory') || 'true';
@@ -72,6 +73,7 @@ export const load: PageLoad = async ({ fetch, url }) => {
       page,
       limit: '20',
       search,
+      tags,
       sortBy,
       sortOrder,
       includeHistory,

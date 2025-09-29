@@ -5,6 +5,7 @@ import (
 	"ftoolbox/models"
 	"ftoolbox/utils"
 	"math"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -57,6 +58,30 @@ type TagWithHistory struct {
 	TotalChange          int64          `json:"totalChange"`
 }
 
+func extractHashtags(q string) []string {
+	if strings.TrimSpace(q) == "" {
+		return nil
+	}
+	r := regexp.MustCompile(`#([\p{L}\p{N}_-]+)`) // letters, numbers, underscore, dash
+	matches := r.FindAllStringSubmatch(q, -1)
+	if len(matches) == 0 {
+		if strings.HasPrefix(strings.TrimSpace(q), "#") {
+			v := strings.TrimLeft(strings.TrimSpace(q), "#")
+			if v != "" {
+				return []string{v}
+			}
+		}
+		return nil
+	}
+	out := make([]string, 0, len(matches))
+	for _, m := range matches {
+		if len(m) > 1 && m[1] != "" {
+			out = append(out, m[1])
+		}
+	}
+	return out
+}
+
 func (h *TagHandler) GetTags(c *fiber.Ctx) error {
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	limit, _ := strconv.Atoi(c.Query("limit", "20"))
@@ -84,6 +109,15 @@ func (h *TagHandler) GetTags(c *fiber.Ctx) error {
 			}
 		}
 		targetTags = filtered
+	}
+
+	if len(targetTags) == 0 {
+		if hs := extractHashtags(search); len(hs) > 0 {
+			targetTags = hs
+			search = ""
+		} else if strings.HasPrefix(strings.TrimSpace(search), "#") {
+			search = strings.TrimLeft(strings.TrimSpace(search), "#")
+		}
 	}
 
 	if page < 1 {
@@ -418,7 +452,14 @@ func (h *TagHandler) GetBannedTags(c *fiber.Ctx) error {
 	var tags []models.Tag
 	query := h.db.Model(&models.Tag{}).Where("is_deleted = ?", true)
 
-	if search != "" {
+	if hs := extractHashtags(search); len(hs) > 0 {
+		query = query.Where("tag IN ?", hs)
+	} else if strings.HasPrefix(strings.TrimSpace(search), "#") {
+		v := strings.TrimLeft(strings.TrimSpace(search), "#")
+		if v != "" {
+			query = query.Where("tag LIKE ?", "%"+v+"%")
+		}
+	} else if search != "" {
 		query = query.Where("tag LIKE ?", "%"+search+"%")
 	}
 

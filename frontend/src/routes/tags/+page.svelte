@@ -1,12 +1,11 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { page, navigating } from '$app/stores';
+  import { navigating, page } from '$app/stores';
+  import PostTextDialog from '$lib/components/PostTextDialog.svelte';
   import TagHistory from '$lib/components/TagHistory.svelte';
   import TagRequestDialog from '$lib/components/TagRequestDialog.svelte';
-  import PostTextDialog from '$lib/components/PostTextDialog.svelte';
   import { Badge } from '$lib/components/ui/badge';
   import { Button } from '$lib/components/ui/button';
-  import * as Tooltip from '$lib/components/ui/tooltip';
   import {
     Card,
     CardContent,
@@ -25,24 +24,26 @@
     TableHeader,
     TableRow
   } from '$lib/components/ui/table';
+  import * as Tooltip from '$lib/components/ui/tooltip';
   import { getLocalTimeZone, today } from '@internationalized/date';
   import type { DateRange } from 'bits-ui';
   import {
+    AlertCircle,
     ArrowDown,
     ArrowUp,
     ArrowUpDown,
     ChevronDown,
-    ChevronUp,
-    Search,
-    TrendingDown,
-    TrendingUp,
     ChevronLeft,
     ChevronRight,
     ChevronsLeft,
     ChevronsRight,
-    AlertCircle
+    ChevronUp,
+    Search,
+    TrendingDown,
+    TrendingUp
   } from 'lucide-svelte';
   import { toast } from 'svelte-sonner';
+  import { SvelteURLSearchParams } from 'svelte/reactivity';
 
   let { data } = $props();
 
@@ -123,15 +124,28 @@
     { label: '1 Year', days: 365 }
   ];
 
+  function parseHashtags(text: string): string[] {
+    const m = text.match(/#([\p{L}\p{N}_-]+)/gu) || [];
+    return m.map((s) => s.slice(1)).filter(Boolean);
+  }
+
   function handleSearch() {
-    const params = new URLSearchParams($page.url.searchParams);
-    params.set('search', searchValue);
+    const params = new SvelteURLSearchParams($page.url.searchParams);
+    const tags = parseHashtags(searchValue);
+    if (tags.length > 0) {
+      params.delete('search');
+      params.set('tags', tags.join(','));
+    } else {
+      const v = searchValue.trim().replace(/^#/, '');
+      params.set('search', v);
+      params.delete('tags');
+    }
     params.set('page', '1');
     goto(`?${params}`);
   }
 
   function handleSort(column: string) {
-    const params = new URLSearchParams($page.url.searchParams);
+    const params = new SvelteURLSearchParams($page.url.searchParams);
     const currentSortBy = params.get('sortBy') || 'rank';
     const currentSortOrder = params.get('sortOrder') || 'asc';
 
@@ -146,7 +160,7 @@
   }
 
   function handlePageChange(newPage: number) {
-    const params = new URLSearchParams($page.url.searchParams);
+    const params = new SvelteURLSearchParams($page.url.searchParams);
     params.set('page', newPage.toString());
     goto(`?${params}`);
   }
@@ -195,7 +209,7 @@
   function updateDateRangeParams() {
     if (!dateRangeValue?.start || !dateRangeValue?.end) return;
 
-    const params = new URLSearchParams($page.url.searchParams);
+    const params = new SvelteURLSearchParams($page.url.searchParams);
 
     // Ensure endDate includes the full day by setting time to end of day
     const startDate = dateRangeValue.start.toDate(getLocalTimeZone());

@@ -114,16 +114,25 @@ export function mergeObjects<Sources extends readonly MaybeThunk<any>[]>(
     },
 
     ownKeys(): (string | symbol)[] {
-      const all = new Set<string | symbol>();
+      const seenStr: Record<string, true> = Object.create(null);
+      const seenSym: symbol[] = [];
+      const out: (string | symbol)[] = [];
       for (const s of sources) {
         const obj = resolve(s);
-        if (obj) {
-          for (const k of Reflect.ownKeys(obj) as (string | symbol)[]) {
-            all.add(k);
+        if (!obj) continue;
+        for (const k of Reflect.ownKeys(obj) as (string | symbol)[]) {
+          if (typeof k === 'string') {
+            if (!seenStr[k]) {
+              seenStr[k] = true;
+              out.push(k);
+            }
+          } else if (!seenSym.includes(k)) {
+            seenSym.push(k);
+            out.push(k);
           }
         }
       }
-      return [...all];
+      return out;
     },
 
     getOwnPropertyDescriptor(_, key) {
