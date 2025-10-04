@@ -198,7 +198,7 @@ Completed the {task_description} the way you asked.
 - Lint: `{lint_command}` passes
 - {additional_validation_step}
 
-{task_related_follow_up_question_about_extending_or_exploring_the_feature}?
+Should I implement error handling for this next? {task_related_follow_up_question_about_extending_or_exploring_the_feature}
 ```
 
 This example demonstrates:
