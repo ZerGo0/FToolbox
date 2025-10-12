@@ -4,27 +4,31 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 - Name: FToolbox
-- Description: Full‑stack web application providing tools and insights for Fansly creators and users. Frontend is SvelteKit; backend is a Go API with background workers and a MariaDB database.
+- Description: Full-stack web application delivering analytics and tooling for Fansly creators and consumers with a SvelteKit frontend and Go backend.
 - Key notes/warnings:
-  - Database schema is defined by GORM models in `backend-go/models` and applied via AutoMigrate on startup. Changing models migrates the DB automatically.
-  - Backend listen port is `PORT` (defaults to `3000` per `backend-go/config/config.go`). The root Taskfile stops `3001` for the Air dev loop; rely on `PORT` for the actual server port.
-  - Tag “heat” is deprecated and forced to `0` in responses; do not build UI logic that depends on heat.
-  - Fansly API access uses a global rate limiter with simple retries and special handling for HTTP 429. Configure with `FANSLY_GLOBAL_RATE_LIMIT` and `FANSLY_GLOBAL_RATE_LIMIT_WINDOW`; optional `FANSLY_AUTH_TOKEN` adds Authorization.
-  - Frontend environment variables (e.g., `PUBLIC_API_URL`) are needed at build time on Cloudflare Pages; set them in the Pages dashboard. Do not assume `wrangler.toml [vars]` will be picked up by SvelteKit during build.
+  - Database schema lives in `backend-go/models` and AutoMigrate applies changes on startup; update models instead of issuing manual migrations.
+  - Server listens on `PORT` (default `3000` from `backend-go/config/config.go`); the Taskfile kills `3001` solely for the Air loop—bind to `PORT` for anything hitting the API.
+  - Tag heat is deprecated and responses force `heat = 0`; never add UI or metrics that depend on legacy heat values.
+  - Fansly API calls must go through `backend-go/fansly/client.go`, which enforces global rate limiting and 429 retry logic configured by `FANSLY_GLOBAL_RATE_LIMIT` and `FANSLY_GLOBAL_RATE_LIMIT_WINDOW`.
+  - Cloudflare Pages builds require frontend env vars (e.g. `PUBLIC_API_URL`) set in the Pages dashboard; the `wrangler.toml [vars]` block is ignored during SvelteKit builds.
 
 ## Global Rules
-
 - **NEVER** use emojis!
 - **NEVER** try to run the dev server!
 - **NEVER** try to build in the project directory, always build in the `/tmp` directory!
 - **ALWAYS** search for existing code patterns in the codebase and follow them consistently
-- **NEVER** use comments in code — code should be self-explanatory
+- **NEVER** use comments in code - code should be self-explanatory
+- **NEVER** cut corners, don't leave comments like `TODO: Implement X in the future here`! Always fully implement everything!
+- **ALWAYS** when you're done, self-critique your work until you're sure it's correct 
+- **NEVER** trigger automated test suites unless a human explicitly asks; stick to the documented checks only.
 
 ## High-Level Architecture
-- Frontend: SvelteKit 2 (Svelte 5), Tailwind CSS v4, shadcn‑svelte components checked into `frontend/src/lib/components/ui`, deployed on Cloudflare Pages. Uses `PUBLIC_API_URL` to call the API.
-- Backend: Go 1.25+, Fiber v2, GORM (MySQL driver), Zap logging, MariaDB. API routes under `/api/*` with JSON responses and request limiting.
-- Workers: Goroutine-based workers managed by a `WorkerManager` with DB‑persisted status in `workers` table; intervals and enablement via env (`WORKER_ENABLED`, `WORKER_UPDATE_INTERVAL`, `WORKER_DISCOVERY_INTERVAL`, `RANK_CALCULATION_INTERVAL`, `WORKER_STATISTICS_INTERVAL`).
-- Schema Source of Truth: `backend-go/models` (GORM models) with AutoMigrate in `backend-go/database/migrate.go`.
+- **Frontend:** SvelteKit 2 (Svelte 5) with Tailwind CSS v4 and shadcn-svelte UI, deployed on Cloudflare Pages; fetches the Go API using absolute URLs derived from `PUBLIC_API_URL`.
+- **Backend:** Go 1.25 Fiber API with Zap logging, GORM (MySQL driver) targeting MariaDB, global middleware for compression, CORS, ETag, and request limiting, serving JSON responses under `/api/*`.
+- **Workers:** Goroutine workers managed by `backend-go/workers/manager.go`; enablement and intervals come from env vars and statuses persist in the `workers` table for visibility.
+- **Fansly Integration:** `backend-go/fansly/client.go` centralizes authentication, retries, and global rate limiting for Fansly requests; all scrapers and handlers rely on this client.
+- **Schema Source of Truth:** `backend-go/models` drives AutoMigrate via `backend-go/database/migrate.go`; never mutate the database outside this layer.
+- **Infrastructure Utilities:** `Taskfile.yml` scripts orchestrate human dev loops by killing ports and starting watchers—treat them as references only; do not invoke them here.
 
 ## Project Guidelines
 
@@ -32,55 +36,76 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Language: TypeScript
 - Framework/runtime: SvelteKit 2 (Svelte 5), Vite
 - Package manager: pnpm
-- Important Packages: `@sveltejs/kit`, `@sveltejs/adapter-cloudflare`, `tailwindcss@4`, `bits-ui`, `vaul-svelte`, `svelte-sonner`, `chart.js`, `chartjs-adapter-date-fns`
+- Important Packages: `@sveltejs/kit`, `@sveltejs/adapter-cloudflare`, `tailwindcss@4`, `bits-ui`, `svelte-sonner`, `chart.js`, `chartjs-adapter-date-fns`
 - Checks:
   - Syntax Check: `pnpm check`
   - Lint: `pnpm lint`
   - Format: `pnpm format`
   - **ALWAYS** run these after you are done making changes
-- Rules/conventions:
-  - **ALWAYS** use shadcn‑svelte components from `frontend/src/lib/components/ui` where possible.
-  - **NEVER** nest interactive components inside Trigger components (custom ESLint rule `local/no-nested-interactive`). Use the child‑snippet pattern or apply `class={buttonVariants(...)}` on the Trigger instead.
-  - **ALWAYS** read the API base from `$env/static/public` (`PUBLIC_API_URL`) and build absolute fetch URLs.
+- Rules / conventions:
+  - **ALWAYS** build API requests with `$env/static/public` values (notably `PUBLIC_API_URL`) and send absolute URLs from loaders or server-only modules.
+  - **ALWAYS** compose UI from shadcn-svelte primitives in `frontend/src/lib/components/ui` before rolling new components.
+  - **NEVER** nest interactive children inside trigger components; follow the `local/no-nested-interactive` ESLint rule and reuse the helper variants.
+  - **NEVER** start dev loops, previews, or automated tests; limit execution to the listed checks unless a human explicitly requests otherwise.
+  - **ALWAYS** sync Cloudflare Pages deployment metadata with `wrangler.toml` and the Pages dashboard env configuration.
 - Useful files:
-  - `frontend/eslint.config.js` — enables the custom rule.
-  - `frontend/eslint-plugin-local/index.js` — `no-nested-interactive` rule definition.
-  - `frontend/svelte.config.js` — Cloudflare adapter configuration.
-  - `frontend/wrangler.toml` — Pages build command and routes (env must still be set in the Pages dashboard for SvelteKit).
-  - `frontend/.env.example` — `PUBLIC_API_URL` sample.
+  - `frontend/eslint.config.js` — Central Svelte/TypeScript lint configuration and plugin wiring.
+  - `frontend/eslint-plugin-local/index.js` — Implements `no-nested-interactive`.
+  - `frontend/svelte.config.js` — Cloudflare adapter setup.
+  - `frontend/wrangler.toml` — Pages deployment commands and bindings.
+  - `frontend/.env.example` — Sample `PUBLIC_API_URL`.
 
 ### backend-go
 - Language: Go (1.25+)
-- Framework/runtime: Fiber v2, Zap, GORM (MySQL), MariaDB
+- Framework/runtime: Fiber v2 with Zap logging
 - Package manager: Go modules
-- Important Packages: `github.com/gofiber/fiber/v2`, `gorm.io/gorm`, `gorm.io/driver/mysql`, `go.uber.org/zap`
+- Important Packages: `github.com/gofiber/fiber/v2`, `gorm.io/gorm`, `gorm.io/driver/mysql`, `go.uber.org/zap`, `github.com/joho/godotenv`
 - Checks:
   - Format: `go fmt ./...`
   - Vet: `go vet ./...`
   - **ALWAYS** run these after you are done making changes
-- Rules/conventions:
-  - **ALWAYS** use the global Zap logger (`zap.L()`) and return JSON errors as `{ "error": string }` without exposing internal errors.
-  - **ALWAYS** let AutoMigrate manage schema changes; edit GORM models in `backend-go/models` instead of hand‑editing tables.
-  - **NEVER** depend on “heat” — it is set to `0` in responses by design.
-  - **ALWAYS** honor Fansly global rate limiting when adding client calls.
+- Rules / conventions:
+  - **ALWAYS** load settings through `config.Load()` so default intervals and rate limits apply, and pass config explicitly.
+  - **ALWAYS** persist schema changes by editing `backend-go/models`; rely on AutoMigrate for DDL.
+  - **ALWAYS** return `{ "error": string }` JSON and log diagnostics with `zap.L()` instead of exposing internals.
+  - **NEVER** bypass the shared `fansly.Client` or global limiters when calling external APIs.
+  - **NEVER** spin up worker loops, Air, or other dev tooling from the agent; limit changes to code paths.
+  - **NEVER** run automated tests beyond `go fmt`/`go vet` unless a human explicitly asks.
 - Useful files:
-  - `backend-go/config/config.go` — environment config and defaults (e.g., `PORT`, rate limits, worker intervals).
-  - `backend-go/database/connection.go` and `backend-go/database/migrate.go` — DB connection and AutoMigrate.
-  - `backend-go/fansly/client.go` — HTTP client with global rate limiter and retry/backoff.
-  - `backend-go/routes/routes.go` and `backend-go/handlers/*` — API surface and behavior.
-  - `backend-go/workers/*` and `backend-go/models/worker.go` — worker manager, workers, and persisted status.
-  - `backend-go/.env.example` — complete backend env reference.
+  - `backend-go/config/config.go` — Environment defaults for DB, server, workers, and rate limiting.
+  - `backend-go/database/connection.go` / `backend-go/database/migrate.go` — Connection lifecycle and AutoMigrate wiring.
+  - `backend-go/routes/routes.go` — API routing and per-route request limiters.
+  - `backend-go/fansly/client.go` — Fansly HTTP client with shared limiter.
+  - `backend-go/workers/*` — Worker definitions managed by `WorkerManager`.
+  - `backend-go/utils/utils.go` — Rank calculation utilities.
 
 ### root
-- Task Runner: Taskfile with helpers for local loops
-  - `task watch-frontend`
-  - `task watch-backend`
+- Language: Mixed (YAML, shell)
+- Framework/runtime: Taskfile helpers
+- Package manager: pnpm (frontend), Go modules (backend)
+- Important Packages: `task`, `pnpm`, `air`
+- Checks:
+  - None; root automation targets human workflows only.
+  - **ALWAYS** run these after you are done making changes
+- Rules / conventions:
+  - **NEVER** invoke `task watch-frontend` or `task watch-backend`; they start dev servers prohibited by global rules.
+  - **ALWAYS** use `/tmp` for any build artifacts generated by the agent.
+  - **NEVER** alter automation scripts without matching existing patterns.
+- Useful files:
+  - `Taskfile.yml` — Documents human dev tasks and port cleanup expectations.
+  - `claude-code-github-bot-setup.sh` / `claude-code-github-bot-cleanup.sh` — Environment orchestration scripts.
+
+## Patterns Directory
+- `.zergo0/patterns/` is the canonical catalog of reusable implementation patterns generated via the `patterns` command. Consult relevant entries before building new features to stay aligned with accepted structures.
+- When a suitable pattern is missing, extend the catalog under `.zergo0/patterns/` only after validating the approach against existing modules, and keep contributions focused so future automation can leverage them safely.
 
 ## Key Architectural Patterns
-- Error handling: Central Fiber error handler returns `{ error }` JSON; handlers log via Zap and avoid leaking internals.
-- Database access: GORM models + AutoMigrate; ranking updates done via SQL helpers in `backend-go/utils/utils.go`.
-- Request shaping: Query param mapping in handlers; pagination (`page`, `limit`) with sane clamps; explicit sorting maps to DB columns; optional history windows via `historyStartDate`/`historyEndDate` and `includeHistory`.
-- Rate limiting: Global Fansly limiter in client; per‑route request limiting middleware for sensitive endpoints (keyed by `X-Forwarded-For`).
+- **Error Handling:** Central Fiber error handler and route handlers return `{ "error": string }` JSON while logging with Zap; replicate this contract in new endpoints.
+- **Request Shaping:** Pagination, sorting, and history window parsing in `backend-go/handlers/tag_handler.go` sets expectations for query handling—reuse those clamps and column maps for additional list endpoints.
+- **Rate Limiting:** Global limiter middleware wraps all requests, and sensitive POST routes apply stricter per-IP limiters; wire new routes through the same limiter helpers.
+- **Ranking & Statistics:** Rank calculations live in `backend-go/utils/utils.go` and run via workers; schedule new analytics through `WorkerManager` rather than ad-hoc goroutines.
+- **Frontend Data Fetching:** SvelteKit loaders construct absolute API URLs using `PUBLIC_API_URL` and avoid exposing env values client-side; keep data access server-side where feasible.
+- **UI Composition:** Favor shadcn-svelte components and Tailwind utility patterns from `frontend/src/lib/components/ui` to maintain consistent styling and accessibility.
 
 <answer-structure>
 ## MANDATORY Answer Format
