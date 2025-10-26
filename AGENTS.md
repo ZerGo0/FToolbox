@@ -11,6 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - Tag heat is deprecated and all responses force `heat = 0`; never surface or depend on legacy heat values in new logic.
   - Fansly API calls must route through `backend-go/fansly/client.go`, which enforces global rate limiting and automatic 429 retries controlled by `FANSLY_GLOBAL_RATE_LIMIT` and `FANSLY_GLOBAL_RATE_LIMIT_WINDOW`.
   - Cloudflare Pages builds ignore the `wrangler.toml [vars]` block; configure `PUBLIC_API_URL` and other frontend env vars in the Pages dashboard before builds succeed.
+  - Fansly auth: `FANSLY_AUTH_TOKEN` is read by the client and used when present.
 
 ## Global Rules
 - **NEVER** use emojis!
@@ -45,7 +46,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Rules / conventions:
   - **ALWAYS** build API requests with `$env/static/public` values (notably `PUBLIC_API_URL`) and emit absolute URLs from loaders or server-only modules.
   - **ALWAYS** compose UI from shadcn-svelte primitives in `frontend/src/lib/components/ui` before introducing new components.
-  - **ALWAYS** consult `.zergo0/patterns/` for established frontend implementation patterns before writing new features.
   - **NEVER** nest interactive children inside trigger components; rely on the `local/no-nested-interactive` helpers.
   - **NEVER** start dev loops, previews, or automated tests; only run the listed checks when a human explicitly requests them.
   - **ALWAYS** keep Cloudflare Pages deployment metadata in sync between `frontend/wrangler.toml` and the Pages dashboard env configuration.
@@ -105,6 +105,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Request Shaping:** Pagination, sorting, and time-window helpers in `backend-go/handlers/tag_handler.go` define reusable query parsing patterns for list endpoints.
 - **Rate Limiting:** Global middleware covers all requests, while sensitive POST routes apply stricter per-IP limiters—reuse the existing limiter helpers when adding routes.
 - **Ranking & Statistics:** Ranking utilities reside in `backend-go/utils/utils.go` and run through workers scheduled by `WorkerManager`; never spawn ad-hoc goroutines.
-- **Frontend Data Fetching:** SvelteKit loaders keep API access server-side, constructing absolute URLs via `PUBLIC_API_URL` and avoiding direct exposure of env values to the client.
+- **Frontend Data Fetching:** Prefer SvelteKit loaders for initial data. Components may call the API using `PUBLIC_API_URL` from `$env/static/public`; never import non-public env values into client code.
 - **UI Composition:** Tailwind utility patterns and shadcn-svelte primitives in `frontend/src/lib/components/ui` are the first choice for new UI; do not duplicate styling.
-- **Pattern Catalog:** `.zergo0/patterns/` captures approved implementation approaches—ALWAYS review relevant entries before introducing new logic.
+ 
