@@ -19,8 +19,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **NEVER** try to build in the project directory, always build in the `/tmp` directory!
 - **NEVER** use comments in code - code should be self-explanatory
 - **NEVER** cut corners, don't leave comments like `TODO: Implement X in the future here`! Always fully implement everything!
-- **ALWAYS** when you're done, self-critique your work until you're sure it's correct
 - **ALWAYS** at the end of your turn, ask a follow-up question for the next logical step (**DON'T** ask questions like "Should I run tests?" or "Should I lint?", only ask questions that are relevant to the task at hand)
+## Refactor After Reviewing the Diff
+
+After generating or editing code, you must **always** review the `git diff` output before finalizing your response.  
+Use this review to actively **refactor for maintainability** — the goal is not just correctness, but clarity and reuse.
+
+**Requirements:**
+- Inspect the diff to understand exactly what was added, removed, or modified.  
+- Identify **duplicate or repetitive logic** introduced by your changes.  
+- Refactor similar patterns into shared functions, helpers, or abstractions.  
+- Simplify overly complex or verbose code when possible.  
+- Do **not** assume the diff is final until redundant code has been consolidated.  
+
+**Principle:**  
+> Every change should leave the codebase cleaner than before — fewer duplicates, clearer intent, and easier to maintain.
  
 
 ## High-Level Architecture
