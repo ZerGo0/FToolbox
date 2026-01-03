@@ -15,14 +15,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Global Rules
 - **NEVER** use emojis!
-- **NEVER** try to run the dev server!
-- **NEVER** try to build in the project directory, always build in the `/tmp` directory!
+- **NEVER** try to run the dev server unless a human explicitly tells you that you are a human and instructs you to run it.
+- **NEVER** try to build in the project directory; always build in the `/tmp` directory unless a human explicitly tells you that you are a human and instructs you to build in the project directory.
 - **NEVER** use comments in code - code should be self-explanatory
 - **NEVER** cut corners, don't leave comments like `TODO: Implement X in the future here`! Always fully implement everything!
 - **NEVER** revert/delete any changes that you don't know about! Always assume that we are in the middle of a task and that the changes are intentional!
 - **ALWAYS** at the end of your turn, ask a follow-up question for the next logical step (**DON'T** ask questions like "Should I run tests?" or "Should I lint?", only ask questions that are relevant to the task at hand)
 
 ## Refactor Using Established Engineering Principles
+After generating or editing code, you must always refactor your changes using well-established software engineering principles. These apply every time, without relying on diff inspection.
 
 ### Core Principles
 - **DRY (Don’t Repeat Yourself)**: Eliminate duplicate or repetitive logic by consolidating shared behavior into common functions or helpers.  
@@ -63,7 +64,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - **ALWAYS** build API requests with `$env/static/public` values (notably `PUBLIC_API_URL`) and emit absolute URLs from loaders or server-only modules.
   - **ALWAYS** compose UI from shadcn-svelte primitives in `frontend/src/lib/components/ui` before introducing new components.
   - **NEVER** nest interactive children inside trigger components; rely on the `local/no-nested-interactive` helpers.
-  - **NEVER** start dev loops, previews, or automated tests; only run the listed checks when a human explicitly requests them.
+  - **NEVER** start dev loops, previews, or automated tests; run only the listed checks after making changes.
   - **ALWAYS** keep Cloudflare Pages deployment metadata in sync between `frontend/wrangler.toml` and the Pages dashboard env configuration.
 - Useful files:
   - `frontend/eslint.config.js`
@@ -110,7 +111,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - **ALWAYS** treat `Taskfile.yml` and the `claude-code-github-bot-*.sh` scripts as references only.
   - **NEVER** invoke `task watch-frontend`, `task watch-backend`, or other commands that start dev servers.
   - **NEVER** alter automation scripts unless matching established patterns exactly.
-  - **NEVER** hunt for or execute additional test suites; only run the documented checks when specifically instructed.
+  - **NEVER** hunt for or execute additional test suites; only run the documented checks listed above.
 - Useful files:
   - `Taskfile.yml`
   - `claude-code-github-bot-setup.sh`
