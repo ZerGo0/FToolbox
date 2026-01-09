@@ -22,6 +22,8 @@ type Config struct {
 	WorkerStatisticsInterval int
 	GlobalRateLimit          int
 	GlobalRateLimitWindow    int
+	APIGlobalRateLimit       int
+	APIGlobalRateLimitWindow int
 }
 
 func Load() *Config {
@@ -42,6 +44,8 @@ func Load() *Config {
 		WorkerStatisticsInterval: getEnvInt("WORKER_STATISTICS_INTERVAL", 3600000), // Default to 1 hour
 		GlobalRateLimit:          getEnvInt("FANSLY_GLOBAL_RATE_LIMIT", 50),
 		GlobalRateLimitWindow:    getEnvInt("FANSLY_GLOBAL_RATE_LIMIT_WINDOW", 10),
+		APIGlobalRateLimit:       getEnvInt("API_GLOBAL_RATE_LIMIT", 600),
+		APIGlobalRateLimitWindow: getEnvInt("API_GLOBAL_RATE_LIMIT_WINDOW", 60),
 	}
 }
 

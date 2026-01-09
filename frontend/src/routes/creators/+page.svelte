@@ -30,7 +30,6 @@
     AlertCircle,
     ArrowDown,
     ArrowUp,
-    ArrowUpDown,
     ChevronDown,
     ChevronLeft,
     ChevronRight,
@@ -131,17 +130,11 @@
     goto(`?${params}`);
   }
 
-  function handleSort(column: string) {
+  function toggleRankSort() {
     const params = new SvelteURLSearchParams($page.url.searchParams);
-    const currentSortBy = params.get('sortBy') || 'rank';
     const currentSortOrder = params.get('sortOrder') || 'asc';
-
-    if (currentSortBy === column) {
-      params.set('sortOrder', currentSortOrder === 'desc' ? 'asc' : 'desc');
-    } else {
-      params.set('sortBy', column);
-      params.set('sortOrder', 'desc');
-    }
+    params.set('sortBy', 'rank');
+    params.set('sortOrder', currentSortOrder === 'desc' ? 'asc' : 'desc');
     params.set('page', '1');
     goto(`?${params}`);
   }
@@ -404,140 +397,23 @@
                 <TableHead class="w-16">
                   <button
                     class="hover:text-foreground flex items-center gap-1 transition-colors"
-                    onclick={() => handleSort('rank')}
+                    onclick={toggleRankSort}
                   >
                     Rank
-                    {#if data.sortBy === 'rank'}
-                      {#if data.sortOrder === 'desc'}
-                        <ArrowDown class="h-4 w-4" />
-                      {:else}
-                        <ArrowUp class="h-4 w-4" />
-                      {/if}
+                    {#if data.sortOrder === 'desc'}
+                      <ArrowDown class="h-4 w-4" />
                     {:else}
-                      <ArrowUpDown class="h-4 w-4" />
+                      <ArrowUp class="h-4 w-4" />
                     {/if}
                   </button>
                 </TableHead>
-                <TableHead>
-                  <button
-                    class="hover:text-foreground flex items-center gap-1 transition-colors"
-                    onclick={() => handleSort('username')}
-                  >
-                    Creator
-                    {#if data.sortBy === 'username'}
-                      {#if data.sortOrder === 'desc'}
-                        <ArrowDown class="h-4 w-4" />
-                      {:else}
-                        <ArrowUp class="h-4 w-4" />
-                      {/if}
-                    {:else}
-                      <ArrowUpDown class="h-4 w-4" />
-                    {/if}
-                  </button>
-                </TableHead>
-
-                <TableHead>
-                  <button
-                    class="hover:text-foreground flex items-center gap-1 transition-colors"
-                    onclick={() => handleSort('followers')}
-                  >
-                    Followers
-                    {#if data.sortBy === 'followers'}
-                      {#if data.sortOrder === 'desc'}
-                        <ArrowDown class="h-4 w-4" />
-                      {:else}
-                        <ArrowUp class="h-4 w-4" />
-                      {/if}
-                    {:else}
-                      <ArrowUpDown class="h-4 w-4" />
-                    {/if}
-                  </button>
-                </TableHead>
-                <TableHead>
-                  <button
-                    class="hover:text-foreground flex items-center gap-1 transition-colors"
-                    onclick={() => handleSort('mediaLikes')}
-                  >
-                    Media Likes
-                    {#if data.sortBy === 'mediaLikes'}
-                      {#if data.sortOrder === 'desc'}
-                        <ArrowDown class="h-4 w-4" />
-                      {:else}
-                        <ArrowUp class="h-4 w-4" />
-                      {/if}
-                    {:else}
-                      <ArrowUpDown class="h-4 w-4" />
-                    {/if}
-                  </button>
-                </TableHead>
-                <TableHead>
-                  <button
-                    class="hover:text-foreground flex items-center gap-1 transition-colors"
-                    onclick={() => handleSort('postLikes')}
-                  >
-                    Post Likes
-                    {#if data.sortBy === 'postLikes'}
-                      {#if data.sortOrder === 'desc'}
-                        <ArrowDown class="h-4 w-4" />
-                      {:else}
-                        <ArrowUp class="h-4 w-4" />
-                      {/if}
-                    {:else}
-                      <ArrowUpDown class="h-4 w-4" />
-                    {/if}
-                  </button>
-                </TableHead>
-                <TableHead>
-                  <button
-                    class="hover:text-foreground flex items-center gap-1 transition-colors"
-                    onclick={() => handleSort('imageCount')}
-                  >
-                    Image Count
-                    {#if data.sortBy === 'imageCount'}
-                      {#if data.sortOrder === 'desc'}
-                        <ArrowDown class="h-4 w-4" />
-                      {:else}
-                        <ArrowUp class="h-4 w-4" />
-                      {/if}
-                    {:else}
-                      <ArrowUpDown class="h-4 w-4" />
-                    {/if}
-                  </button>
-                </TableHead>
-                <TableHead>
-                  <button
-                    class="hover:text-foreground flex items-center gap-1 transition-colors"
-                    onclick={() => handleSort('videoCount')}
-                  >
-                    Video Count
-                    {#if data.sortBy === 'videoCount'}
-                      {#if data.sortOrder === 'desc'}
-                        <ArrowDown class="h-4 w-4" />
-                      {:else}
-                        <ArrowUp class="h-4 w-4" />
-                      {/if}
-                    {:else}
-                      <ArrowUpDown class="h-4 w-4" />
-                    {/if}
-                  </button>
-                </TableHead>
-                <TableHead>
-                  <button
-                    class="hover:text-foreground flex items-center gap-1 transition-colors"
-                    onclick={() => handleSort('updatedAt')}
-                  >
-                    Last Updated
-                    {#if data.sortBy === 'updatedAt'}
-                      {#if data.sortOrder === 'desc'}
-                        <ArrowDown class="h-4 w-4" />
-                      {:else}
-                        <ArrowUp class="h-4 w-4" />
-                      {/if}
-                    {:else}
-                      <ArrowUpDown class="h-4 w-4" />
-                    {/if}
-                  </button>
-                </TableHead>
+                <TableHead>Creator</TableHead>
+                <TableHead>Followers</TableHead>
+                <TableHead>Media Likes</TableHead>
+                <TableHead>Post Likes</TableHead>
+                <TableHead>Image Count</TableHead>
+                <TableHead>Video Count</TableHead>
+                <TableHead>Last Updated</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
