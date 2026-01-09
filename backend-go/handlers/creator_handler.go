@@ -5,6 +5,7 @@ import (
 	"ftoolbox/models"
 	"ftoolbox/utils"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -58,8 +59,7 @@ func (h *CreatorHandler) GetCreators(c *fiber.Ctx) error {
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	limit, _ := strconv.Atoi(c.Query("limit", "20"))
 	search := c.Query("search")
-	sortBy := c.Query("sortBy", "followers")
-	sortOrder := c.Query("sortOrder", "desc")
+	sortOrder := strings.ToLower(c.Query("sortOrder", "asc"))
 	includeHistory := c.Query("includeHistory") == "true"
 	historyStartDate := c.Query("historyStartDate")
 	historyEndDate := c.Query("historyEndDate")
@@ -69,6 +69,9 @@ func (h *CreatorHandler) GetCreators(c *fiber.Ctx) error {
 	}
 	if limit < 1 || limit > 100 {
 		limit = 20
+	}
+	if sortOrder != "asc" && sortOrder != "desc" {
+		sortOrder = "asc"
 	}
 
 	offset := (page - 1) * limit
@@ -80,40 +83,14 @@ func (h *CreatorHandler) GetCreators(c *fiber.Ctx) error {
 		query = query.Where("username LIKE ? OR display_name LIKE ?", "%"+search+"%", "%"+search+"%")
 	}
 
-	// When sorting by rank, exclude creators without a rank from the base query
-	if sortBy == "rank" {
-		query = query.Where("rank IS NOT NULL")
-	}
+	query = query.Where("rank IS NOT NULL")
 
 	var total int64
 	query.Count(&total)
 
 	// Handle sorting
 	needsHistory := includeHistory
-
-	// Map frontend sortBy values to database columns
-	columnMap := map[string]string{
-		"followers":  "followers",
-		"mediaLikes": "media_likes",
-		"postLikes":  "post_likes",
-		"imageCount": "image_count",
-		"videoCount": "video_count",
-		"updatedAt":  "updated_at",
-		"username":   "username",
-		"rank":       "rank",
-	}
-
-	// Handle sorting
-	dbColumn, ok := columnMap[sortBy]
-	if !ok {
-		dbColumn = "followers" // default
-	}
-
-	orderClause := dbColumn + " " + sortOrder
-	// Special case: when sorting by followers desc, also sort by created_at desc as secondary
-	if sortBy == "followers" && sortOrder == "desc" {
-		orderClause = "followers DESC, created_at DESC"
-	}
+	orderClause := "rank " + sortOrder
 	query = query.Order(orderClause).Limit(limit).Offset(offset)
 
 	if err := query.Find(&creators).Error; err != nil {

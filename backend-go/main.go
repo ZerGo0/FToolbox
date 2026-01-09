@@ -173,6 +173,18 @@ func main() {
 		Level: compress.LevelBestSpeed,
 	}))
 	app.Use(etag.New())
+	if cfg.APIGlobalRateLimit > 0 && cfg.APIGlobalRateLimitWindow > 0 {
+		app.Use(limiter.New(limiter.Config{
+			Max:        cfg.APIGlobalRateLimit,
+			Expiration: time.Duration(cfg.APIGlobalRateLimitWindow) * time.Second,
+			KeyGenerator: func(c *fiber.Ctx) string {
+				return "global"
+			},
+			LimitReached: func(c *fiber.Ctx) error {
+				return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{"error": "Rate limit exceeded"})
+			},
+		}))
+	}
 	app.Use(limiter.New(limiter.Config{
 		Max:        60,
 		Expiration: 1 * time.Minute,

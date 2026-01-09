@@ -86,8 +86,7 @@ func (h *TagHandler) GetTags(c *fiber.Ctx) error {
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	limit, _ := strconv.Atoi(c.Query("limit", "20"))
 	search := c.Query("search")
-	sortBy := c.Query("sortBy", "viewCount")
-	sortOrder := c.Query("sortOrder", "desc")
+	sortOrder := strings.ToLower(c.Query("sortOrder", "asc"))
 	includeHistory := c.Query("includeHistory") == "true"
 	historyStartDate := c.Query("historyStartDate")
 	historyEndDate := c.Query("historyEndDate")
@@ -126,6 +125,9 @@ func (h *TagHandler) GetTags(c *fiber.Ctx) error {
 	if limit < 1 || limit > 100 {
 		limit = 20
 	}
+	if sortOrder != "asc" && sortOrder != "desc" {
+		sortOrder = "asc"
+	}
 
 	offset := (page - 1) * limit
 
@@ -140,61 +142,24 @@ func (h *TagHandler) GetTags(c *fiber.Ctx) error {
 		query = query.Where("tag LIKE ?", "%"+search+"%")
 	}
 
-	// When sorting by rank, exclude tags without a rank from the base query
-	if sortBy == "rank" {
-		query = query.Where("rank IS NOT NULL")
-	}
+	query = query.Where("rank IS NOT NULL")
 
 	var total int64
 	query.Count(&total)
 
 	// Handle sorting
-	needsHistory := includeHistory || sortBy == "change"
+	needsHistory := includeHistory
 
-	// Map frontend sortBy values to database columns
-	columnMap := map[string]string{
-		"viewCount": "view_count",
-		"postCount": "post_count",
-		"updatedAt": "updated_at",
-		"tag":       "tag",
-		"rank":      "rank",
-		"heat":      "heat",
+	orderClause := "rank " + sortOrder
+	query = query.Order(orderClause)
+
+	if len(targetTags) == 0 {
+		query = query.Limit(limit).Offset(offset)
 	}
 
-	// For normal sorting
-	if sortBy != "change" {
-		dbColumn, ok := columnMap[sortBy]
-		if !ok {
-			dbColumn = "view_count" // default
-		}
-
-		orderClause := dbColumn + " " + sortOrder
-		// Special case: when sorting by viewCount, treat deleted tags as having 0 view count
-		if sortBy == "viewCount" {
-			if sortOrder == "desc" {
-				orderClause = "CASE WHEN is_deleted THEN 0 ELSE view_count END DESC, created_at DESC"
-			} else {
-				orderClause = "CASE WHEN is_deleted THEN 0 ELSE view_count END ASC, created_at ASC"
-			}
-		}
-		query = query.Order(orderClause)
-
-		// Only apply pagination if tags parameter is not provided
-		if len(targetTags) == 0 {
-			query = query.Limit(limit).Offset(offset)
-		}
-
-		if err := query.Find(&tags).Error; err != nil {
-			zap.L().Error("Failed to fetch tags", zap.Error(err))
-			return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch tags"})
-		}
-	} else {
-		// For change sorting, we need all tags to calculate aggregated values
-		// But we can still apply search filter at DB level
-		if err := query.Find(&tags).Error; err != nil {
-			zap.L().Error("Failed to fetch tags", zap.Error(err))
-			return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch tags"})
-		}
+	if err := query.Find(&tags).Error; err != nil {
+		zap.L().Error("Failed to fetch tags", zap.Error(err))
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch tags"})
 	}
 
 	// If we need history, fetch it for each tag
@@ -324,29 +289,6 @@ func (h *TagHandler) GetTags(c *fiber.Ctx) error {
 			tagsWithHistory = append(tagsWithHistory, tagWithHist)
 		}
 
-		// Sort by change if requested
-		if sortBy == "change" {
-			// Use Go's efficient sort instead of bubble sort
-			sort.Slice(tagsWithHistory, func(i, j int) bool {
-				if sortOrder == "desc" {
-					return tagsWithHistory[i].TotalChange > tagsWithHistory[j].TotalChange
-				}
-				return tagsWithHistory[i].TotalChange < tagsWithHistory[j].TotalChange
-			})
-
-			// Apply pagination after sorting only if tags parameter is not provided
-			if len(targetTags) == 0 {
-				start := offset
-				end := offset + limit
-				if start > len(tagsWithHistory) {
-					tagsWithHistory = []TagWithHistory{}
-				} else if end > len(tagsWithHistory) {
-					tagsWithHistory = tagsWithHistory[start:]
-				} else {
-					tagsWithHistory = tagsWithHistory[start:end]
-				}
-			}
-		}
 	}
 
 	// Return response with consistent format

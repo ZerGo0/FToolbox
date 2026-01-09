@@ -52,8 +52,9 @@ export const load: PageLoad = async ({ fetch, url }) => {
   const page = url.searchParams.get('page') || '1';
   const search = url.searchParams.get('search') || '';
   const tags = url.searchParams.get('tags') || '';
-  const sortBy = url.searchParams.get('sortBy') || 'rank';
-  const sortOrder = url.searchParams.get('sortOrder') || 'asc';
+  const sortBy = 'rank';
+  const sortOrderParam = url.searchParams.get('sortOrder') || 'asc';
+  const sortOrder = sortOrderParam === 'desc' ? 'desc' : 'asc';
   const includeHistory = url.searchParams.get('includeHistory') || 'true';
 
   // Default to last 7 days if no dates provided

@@ -31,7 +31,6 @@
     AlertCircle,
     ArrowDown,
     ArrowUp,
-    ArrowUpDown,
     ChevronDown,
     ChevronLeft,
     ChevronRight,
@@ -144,17 +143,11 @@
     goto(`?${params}`);
   }
 
-  function handleSort(column: string) {
+  function toggleRankSort() {
     const params = new SvelteURLSearchParams($page.url.searchParams);
-    const currentSortBy = params.get('sortBy') || 'rank';
     const currentSortOrder = params.get('sortOrder') || 'asc';
-
-    if (currentSortBy === column) {
-      params.set('sortOrder', currentSortOrder === 'desc' ? 'asc' : 'desc');
-    } else {
-      params.set('sortBy', column);
-      params.set('sortOrder', 'desc');
-    }
+    params.set('sortBy', 'rank');
+    params.set('sortOrder', currentSortOrder === 'desc' ? 'asc' : 'desc');
     params.set('page', '1');
     goto(`?${params}`);
   }
@@ -394,106 +387,21 @@
                 <TableHead class="w-16">
                   <button
                     class="hover:text-foreground flex items-center gap-1 transition-colors"
-                    onclick={() => handleSort('rank')}
+                    onclick={toggleRankSort}
                   >
                     Rank
-                    {#if data.sortBy === 'rank'}
-                      {#if data.sortOrder === 'desc'}
-                        <ArrowDown class="h-4 w-4" />
-                      {:else}
-                        <ArrowUp class="h-4 w-4" />
-                      {/if}
+                    {#if data.sortOrder === 'desc'}
+                      <ArrowDown class="h-4 w-4" />
                     {:else}
-                      <ArrowUpDown class="h-4 w-4" />
+                      <ArrowUp class="h-4 w-4" />
                     {/if}
                   </button>
                 </TableHead>
-                <TableHead>
-                  <button
-                    class="hover:text-foreground flex items-center gap-1 transition-colors"
-                    onclick={() => handleSort('tag')}
-                  >
-                    Tag
-                    {#if data.sortBy === 'tag'}
-                      {#if data.sortOrder === 'desc'}
-                        <ArrowDown class="h-4 w-4" />
-                      {:else}
-                        <ArrowUp class="h-4 w-4" />
-                      {/if}
-                    {:else}
-                      <ArrowUpDown class="h-4 w-4" />
-                    {/if}
-                  </button>
-                </TableHead>
-                <TableHead>
-                  <button
-                    class="hover:text-foreground flex items-center gap-1 transition-colors"
-                    onclick={() => handleSort('viewCount')}
-                  >
-                    View Count
-                    {#if data.sortBy === 'viewCount'}
-                      {#if data.sortOrder === 'desc'}
-                        <ArrowDown class="h-4 w-4" />
-                      {:else}
-                        <ArrowUp class="h-4 w-4" />
-                      {/if}
-                    {:else}
-                      <ArrowUpDown class="h-4 w-4" />
-                    {/if}
-                  </button>
-                </TableHead>
-                <TableHead>
-                  <button
-                    class="hover:text-foreground flex items-center gap-1 transition-colors"
-                    onclick={() => handleSort('postCount')}
-                  >
-                    Post Count
-                    {#if data.sortBy === 'postCount'}
-                      {#if data.sortOrder === 'desc'}
-                        <ArrowDown class="h-4 w-4" />
-                      {:else}
-                        <ArrowUp class="h-4 w-4" />
-                      {/if}
-                    {:else}
-                      <ArrowUpDown class="h-4 w-4" />
-                    {/if}
-                  </button>
-                </TableHead>
-
-                <TableHead>
-                  <button
-                    class="hover:text-foreground flex items-center gap-1 transition-colors"
-                    onclick={() => handleSort('change')}
-                  >
-                    Views Change
-                    {#if data.sortBy === 'change'}
-                      {#if data.sortOrder === 'desc'}
-                        <ArrowDown class="h-4 w-4" />
-                      {:else}
-                        <ArrowUp class="h-4 w-4" />
-                      {/if}
-                    {:else}
-                      <ArrowUpDown class="h-4 w-4" />
-                    {/if}
-                  </button>
-                </TableHead>
-                <TableHead>
-                  <button
-                    class="hover:text-foreground flex items-center gap-1 transition-colors"
-                    onclick={() => handleSort('updatedAt')}
-                  >
-                    Last Updated
-                    {#if data.sortBy === 'updatedAt'}
-                      {#if data.sortOrder === 'desc'}
-                        <ArrowDown class="h-4 w-4" />
-                      {:else}
-                        <ArrowUp class="h-4 w-4" />
-                      {/if}
-                    {:else}
-                      <ArrowUpDown class="h-4 w-4" />
-                    {/if}
-                  </button>
-                </TableHead>
+                <TableHead>Tag</TableHead>
+                <TableHead>View Count</TableHead>
+                <TableHead>Post Count</TableHead>
+                <TableHead>Views Change</TableHead>
+                <TableHead>Last Updated</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
