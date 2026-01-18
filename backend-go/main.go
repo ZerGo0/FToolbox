@@ -102,6 +102,7 @@ func main() {
 	rankCalculator := workers.NewRankCalculatorWorker(db, cfg)
 	creatorUpdater := workers.NewCreatorUpdaterWorker(db, fanslyClient)
 	statisticsCalculator := workers.NewStatisticsCalculatorWorker(db, cfg)
+	tagCleanup := workers.NewTagCleanupWorker(db, cfg)
 
 	if err := workerManager.Register(tagUpdater); err != nil {
 		zap.L().Error("Failed to register tag updater", zap.Error(err))
@@ -117,6 +118,9 @@ func main() {
 	}
 	if err := workerManager.Register(statisticsCalculator); err != nil {
 		zap.L().Error("Failed to register statistics calculator", zap.Error(err))
+	}
+	if err := workerManager.Register(tagCleanup); err != nil {
+		zap.L().Error("Failed to register tag cleanup", zap.Error(err))
 	}
 
 	// Start workers if enabled
@@ -136,6 +140,9 @@ func main() {
 			}
 			if err := workerManager.Start("statistics-calculator"); err != nil {
 				zap.L().Error("Failed to start statistics calculator", zap.Error(err))
+			}
+			if err := workerManager.Start("tag-cleanup"); err != nil {
+				zap.L().Error("Failed to start tag cleanup", zap.Error(err))
 			}
 		}()
 	}
