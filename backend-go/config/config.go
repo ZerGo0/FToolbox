@@ -39,8 +39,8 @@ func Load() *Config {
 		LogLevel:                 getEnv("LOG_LEVEL", "info"),
 		WorkerEnabled:            getEnvBool("WORKER_ENABLED", true),
 		WorkerUpdateInterval:     getEnvInt("WORKER_UPDATE_INTERVAL", 10000),
-		WorkerDiscoveryInterval:  getEnvInt("WORKER_DISCOVERY_INTERVAL", 60000),
-		RankCalculationInterval:  getEnvInt("RANK_CALCULATION_INTERVAL", 60000),
+		WorkerDiscoveryInterval:  getEnvInt("WORKER_DISCOVERY_INTERVAL", 60000*10),
+		RankCalculationInterval:  getEnvInt("RANK_CALCULATION_INTERVAL", 60000*10),
 		WorkerStatisticsInterval: getEnvInt("WORKER_STATISTICS_INTERVAL", 3600000), // Default to 1 hour
 		GlobalRateLimit:          getEnvInt("FANSLY_GLOBAL_RATE_LIMIT", 50),
 		GlobalRateLimitWindow:    getEnvInt("FANSLY_GLOBAL_RATE_LIMIT_WINDOW", 10),
