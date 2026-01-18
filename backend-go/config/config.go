@@ -20,6 +20,7 @@ type Config struct {
 	WorkerDiscoveryInterval  int
 	RankCalculationInterval  int
 	WorkerStatisticsInterval int
+	WorkerTagCleanupInterval int
 	GlobalRateLimit          int
 	GlobalRateLimitWindow    int
 	APIGlobalRateLimit       int
@@ -42,6 +43,7 @@ func Load() *Config {
 		WorkerDiscoveryInterval:  getEnvInt("WORKER_DISCOVERY_INTERVAL", 60000*10),
 		RankCalculationInterval:  getEnvInt("RANK_CALCULATION_INTERVAL", 60000*10),
 		WorkerStatisticsInterval: getEnvInt("WORKER_STATISTICS_INTERVAL", 3600000), // Default to 1 hour
+		WorkerTagCleanupInterval: getEnvInt("WORKER_TAG_CLEANUP_INTERVAL", 3600000),
 		GlobalRateLimit:          getEnvInt("FANSLY_GLOBAL_RATE_LIMIT", 50),
 		GlobalRateLimitWindow:    getEnvInt("FANSLY_GLOBAL_RATE_LIMIT_WINDOW", 10),
 		APIGlobalRateLimit:       getEnvInt("API_GLOBAL_RATE_LIMIT", 600),
