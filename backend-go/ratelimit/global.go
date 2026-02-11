@@ -108,7 +108,7 @@ func (g *GlobalRateLimiter) Wait(ctx context.Context) error {
 }
 
 // GetStats returns current statistics
-func (g *GlobalRateLimiter) GetStats() map[string]interface{} {
+func (g *GlobalRateLimiter) GetStats() map[string]any {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
@@ -122,7 +122,7 @@ func (g *GlobalRateLimiter) GetStats() map[string]interface{} {
 		}
 	}
 
-	return map[string]interface{}{
+	return map[string]any{
 		"max_requests":    g.maxRequests,
 		"window":          g.window.String(),
 		"active_requests": activeRequests,

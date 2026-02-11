@@ -42,7 +42,7 @@ After generating or editing code, you must always refactor your changes using we
 
 ## High-Level Architecture
 - **Frontend:** SvelteKit 2 (Svelte 5) with Vite, Tailwind CSS v4, and shadcn-svelte; loaders build absolute API URLs using `PUBLIC_API_URL`.
-- **Backend:** Go 1.25 Fiber API using Zap logging, GORM (MySQL driver) targeting MariaDB, shared middleware for compression, CORS, ETag, and request limiting, serving JSON under `/api/*`.
+- **Backend:** Go 1.26 Fiber API using Zap logging, GORM (MySQL driver) targeting MariaDB, shared middleware for compression, CORS, ETag, and request limiting, serving JSON under `/api/*`.
 - **Workers:** Goroutine workers managed by `backend-go/workers/manager.go`; enablement and intervals come from env vars and statuses persist in the `workers` table.
 - **Fansly Integration:** `backend-go/fansly/client.go` centralizes authentication, retries, and global rate limiting for all Fansly requests.
 - **Schema Source of Truth:** `backend-go/models` combined with `backend-go/database/migrate.go` drives AutoMigrate; never mutate the database outside this layer.
@@ -74,7 +74,7 @@ After generating or editing code, you must always refactor your changes using we
   - `frontend/.env.example`
 
 ### backend-go
-- Language: Go (1.25+)
+- Language: Go (1.26+)
 - Framework/runtime: Fiber v2 with Zap logging
 - Package manager: Go modules
 - Important Packages: `github.com/gofiber/fiber/v2`, `gorm.io/gorm`, `gorm.io/driver/mysql`, `go.uber.org/zap`, `github.com/joho/godotenv`

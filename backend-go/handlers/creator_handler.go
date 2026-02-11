@@ -200,9 +200,9 @@ func (h *CreatorHandler) GetCreators(c *fiber.Ctx) error {
 	}
 
 	// For non-history responses, we need to convert creators to proper format
-	creatorsData := make([]map[string]interface{}, len(creators))
+	creatorsData := make([]map[string]any, len(creators))
 	for i, creator := range creators {
-		creatorsData[i] = map[string]interface{}{
+		creatorsData[i] = map[string]any{
 			"id":                creator.ID,
 			"username":          creator.Username,
 			"displayName":       creator.DisplayName,

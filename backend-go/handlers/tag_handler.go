@@ -178,10 +178,7 @@ func (h *TagHandler) GetTags(c *fiber.Ctx) error {
 		var allHistories []models.TagHistory
 
 		for i := 0; i < len(tagIDs); i += batchSize {
-			end := i + batchSize
-			if end > len(tagIDs) {
-				end = len(tagIDs)
-			}
+			end := min(i+batchSize, len(tagIDs))
 			batchIDs := tagIDs[i:end]
 
 			// Build base query for this batch
@@ -233,7 +230,7 @@ func (h *TagHandler) GetTags(c *fiber.Ctx) error {
 				PostCount:            tag.PostCount,
 				Rank:                 tag.Rank,
 				Heat:                 0,
-				FanslyCreatedAt:      ptr(timeToUnix(tag.FanslyCreatedAt)),
+				FanslyCreatedAt:      new(timeToUnix(tag.FanslyCreatedAt)),
 				LastCheckedAt:        timeToUnixPtr(tag.LastCheckedAt),
 				LastUsedForDiscovery: timeToUnixPtr(tag.LastUsedForDiscovery),
 				IsDeleted:            tag.IsDeleted,
@@ -306,7 +303,7 @@ func (h *TagHandler) GetTags(c *fiber.Ctx) error {
 
 	// For non-history responses, we need to convert tags to proper format
 
-	tagsData := make([]map[string]interface{}, len(tags))
+	tagsData := make([]map[string]any, len(tags))
 	for i, tag := range tags {
 		// Show 0 view count for deleted tags
 		viewCount := tag.ViewCount
@@ -314,14 +311,14 @@ func (h *TagHandler) GetTags(c *fiber.Ctx) error {
 			viewCount = 0
 		}
 
-		tagsData[i] = map[string]interface{}{
+		tagsData[i] = map[string]any{
 			"id":                   tag.ID,
 			"tag":                  tag.Tag,
 			"viewCount":            viewCount,
 			"postCount":            tag.PostCount,
 			"rank":                 tag.Rank,
 			"heat":                 0,
-			"fanslyCreatedAt":      ptr(timeToUnix(tag.FanslyCreatedAt)),
+			"fanslyCreatedAt":      new(timeToUnix(tag.FanslyCreatedAt)),
 			"lastCheckedAt":        timeToUnixPtr(tag.LastCheckedAt),
 			"lastUsedForDiscovery": timeToUnixPtr(tag.LastUsedForDiscovery),
 			"isDeleted":            tag.IsDeleted,
@@ -620,10 +617,7 @@ func (h *TagHandler) GetRelatedTags(c *fiber.Ctx) error {
 
 	// Smart mode: per-source normalization + coverage weighting
 	// minCoverage: default to ceil(40% of inputs), bounded to [1, len(inputs)]
-	minCoverageDefault := int(math.Ceil(0.4 * float64(len(srcIDs))))
-	if minCoverageDefault < 1 {
-		minCoverageDefault = 1
-	}
+	minCoverageDefault := max(int(math.Ceil(0.4*float64(len(srcIDs)))), 1)
 	if minCoverageDefault > len(srcIDs) {
 		minCoverageDefault = len(srcIDs)
 	}
@@ -724,9 +718,9 @@ func (h *TagHandler) GetRelatedTags(c *fiber.Ctx) error {
 	}
 	out := scoredRows[:limit]
 
-	resp := make([]map[string]interface{}, 0, len(out))
+	resp := make([]map[string]any, 0, len(out))
 	for _, r := range out {
-		resp = append(resp, map[string]interface{}{
+		resp = append(resp, map[string]any{
 			"id":         r.ID,
 			"tag":        r.Tag,
 			"normScore":  r.NormAvg,
@@ -751,13 +745,14 @@ func timeToUnixPtr(t *time.Time) *int64 {
 	if t == nil {
 		return nil
 	}
-	return ptr(t.Unix())
+	return new(t.Unix())
 }
 
 func timeToUnix(t time.Time) int64 {
 	return t.Unix()
 }
 
+//go:fix inline
 func ptr[T any](v T) *T {
-	return &v
+	return new(v)
 }

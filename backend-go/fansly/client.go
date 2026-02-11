@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"ftoolbox/ratelimit"
@@ -158,8 +159,8 @@ func (c *Client) doRequest(ctx context.Context, url string) ([]byte, error) {
 
 // FanslyResponse represents the generic API response structure
 type FanslyResponse struct {
-	Success  bool        `json:"success"`
-	Response interface{} `json:"response,omitempty"`
+	Success  bool `json:"success"`
+	Response any  `json:"response,omitempty"`
 }
 
 // FanslyTag represents a tag from the Fansly API
@@ -175,8 +176,8 @@ type FanslyTag struct {
 
 // TagResponseData represents the tag response data structure
 type TagResponseData struct {
-	MediaOfferSuggestionTag *FanslyTag             `json:"mediaOfferSuggestionTag,omitempty"`
-	AggregationData         map[string]interface{} `json:"aggregationData,omitempty"`
+	MediaOfferSuggestionTag *FanslyTag     `json:"mediaOfferSuggestionTag,omitempty"`
+	AggregationData         map[string]any `json:"aggregationData,omitempty"`
 }
 
 // GetTagWithContext fetches a single tag by name with context
@@ -213,7 +214,7 @@ type FanslyPost struct {
 	FypFlags             *int               `json:"fypFlags,omitempty"`
 	InReplyTo            *string            `json:"inReplyTo,omitempty"`
 	InReplyToRoot        *string            `json:"inReplyToRoot,omitempty"`
-	ReplyPermissionFlags interface{}        `json:"replyPermissionFlags,omitempty"`
+	ReplyPermissionFlags any                `json:"replyPermissionFlags,omitempty"`
 	ExpiresAt            *int64             `json:"expiresAt,omitempty"`
 	LikeCount            int                `json:"likeCount,omitempty"`
 	ReplyCount           int                `json:"replyCount,omitempty"`
@@ -258,28 +259,28 @@ type SuggestionsResponseData struct {
 	MediaOfferSuggestions []MediaOfferSuggestion `json:"mediaOfferSuggestions,omitempty"`
 	AggregationData       *struct {
 		Accounts            []FanslyAccount `json:"accounts,omitempty"`
-		AccountMedia        []interface{}   `json:"accountMedia,omitempty"`
-		AccountMediaBundles []interface{}   `json:"accountMediaBundles,omitempty"`
+		AccountMedia        []any           `json:"accountMedia,omitempty"`
+		AccountMediaBundles []any           `json:"accountMediaBundles,omitempty"`
 		Posts               []FanslyPost    `json:"posts,omitempty"`
-		Tips                []interface{}   `json:"tips,omitempty"`
-		TipGoals            []interface{}   `json:"tipGoals,omitempty"`
-		Stories             []interface{}   `json:"stories,omitempty"`
+		Tips                []any           `json:"tips,omitempty"`
+		TipGoals            []any           `json:"tipGoals,omitempty"`
+		Stories             []any           `json:"stories,omitempty"`
 	} `json:"aggregationData,omitempty"`
 }
 
 // GetSuggestionsData fetches all data from the suggestions endpoint with full parameter control
 func (c *Client) GetSuggestionsData(ctx context.Context, tagIDs []string, before, after string, limit, offset int) (*SuggestionsResponseData, error) {
 	// Build tag IDs string
-	tagIDsStr := ""
+	var tagIDsStr strings.Builder
 	for i, id := range tagIDs {
 		if i > 0 {
-			tagIDsStr += ","
+			tagIDsStr.WriteString(",")
 		}
-		tagIDsStr += id
+		tagIDsStr.WriteString(id)
 	}
 
 	url := fmt.Sprintf("%s/contentdiscovery/media/suggestionsnew?before=%s&after=%s&tagIds=%s&limit=%d&offset=%d&ngsw-bypass=true",
-		baseURL, before, after, tagIDsStr, limit, offset)
+		baseURL, before, after, tagIDsStr.String(), limit, offset)
 
 	body, err := c.doRequest(ctx, url)
 	if err != nil {
@@ -304,15 +305,15 @@ func (c *Client) GetAccountsWithContext(ctx context.Context, accountIDs []string
 	}
 
 	// Build comma-separated list of account IDs
-	idsParam := ""
+	var idsParam strings.Builder
 	for i, id := range accountIDs {
 		if i > 0 {
-			idsParam += ","
+			idsParam.WriteString(",")
 		}
-		idsParam += id
+		idsParam.WriteString(id)
 	}
 
-	url := fmt.Sprintf("%s/account?ids=%s&ngsw-bypass=true", baseURL, idsParam)
+	url := fmt.Sprintf("%s/account?ids=%s&ngsw-bypass=true", baseURL, idsParam.String())
 
 	body, err := c.doRequest(ctx, url)
 	if err != nil {
@@ -366,7 +367,7 @@ func (c *Client) GetAccountByUsername(ctx context.Context, username string) (*Fa
 }
 
 // ParseFanslyTimestamp converts Fansly timestamp (milliseconds) to time.Time
-func ParseFanslyTimestamp(timestamp interface{}) time.Time {
+func ParseFanslyTimestamp(timestamp any) time.Time {
 	switch v := timestamp.(type) {
 	case float64:
 		// Convert milliseconds to seconds

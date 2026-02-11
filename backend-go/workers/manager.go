@@ -161,7 +161,7 @@ func (m *WorkerManager) runWorker(ctx context.Context, worker Worker) {
 				zap.String("stack", string(debug.Stack())))
 
 			// Update worker status to reflect the panic
-			updates := map[string]interface{}{
+			updates := map[string]any{
 				"status":        "failed",
 				"failure_count": gorm.Expr("failure_count + 1"),
 				"last_error":    fmt.Sprintf("Worker loop panic: %v", r),
@@ -221,7 +221,7 @@ func (m *WorkerManager) executeWorker(ctx context.Context, worker Worker) {
 	now := time.Now()
 	if err := m.db.Model(&models.Worker{}).
 		Where("name = ?", name).
-		Updates(map[string]interface{}{
+		Updates(map[string]any{
 			"status":      "running",
 			"last_run_at": now,
 			"updated_at":  now,
@@ -256,7 +256,7 @@ func (m *WorkerManager) executeWorker(ctx context.Context, worker Worker) {
 
 	// Update worker status based on result
 	status := "idle"
-	updates := map[string]interface{}{
+	updates := map[string]any{
 		"status":      status,
 		"run_count":   gorm.Expr("run_count + 1"),
 		"updated_at":  time.Now(),

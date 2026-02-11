@@ -4,7 +4,7 @@ Go implementation of the FToolbox backend API.
 
 ## Prerequisites
 
-- Go 1.21+
+- Go 1.26+
 - MariaDB
 - Air (for hot reloading): `go install github.com/cosmtrek/air@latest`
 

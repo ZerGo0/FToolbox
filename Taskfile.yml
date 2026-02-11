@@ -25,3 +25,25 @@ tasks:
       - air
       - cmd: kill -9 $(lsof -t -i:3001)
         ignore_error: true
+
+  install:
+    desc: Install the dependencies
+    cmds:
+      - pnpm install -r
+      - |
+        find . -name "go.mod" -type f | grep -v "/vendor/" | while read -r modfile; do
+          dir=$(dirname "$modfile")
+          echo "Installing in $dir"
+          (cd "$dir" && go mod download)
+        done
+
+  update:
+    desc: Update the dependencies
+    cmds:
+      - pnpm update -r
+      - |
+        find . -name "go.mod" -type f | grep -v "/vendor/" | while read -r modfile; do
+          dir=$(dirname "$modfile")
+          echo "Updating in $dir"
+          (cd "$dir" && go get -u ./... && go mod tidy)
+        done

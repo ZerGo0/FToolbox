@@ -74,7 +74,7 @@ func (w *TagDiscoveryWorker) Run(ctx context.Context) error {
 
 			// Update the tag to mark it as deleted
 			now := time.Now()
-			updates := map[string]interface{}{
+			updates := map[string]any{
 				"is_deleted":          true,
 				"deleted_detected_at": &now,
 				"updated_at":          now,
@@ -300,7 +300,7 @@ func (w *TagDiscoveryWorker) updateTagRelationsFromSuggestions(ctx context.Conte
 	// Upsert with additive co_count and update last_seen_at
 	if err := w.db.Clauses(clause.OnConflict{
 		Columns: []clause.Column{{Name: "tag_id"}, {Name: "related_tag_id"}, {Name: "bucket_date"}},
-		DoUpdates: clause.Assignments(map[string]interface{}{
+		DoUpdates: clause.Assignments(map[string]any{
 			"co_count":     gorm.Expr("co_count + VALUES(co_count)"),
 			"last_seen_at": gorm.Expr("VALUES(last_seen_at)"),
 		}),
