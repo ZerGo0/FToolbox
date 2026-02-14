@@ -190,6 +190,9 @@
                 label: function (context) {
                   const label = context.dataset.label || '';
                   const value = context.parsed.y;
+                  if (value === null) {
+                    return label + ': N/A';
+                  }
                   if (label === 'Change') {
                     const formatted = new Intl.NumberFormat('en-US', {
                       signDisplay: 'exceptZero'
