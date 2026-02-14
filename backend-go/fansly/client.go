@@ -20,6 +20,7 @@ import (
 const (
 	baseURL        = "https://apiv3.fansly.com/api/v1"
 	defaultTimeout = 30 * time.Second
+	maxAccountIDs  = 100
 )
 
 // ErrTagNotFound is returned when a tag doesn't exist on Fansly
@@ -304,7 +305,25 @@ func (c *Client) GetAccountsWithContext(ctx context.Context, accountIDs []string
 		return nil, nil
 	}
 
-	// Build comma-separated list of account IDs
+	accounts := make([]FanslyAccount, 0, len(accountIDs))
+	for start := 0; start < len(accountIDs); start += maxAccountIDs {
+		end := start + maxAccountIDs
+		if end > len(accountIDs) {
+			end = len(accountIDs)
+		}
+
+		chunkAccounts, err := c.getAccountsChunkWithContext(ctx, accountIDs[start:end])
+		if err != nil {
+			return nil, err
+		}
+
+		accounts = append(accounts, chunkAccounts...)
+	}
+
+	return accounts, nil
+}
+
+func (c *Client) getAccountsChunkWithContext(ctx context.Context, accountIDs []string) ([]FanslyAccount, error) {
 	var idsParam strings.Builder
 	for i, id := range accountIDs {
 		if i > 0 {

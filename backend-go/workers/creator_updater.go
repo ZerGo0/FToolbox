@@ -11,6 +11,8 @@ import (
 	"gorm.io/gorm"
 )
 
+const creatorUpdateBatchSize = 100
+
 type CreatorUpdaterWorker struct {
 	BaseWorker
 	db     *gorm.DB
@@ -28,33 +30,96 @@ func NewCreatorUpdaterWorker(db *gorm.DB, client *fansly.Client) *CreatorUpdater
 func (w *CreatorUpdaterWorker) Run(ctx context.Context) error {
 	zap.L().Info("Running creator updater")
 
-	// Get creators that need updating (haven't been checked in 24 hours)
 	twentyFourHoursAgo := time.Now().Add(-24 * time.Hour)
 
-	var creatorIDs []string
+	var creators []models.Creator
 	if err := w.db.Model(&models.Creator{}).
 		Where("last_checked_at IS NULL OR last_checked_at < ?", twentyFourHoursAgo).
 		Order("followers DESC").
-		Limit(25).
-		Pluck("id", &creatorIDs).Error; err != nil {
-		return fmt.Errorf("failed to fetch creator IDs: %w", err)
+		Limit(creatorUpdateBatchSize).
+		Find(&creators).Error; err != nil {
+		return fmt.Errorf("failed to fetch creators: %w", err)
 	}
 
-	if len(creatorIDs) == 0 {
+	if len(creators) == 0 {
 		zap.L().Debug("No creators need updating")
 		return nil
 	}
 
+	creatorIDs := make([]string, len(creators))
+	for i, creator := range creators {
+		creatorIDs[i] = creator.ID
+	}
+
 	zap.L().Info("Updating creators", zap.Int("count", len(creatorIDs)))
 
-	// Fetch account data from Fansly API
 	accounts, err := w.client.GetAccountsWithContext(ctx, creatorIDs)
 	if err != nil {
 		return fmt.Errorf("failed to fetch creator accounts: %w", err)
 	}
 
-	// Process the fetched accounts
-	return w.ProcessCreators(accounts)
+	return w.processScheduledCreators(creators, accounts)
+}
+
+func (w *CreatorUpdaterWorker) processScheduledCreators(creators []models.Creator, accounts []fansly.FanslyAccount) error {
+	if len(creators) == 0 {
+		return nil
+	}
+
+	accountsByID := make(map[string]fansly.FanslyAccount, len(accounts))
+	for _, account := range accounts {
+		accountsByID[account.ID] = account
+	}
+
+	updatedCreators := 0
+	missingCreators := 0
+
+	for i := range creators {
+		creator := creators[i]
+		account, exists := accountsByID[creator.ID]
+		if !exists {
+			if err := w.markCreatorCheckedAfterMiss(&creator); err != nil {
+				zap.L().Error("Failed to update creator after missing account lookup",
+					zap.String("creator_id", creator.ID),
+					zap.String("username", creator.Username),
+					zap.Error(err))
+				continue
+			}
+			missingCreators++
+			continue
+		}
+
+		if err := w.updateCreator(&creator, &account); err != nil {
+			zap.L().Error("Failed to update creator",
+				zap.String("username", account.Username),
+				zap.Error(err))
+			continue
+		}
+
+		updatedCreators++
+	}
+
+	zap.L().Info("Creator updater run completed",
+		zap.Int("requested", len(creators)),
+		zap.Int("fetched", len(accounts)),
+		zap.Int("updated", updatedCreators),
+		zap.Int("missing", missingCreators))
+
+	return nil
+}
+
+func (w *CreatorUpdaterWorker) markCreatorCheckedAfterMiss(creator *models.Creator) error {
+	now := time.Now()
+	updates := map[string]any{
+		"last_checked_at": now,
+		"updated_at":      now,
+	}
+
+	if err := w.db.Model(&models.Creator{}).Where("id = ?", creator.ID).Updates(updates).Error; err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (w *CreatorUpdaterWorker) ProcessCreators(accounts []fansly.FanslyAccount) error {

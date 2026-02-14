@@ -297,6 +297,9 @@
                 label: function (context) {
                   const label = context.dataset.label || '';
                   const value = context.parsed.y;
+                  if (value === null) {
+                    return label + ': N/A';
+                  }
                   return label + ': ' + new Intl.NumberFormat().format(value);
                 }
               }
