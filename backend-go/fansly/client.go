@@ -332,7 +332,7 @@ func (c *Client) getAccountsChunkWithContext(ctx context.Context, accountIDs []s
 		idsParam.WriteString(id)
 	}
 
-	url := fmt.Sprintf("%s/account?ids=%s&ngsw-bypass=true", baseURL, idsParam.String())
+	url := fmt.Sprintf("%s/account?ids=%s&limit=%d&ngsw-bypass=true", baseURL, idsParam.String(), maxAccountIDs)
 
 	body, err := c.doRequest(ctx, url)
 	if err != nil {
