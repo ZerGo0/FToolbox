@@ -82,6 +82,12 @@ type relatedTagScore struct {
 	FinalScore float64
 }
 
+type tagSortOptions struct {
+	By      string
+	Order   string
+	EndDate *time.Time
+}
+
 func extractHashtags(q string) []string {
 	if strings.TrimSpace(q) == "" {
 		return nil
@@ -140,7 +146,11 @@ func (h *TagHandler) GetTags(c *fiber.Ctx) error {
 	query.Count(&total)
 
 	needsHistory := includeHistory
-	query = h.applyTagSort(query, sortBy, sortOrder, endDate)
+	query = h.applyTagSort(query, tagSortOptions{
+		By:      sortBy,
+		Order:   sortOrder,
+		EndDate: endDate,
+	})
 
 	if len(targetTags) == 0 {
 		query = query.Limit(limit).Offset(offset)
@@ -772,21 +782,19 @@ func buildTagData(
 
 func (h *TagHandler) applyTagSort(
 	query *gorm.DB,
-	sortBy string,
-	sortOrder string,
-	endDate *time.Time,
+	sortOptions tagSortOptions,
 ) *gorm.DB {
-	if sortBy != "ratio" {
-		return query.Order("rank " + sortOrder)
+	if sortOptions.By != "ratio" {
+		return query.Order("rank " + sortOptions.Order)
 	}
 
-	orderClause := "(CASE WHEN tags.post_count > 0 THEN tags.view_count / tags.post_count ELSE 0 END) " + sortOrder
-	if endDate != nil {
-		orderClause = "(CASE WHEN COALESCE(tag_snapshots.post_count, tags.post_count) > 0 THEN COALESCE(tag_snapshots.view_count, tags.view_count) / COALESCE(tag_snapshots.post_count, tags.post_count) ELSE 0 END) " + sortOrder
-		query = query.Joins("LEFT JOIN (?) AS tag_snapshots ON tag_snapshots.tag_id = tags.id", latestTagSnapshotQuery(h.db, *endDate))
+	orderClause := currentTagRatioOrderClause()
+	if sortOptions.EndDate != nil {
+		query = query.Joins(latestTagSnapshotJoinForTagsClause(), *sortOptions.EndDate)
+		orderClause = snapshotTagRatioOrderClause()
 	}
 
-	return query.Order(orderClause).Order("rank ASC")
+	return query.Order(orderClause + " " + sortOptions.Order).Order("rank ASC")
 }
 
 func (h *TagHandler) loadTagSnapshotsForRange(
@@ -839,25 +847,20 @@ func (h *TagHandler) loadTagHistoryByTag(
 	return historyByTag, nil
 }
 
-func latestTagSnapshotQuery(db *gorm.DB, endDate time.Time) *gorm.DB {
-	latestIDs := db.Model(&models.TagHistory{}).
-		Select("tag_id, MAX(id) AS id").
-		Where("created_at <= ?", endDate).
-		Group("tag_id")
-
-	return db.Table("tag_history AS th").
-		Select("th.id, th.tag_id, th.view_count, th.change, th.post_count, th.post_count_change, th.created_at, th.updated_at").
-		Joins("JOIN (?) AS latest ON latest.id = th.id", latestIDs)
-}
-
 func loadTagSnapshots(db *gorm.DB, tagIDs []string, endDate time.Time) (map[string]models.TagHistory, error) {
 	if len(tagIDs) == 0 {
 		return map[string]models.TagHistory{}, nil
 	}
 
 	var snapshots []models.TagHistory
-	if err := db.Table("(?) AS tag_snapshots", latestTagSnapshotQuery(db, endDate)).
-		Where("tag_id IN ?", tagIDs).
+	if err := db.Table("tags AS t").
+		Select(
+			"tag_snapshots.id, tag_snapshots.tag_id, tag_snapshots.view_count, tag_snapshots.change, "+
+				"tag_snapshots.post_count, tag_snapshots.post_count_change, tag_snapshots.created_at, tag_snapshots.updated_at",
+		).
+		Joins(latestTagSnapshotJoinForSnapshotLoadClause(), endDate).
+		Where("t.id IN ?", tagIDs).
+		Where("tag_snapshots.id IS NOT NULL").
 		Scan(&snapshots).Error; err != nil {
 		return nil, err
 	}
@@ -868,6 +871,33 @@ func loadTagSnapshots(db *gorm.DB, tagIDs []string, endDate time.Time) (map[stri
 	}
 
 	return snapshotByTag, nil
+}
+
+func currentTagRatioOrderClause() string {
+	return "(CASE WHEN tags.post_count > 0 THEN " +
+		"CAST(tags.view_count AS DECIMAL(30,10)) / tags.post_count" +
+		" ELSE 0 END)"
+}
+
+func snapshotTagRatioOrderClause() string {
+	return "(CASE WHEN COALESCE(tag_snapshots.post_count, tags.post_count) > 0 THEN " +
+		"CAST(COALESCE(tag_snapshots.view_count, tags.view_count) AS DECIMAL(30,10)) / " +
+		"COALESCE(tag_snapshots.post_count, tags.post_count)" +
+		" ELSE 0 END)"
+}
+
+func latestTagSnapshotJoinForTagsClause() string {
+	return "LEFT JOIN tag_history AS tag_snapshots ON tag_snapshots.id = (" +
+		"SELECT th.id FROM tag_history AS th " +
+		"WHERE th.tag_id = tags.id AND th.created_at <= ? " +
+		"ORDER BY th.created_at DESC, th.id DESC LIMIT 1)"
+}
+
+func latestTagSnapshotJoinForSnapshotLoadClause() string {
+	return "LEFT JOIN tag_history AS tag_snapshots ON tag_snapshots.id = (" +
+		"SELECT th.id FROM tag_history AS th " +
+		"WHERE th.tag_id = t.id AND th.created_at <= ? " +
+		"ORDER BY th.created_at DESC, th.id DESC LIMIT 1)"
 }
 
 func scoreRelatedTags(rows []relatedTagAggregate, inputCount int) []relatedTagScore {
