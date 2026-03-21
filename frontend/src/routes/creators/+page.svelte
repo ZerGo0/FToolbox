@@ -46,6 +46,7 @@
   let { data } = $props();
 
   let searchInputElement: HTMLInputElement | undefined;
+  let resultsElement: HTMLDivElement | undefined;
   let expandedCreatorId = $state<string | null>(null);
   let searchValue = $state(data.search || '');
   let pageJumpValue = $state<string>('');
@@ -127,7 +128,14 @@
     const v = searchValue.trim().replace(/^#/, '');
     params.set('search', v);
     params.set('page', '1');
-    goto(`?${params}`);
+    void navigateToParams(params);
+  }
+
+  async function navigateToParams(params: SvelteURLSearchParams) {
+    await goto(`?${params}`, { noScroll: true, keepFocus: true });
+    requestAnimationFrame(() => {
+      resultsElement?.scrollIntoView({ block: 'start' });
+    });
   }
 
   function toggleRankSort() {
@@ -136,13 +144,13 @@
     params.set('sortBy', 'rank');
     params.set('sortOrder', currentSortOrder === 'desc' ? 'asc' : 'desc');
     params.set('page', '1');
-    goto(`?${params}`);
+    void navigateToParams(params);
   }
 
   function handlePageChange(newPage: number) {
     const params = new SvelteURLSearchParams($page.url.searchParams);
     params.set('page', newPage.toString());
-    goto(`?${params}`);
+    void navigateToParams(params);
   }
 
   function handlePageJump() {
@@ -200,7 +208,7 @@
     params.set('historyEndDate', endDate.toISOString());
     params.set('includeHistory', 'true');
 
-    goto(`?${params}`);
+    void navigateToParams(params);
   }
 
   // Manual update button for date range
@@ -384,229 +392,228 @@
       </div>
 
       <!-- Creators Table -->
-      {#if data.pagination.totalCount === 0}
-        <div class="rounded-md border p-8">
-          <p class="text-muted-foreground text-center">No creators found</p>
-        </div>
-      {:else}
-        <div class="relative rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead class="w-12"></TableHead>
-                <TableHead class="w-16">
-                  <button
-                    class="hover:text-foreground flex items-center gap-1 transition-colors"
-                    onclick={toggleRankSort}
-                  >
-                    Rank
-                    {#if data.sortOrder === 'desc'}
-                      <ArrowDown class="h-4 w-4" />
-                    {:else}
-                      <ArrowUp class="h-4 w-4" />
-                    {/if}
-                  </button>
-                </TableHead>
-                <TableHead>Creator</TableHead>
-                <TableHead>Followers</TableHead>
-                <TableHead>Media Likes</TableHead>
-                <TableHead>Post Likes</TableHead>
-                <TableHead>Image Count</TableHead>
-                <TableHead>Video Count</TableHead>
-                <TableHead>Last Updated</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {#each data.creators as creator (creator.id)}
+      <div bind:this={resultsElement} class="space-y-4">
+        {#if data.pagination.totalCount === 0}
+          <div class="rounded-md border p-8">
+            <p class="text-muted-foreground text-center">No creators found</p>
+          </div>
+        {:else}
+          <div class="relative rounded-md border">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell>
+                  <TableHead class="w-12"></TableHead>
+                  <TableHead class="w-16">
                     <button
-                      onclick={() => toggleCreator(creator.id)}
-                      class="hover:bg-muted rounded p-1 transition-colors"
+                      class="hover:text-foreground flex items-center gap-1 transition-colors"
+                      onclick={toggleRankSort}
                     >
-                      {#if expandedCreatorId === creator.id}
-                        <ChevronUp class="h-4 w-4" />
+                      Rank
+                      {#if data.sortOrder === 'desc'}
+                        <ArrowDown class="h-4 w-4" />
                       {:else}
-                        <ChevronDown class="h-4 w-4" />
+                        <ArrowUp class="h-4 w-4" />
                       {/if}
                     </button>
-                  </TableCell>
-                  <TableCell class="text-center font-medium">{creator.rank ?? '-'}</TableCell>
-                  <TableCell class="font-medium">
-                    <div class="flex items-center gap-2">
-                      <span>{getCreatorDisplayName(creator)}</span>
-                      {#if creator.isDeleted}
-                        <Tooltip.Root>
-                          <Tooltip.Trigger>
-                            <Badge variant="destructive" class="p-1">
-                              <AlertCircle class="h-3 w-3" />
-                            </Badge>
-                          </Tooltip.Trigger>
-                          <Tooltip.Content>
-                            No longer exists on Fansly (detected {formatDate(
-                              creator.deletedDetectedAt
-                            )})
-                          </Tooltip.Content>
-                        </Tooltip.Root>
-                      {/if}
-                    </div>
-                  </TableCell>
-                  <TableCell>{formatNumber(creator.followers)}</TableCell>
-                  <TableCell>{formatNumber(creator.mediaLikes)}</TableCell>
-                  <TableCell>{formatNumber(creator.postLikes)}</TableCell>
-                  <TableCell>{formatNumber(creator.imageCount)}</TableCell>
-                  <TableCell>{formatNumber(creator.videoCount)}</TableCell>
-                  <TableCell>{formatDate(creator.lastCheckedAt)}</TableCell>
+                  </TableHead>
+                  <TableHead>Creator</TableHead>
+                  <TableHead>Followers</TableHead>
+                  <TableHead>Media Likes</TableHead>
+                  <TableHead>Post Likes</TableHead>
+                  <TableHead>Image Count</TableHead>
+                  <TableHead>Video Count</TableHead>
+                  <TableHead>Last Updated</TableHead>
                 </TableRow>
-                {#if expandedCreatorId === creator.id}
+              </TableHeader>
+              <TableBody>
+                {#each data.creators as creator (creator.id)}
                   <TableRow>
-                    <TableCell colspan={9} class="p-0">
-                      <div class="bg-muted/50 p-6">
-                        <CreatorHistory history={creator.history} />
+                    <TableCell>
+                      <button
+                        onclick={() => toggleCreator(creator.id)}
+                        class="hover:bg-muted rounded p-1 transition-colors"
+                      >
+                        {#if expandedCreatorId === creator.id}
+                          <ChevronUp class="h-4 w-4" />
+                        {:else}
+                          <ChevronDown class="h-4 w-4" />
+                        {/if}
+                      </button>
+                    </TableCell>
+                    <TableCell class="text-center font-medium">{creator.rank ?? '-'}</TableCell>
+                    <TableCell class="font-medium">
+                      <div class="flex items-center gap-2">
+                        <span>{getCreatorDisplayName(creator)}</span>
+                        {#if creator.isDeleted}
+                          <Tooltip.Root>
+                            <Tooltip.Trigger>
+                              <Badge variant="destructive" class="p-1">
+                                <AlertCircle class="h-3 w-3" />
+                              </Badge>
+                            </Tooltip.Trigger>
+                            <Tooltip.Content>
+                              No longer exists on Fansly (detected {formatDate(
+                                creator.deletedDetectedAt
+                              )})
+                            </Tooltip.Content>
+                          </Tooltip.Root>
+                        {/if}
                       </div>
                     </TableCell>
+                    <TableCell>{formatNumber(creator.followers)}</TableCell>
+                    <TableCell>{formatNumber(creator.mediaLikes)}</TableCell>
+                    <TableCell>{formatNumber(creator.postLikes)}</TableCell>
+                    <TableCell>{formatNumber(creator.imageCount)}</TableCell>
+                    <TableCell>{formatNumber(creator.videoCount)}</TableCell>
+                    <TableCell>{formatDate(creator.lastCheckedAt)}</TableCell>
                   </TableRow>
-                {/if}
-              {/each}
-            </TableBody>
-          </Table>
-        </div>
-      {/if}
-
-      <!-- Pagination -->
-      {#if data.pagination.totalPages > 1}
-        <div class="flex justify-center">
-          <Pagination.Root
-            count={data.pagination.totalCount}
-            perPage={data.pagination.limit}
-            page={data.pagination.page}
-            onPageChange={(page) => handlePageChange(page)}
-            siblingCount={1}
-          >
-            {#snippet children({ pages, currentPage })}
-              <Pagination.Content class="flex items-center gap-1">
-                <!-- First Page -->
-                <Pagination.Item class="hidden sm:block">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    class="h-9 w-9"
-                    disabled={currentPage <= 1}
-                    onclick={() => handlePageChange(1)}
-                    aria-label="Go to first page"
-                  >
-                    <ChevronsLeft class="h-4 w-4" />
-                  </Button>
-                </Pagination.Item>
-
-                <!-- Previous -->
-                <Pagination.Item>
-                  <Pagination.PrevButton class="h-9 px-3">
-                    <ChevronLeft class="h-4 w-4" />
-                    <span class="sr-only sm:not-sr-only sm:ml-1">Previous</span>
-                  </Pagination.PrevButton>
-                </Pagination.Item>
-
-                <!-- Page Numbers - hide some on mobile -->
-                {#each pages as page (page.key)}
-                  {#if page.type === 'ellipsis'}
-                    <Pagination.Item>
-                      {#if showPageJump}
-                        <div class="flex items-center gap-1">
-                          <Input
-                            type="number"
-                            class="h-9 w-16"
-                            placeholder="..."
-                            bind:value={pageJumpValue}
-                            onkeydown={(e) => {
-                              if (e.key === 'Enter') {
-                                handlePageJump();
-                                showPageJump = false;
-                              } else if (e.key === 'Escape') {
-                                showPageJump = false;
-                                pageJumpValue = '';
-                              }
-                            }}
-                            onblur={() => {
-                              setTimeout(() => {
-                                showPageJump = false;
-                                pageJumpValue = '';
-                              }, 200);
-                            }}
-                            min="1"
-                            max={data.pagination.totalPages}
-                            autofocus
-                          />
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            class="h-9 w-9"
-                            onclick={() => {
-                              handlePageJump();
-                              showPageJump = false;
-                            }}
-                          >
-                            <ChevronRight class="h-4 w-4" />
-                          </Button>
+                  {#if expandedCreatorId === creator.id}
+                    <TableRow>
+                      <TableCell colspan={9} class="p-0">
+                        <div class="bg-muted/50 p-6">
+                          <CreatorHistory history={creator.history} />
                         </div>
-                      {:else}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          class="h-9 w-9"
-                          onclick={() => {
-                            showPageJump = true;
-                            pageJumpValue = '';
-                          }}
-                          title="Go to page..."
-                        >
-                          <span class="text-muted-foreground">...</span>
-                        </Button>
-                      {/if}
-                    </Pagination.Item>
-                  {:else}
-                    <!-- On mobile, only show current page and adjacent pages -->
-                    <Pagination.Item
-                      class={page.value !== currentPage &&
-                      Math.abs(page.value - currentPage) > 1 &&
-                      page.value !== 1 &&
-                      page.value !== data.pagination.totalPages
-                        ? 'hidden sm:block'
-                        : ''}
-                    >
-                      <Pagination.Link {page} isActive={currentPage === page.value} class="h-9 w-9">
-                        {page.value}
-                      </Pagination.Link>
-                    </Pagination.Item>
+                      </TableCell>
+                    </TableRow>
                   {/if}
                 {/each}
+              </TableBody>
+            </Table>
+          </div>
+        {/if}
 
-                <!-- Next -->
-                <Pagination.Item>
-                  <Pagination.NextButton class="h-9 px-3">
-                    <span class="sr-only sm:not-sr-only sm:mr-1">Next</span>
-                    <ChevronRight class="h-4 w-4" />
-                  </Pagination.NextButton>
-                </Pagination.Item>
+        {#if data.pagination.totalPages > 1}
+          <div class="flex justify-center">
+            <Pagination.Root
+              count={data.pagination.totalCount}
+              perPage={data.pagination.limit}
+              page={data.pagination.page}
+              onPageChange={(page) => handlePageChange(page)}
+              siblingCount={1}
+            >
+              {#snippet children({ pages, currentPage })}
+                <Pagination.Content class="flex items-center gap-1">
+                  <Pagination.Item class="hidden sm:block">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      class="h-9 w-9"
+                      disabled={currentPage <= 1}
+                      onclick={() => handlePageChange(1)}
+                      aria-label="Go to first page"
+                    >
+                      <ChevronsLeft class="h-4 w-4" />
+                    </Button>
+                  </Pagination.Item>
 
-                <!-- Last Page -->
-                <Pagination.Item class="hidden sm:block">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    class="h-9 w-9"
-                    disabled={currentPage >= data.pagination.totalPages}
-                    onclick={() => handlePageChange(data.pagination.totalPages)}
-                    aria-label="Go to last page"
-                  >
-                    <ChevronsRight class="h-4 w-4" />
-                  </Button>
-                </Pagination.Item>
-              </Pagination.Content>
-            {/snippet}
-          </Pagination.Root>
-        </div>
-      {/if}
+                  <Pagination.Item>
+                    <Pagination.PrevButton class="h-9 px-3">
+                      <ChevronLeft class="h-4 w-4" />
+                      <span class="sr-only sm:not-sr-only sm:ml-1">Previous</span>
+                    </Pagination.PrevButton>
+                  </Pagination.Item>
+
+                  {#each pages as page (page.key)}
+                    {#if page.type === 'ellipsis'}
+                      <Pagination.Item>
+                        {#if showPageJump}
+                          <div class="flex items-center gap-1">
+                            <Input
+                              type="number"
+                              class="h-9 w-16"
+                              placeholder="..."
+                              bind:value={pageJumpValue}
+                              onkeydown={(e) => {
+                                if (e.key === 'Enter') {
+                                  handlePageJump();
+                                  showPageJump = false;
+                                } else if (e.key === 'Escape') {
+                                  showPageJump = false;
+                                  pageJumpValue = '';
+                                }
+                              }}
+                              onblur={() => {
+                                setTimeout(() => {
+                                  showPageJump = false;
+                                  pageJumpValue = '';
+                                }, 200);
+                              }}
+                              min="1"
+                              max={data.pagination.totalPages}
+                              autofocus
+                            />
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              class="h-9 w-9"
+                              onclick={() => {
+                                handlePageJump();
+                                showPageJump = false;
+                              }}
+                            >
+                              <ChevronRight class="h-4 w-4" />
+                            </Button>
+                          </div>
+                        {:else}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            class="h-9 w-9"
+                            onclick={() => {
+                              showPageJump = true;
+                              pageJumpValue = '';
+                            }}
+                            title="Go to page..."
+                          >
+                            <span class="text-muted-foreground">...</span>
+                          </Button>
+                        {/if}
+                      </Pagination.Item>
+                    {:else}
+                      <Pagination.Item
+                        class={page.value !== currentPage &&
+                        Math.abs(page.value - currentPage) > 1 &&
+                        page.value !== 1 &&
+                        page.value !== data.pagination.totalPages
+                          ? 'hidden sm:block'
+                          : ''}
+                      >
+                        <Pagination.Link
+                          {page}
+                          isActive={currentPage === page.value}
+                          class="h-9 w-9"
+                        >
+                          {page.value}
+                        </Pagination.Link>
+                      </Pagination.Item>
+                    {/if}
+                  {/each}
+
+                  <Pagination.Item>
+                    <Pagination.NextButton class="h-9 px-3">
+                      <span class="sr-only sm:not-sr-only sm:mr-1">Next</span>
+                      <ChevronRight class="h-4 w-4" />
+                    </Pagination.NextButton>
+                  </Pagination.Item>
+
+                  <Pagination.Item class="hidden sm:block">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      class="h-9 w-9"
+                      disabled={currentPage >= data.pagination.totalPages}
+                      onclick={() => handlePageChange(data.pagination.totalPages)}
+                      aria-label="Go to last page"
+                    >
+                      <ChevronsRight class="h-4 w-4" />
+                    </Button>
+                  </Pagination.Item>
+                </Pagination.Content>
+              {/snippet}
+            </Pagination.Root>
+          </div>
+        {/if}
+      </div>
     </CardContent>
   </Card>
 </div>
