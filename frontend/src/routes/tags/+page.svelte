@@ -47,6 +47,7 @@
   let { data } = $props();
 
   let searchInputElement: HTMLInputElement | undefined;
+  let resultsElement: HTMLDivElement | undefined;
   let expandedTagId = $state<string | null>(null);
   let searchValue = $state(data.search || '');
   let pageJumpValue = $state<string>('');
@@ -140,7 +141,14 @@
       params.delete('tags');
     }
     params.set('page', '1');
-    goto(`?${params}`);
+    void navigateToParams(params);
+  }
+
+  async function navigateToParams(params: SvelteURLSearchParams) {
+    await goto(`?${params}`, { noScroll: true, keepFocus: true });
+    requestAnimationFrame(() => {
+      resultsElement?.scrollIntoView({ block: 'start' });
+    });
   }
 
   function toggleSort(sortBy: 'rank' | 'ratio') {
@@ -153,13 +161,13 @@
       currentSortBy === sortBy && currentSortOrder === 'desc' ? 'asc' : 'desc'
     );
     params.set('page', '1');
-    goto(`?${params}`);
+    void navigateToParams(params);
   }
 
   function handlePageChange(newPage: number) {
     const params = new SvelteURLSearchParams($page.url.searchParams);
     params.set('page', newPage.toString());
-    goto(`?${params}`);
+    void navigateToParams(params);
   }
 
   function handlePageJump() {
@@ -225,7 +233,7 @@
     params.set('historyEndDate', endDate.toISOString());
     params.set('includeHistory', 'true');
 
-    goto(`?${params}`);
+    void navigateToParams(params);
   }
 
   // Manual update button for date range
@@ -386,264 +394,263 @@
       </div>
 
       <!-- Tags Table -->
-      {#if data.pagination.totalCount === 0}
-        <div class="rounded-md border p-8">
-          <p class="text-muted-foreground text-center">No tags found</p>
-        </div>
-      {:else}
-        <div class="relative rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead class="w-12"></TableHead>
-                <TableHead class="w-16">
-                  <button
-                    class="hover:text-foreground flex items-center gap-1 transition-colors"
-                    onclick={() => toggleSort('rank')}
-                  >
-                    Rank
-                    {#if data.sortBy === 'rank'}
-                      {#if data.sortOrder === 'desc'}
-                        <ArrowDown class="h-4 w-4" />
-                      {:else}
-                        <ArrowUp class="h-4 w-4" />
-                      {/if}
-                    {/if}
-                  </button>
-                </TableHead>
-                <TableHead>Tag</TableHead>
-                <TableHead>View Count</TableHead>
-                <TableHead>Post Count</TableHead>
-                <TableHead>
-                  <button
-                    class="hover:text-foreground flex items-center gap-1 transition-colors"
-                    onclick={() => toggleSort('ratio')}
-                  >
-                    Ratio
-                    {#if data.sortBy === 'ratio'}
-                      {#if data.sortOrder === 'desc'}
-                        <ArrowDown class="h-4 w-4" />
-                      {:else}
-                        <ArrowUp class="h-4 w-4" />
-                      {/if}
-                    {/if}
-                  </button>
-                </TableHead>
-                <TableHead>Views Change</TableHead>
-                <TableHead>Last Updated</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {#each data.tags as tag (tag.id)}
-                {@const changeData = getTagChange(tag)}
-                {@const change = changeData.change}
-                {@const percentage = changeData.percentage}
+      <div bind:this={resultsElement} class="space-y-4">
+        {#if data.pagination.totalCount === 0}
+          <div class="rounded-md border p-8">
+            <p class="text-muted-foreground text-center">No tags found</p>
+          </div>
+        {:else}
+          <div class="relative rounded-md border">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell>
+                  <TableHead class="w-12"></TableHead>
+                  <TableHead class="w-16">
                     <button
-                      onclick={() => toggleTag(tag.id)}
-                      class="hover:bg-muted rounded p-1 transition-colors"
+                      class="hover:text-foreground flex items-center gap-1 transition-colors"
+                      onclick={() => toggleSort('rank')}
                     >
-                      {#if expandedTagId === tag.id}
-                        <ChevronUp class="h-4 w-4" />
-                      {:else}
-                        <ChevronDown class="h-4 w-4" />
+                      Rank
+                      {#if data.sortBy === 'rank'}
+                        {#if data.sortOrder === 'desc'}
+                          <ArrowDown class="h-4 w-4" />
+                        {:else}
+                          <ArrowUp class="h-4 w-4" />
+                        {/if}
                       {/if}
                     </button>
-                  </TableCell>
-                  <TableCell class="text-center font-medium">{tag.rank ?? '-'}</TableCell>
-                  <TableCell class="font-medium">
-                    <div class="flex items-center gap-2">
-                      <Badge variant="secondary">#{tag.tag}</Badge>
-                      {#if tag.isDeleted}
-                        <Tooltip.Root>
-                          <Tooltip.Trigger>
-                            <Badge variant="destructive" class="p-1">
-                              <AlertCircle class="h-3 w-3" />
-                            </Badge>
-                          </Tooltip.Trigger>
-                          <Tooltip.Content>
-                            No longer exists on Fansly (detected {formatDate(
-                              tag.deletedDetectedAt
-                            )})
-                          </Tooltip.Content>
-                        </Tooltip.Root>
-                      {/if}
-                    </div>
-                  </TableCell>
-                  <TableCell>{formatNumber(tag.viewCount)}</TableCell>
-                  <TableCell>{formatNumber(tag.postCount || 0)}</TableCell>
-                  <TableCell>{formatRatio(tag.ratio || 0, tag.postCount || 0)}</TableCell>
-                  <TableCell>
-                    {#if change !== 0}
-                      <div class="flex items-center gap-1">
-                        {#if change > 0}
-                          <TrendingUp class="h-4 w-4 text-green-500" />
-                          <span class="text-green-500">
-                            +{formatNumber(change)} ({percentage >= 0
-                              ? '+'
-                              : ''}{percentage.toFixed(2)}%)
-                          </span>
+                  </TableHead>
+                  <TableHead>Tag</TableHead>
+                  <TableHead>View Count</TableHead>
+                  <TableHead>Post Count</TableHead>
+                  <TableHead>
+                    <button
+                      class="hover:text-foreground flex items-center gap-1 transition-colors"
+                      onclick={() => toggleSort('ratio')}
+                    >
+                      Ratio
+                      {#if data.sortBy === 'ratio'}
+                        {#if data.sortOrder === 'desc'}
+                          <ArrowDown class="h-4 w-4" />
                         {:else}
-                          <TrendingDown class="h-4 w-4 text-red-500" />
-                          <span class="text-red-500">
-                            {formatNumber(change)} ({percentage.toFixed(2)}%)
-                          </span>
+                          <ArrowUp class="h-4 w-4" />
+                        {/if}
+                      {/if}
+                    </button>
+                  </TableHead>
+                  <TableHead>Views Change</TableHead>
+                  <TableHead>Last Updated</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {#each data.tags as tag (tag.id)}
+                  {@const changeData = getTagChange(tag)}
+                  {@const change = changeData.change}
+                  {@const percentage = changeData.percentage}
+                  <TableRow>
+                    <TableCell>
+                      <button
+                        onclick={() => toggleTag(tag.id)}
+                        class="hover:bg-muted rounded p-1 transition-colors"
+                      >
+                        {#if expandedTagId === tag.id}
+                          <ChevronUp class="h-4 w-4" />
+                        {:else}
+                          <ChevronDown class="h-4 w-4" />
+                        {/if}
+                      </button>
+                    </TableCell>
+                    <TableCell class="text-center font-medium">{tag.rank ?? '-'}</TableCell>
+                    <TableCell class="font-medium">
+                      <div class="flex items-center gap-2">
+                        <Badge variant="secondary">#{tag.tag}</Badge>
+                        {#if tag.isDeleted}
+                          <Tooltip.Root>
+                            <Tooltip.Trigger>
+                              <Badge variant="destructive" class="p-1">
+                                <AlertCircle class="h-3 w-3" />
+                              </Badge>
+                            </Tooltip.Trigger>
+                            <Tooltip.Content>
+                              No longer exists on Fansly (detected {formatDate(
+                                tag.deletedDetectedAt
+                              )})
+                            </Tooltip.Content>
+                          </Tooltip.Root>
                         {/if}
                       </div>
-                    {:else}
-                      <span class="text-muted-foreground">-</span>
-                    {/if}
-                  </TableCell>
-                  <TableCell>{formatDate(tag.lastCheckedAt)}</TableCell>
-                </TableRow>
-                {#if expandedTagId === tag.id}
-                  <TableRow>
-                    <TableCell colspan={8} class="p-0">
-                      <div class="bg-muted/50 p-6">
-                        <TagHistory history={tag.history} />
-                      </div>
                     </TableCell>
-                  </TableRow>
-                {/if}
-              {/each}
-            </TableBody>
-          </Table>
-        </div>
-      {/if}
-
-      <!-- Pagination -->
-      {#if data.pagination.totalPages > 1}
-        <div class="flex justify-center">
-          <Pagination.Root
-            count={data.pagination.totalCount}
-            perPage={data.pagination.limit}
-            page={data.pagination.page}
-            onPageChange={(page) => handlePageChange(page)}
-            siblingCount={1}
-          >
-            {#snippet children({ pages, currentPage })}
-              <Pagination.Content class="flex items-center gap-1">
-                <!-- First Page -->
-                <Pagination.Item class="hidden sm:block">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    class="h-9 w-9"
-                    disabled={currentPage <= 1}
-                    onclick={() => handlePageChange(1)}
-                    aria-label="Go to first page"
-                  >
-                    <ChevronsLeft class="h-4 w-4" />
-                  </Button>
-                </Pagination.Item>
-
-                <!-- Previous -->
-                <Pagination.Item>
-                  <Pagination.PrevButton class="h-9 px-3">
-                    <ChevronLeft class="h-4 w-4" />
-                  </Pagination.PrevButton>
-                </Pagination.Item>
-
-                <!-- Page Numbers - hide some on mobile -->
-                {#each pages as page (page.key)}
-                  {#if page.type === 'ellipsis'}
-                    <Pagination.Item>
-                      {#if showPageJump}
+                    <TableCell>{formatNumber(tag.viewCount)}</TableCell>
+                    <TableCell>{formatNumber(tag.postCount || 0)}</TableCell>
+                    <TableCell>{formatRatio(tag.ratio || 0, tag.postCount || 0)}</TableCell>
+                    <TableCell>
+                      {#if change !== 0}
                         <div class="flex items-center gap-1">
-                          <Input
-                            type="number"
-                            class="h-9 w-16"
-                            placeholder="..."
-                            bind:value={pageJumpValue}
-                            onkeydown={(e) => {
-                              if (e.key === 'Enter') {
-                                handlePageJump();
-                                showPageJump = false;
-                              } else if (e.key === 'Escape') {
-                                showPageJump = false;
-                                pageJumpValue = '';
-                              }
-                            }}
-                            onblur={() => {
-                              setTimeout(() => {
-                                showPageJump = false;
-                                pageJumpValue = '';
-                              }, 200);
-                            }}
-                            min="1"
-                            max={data.pagination.totalPages}
-                            autofocus
-                          />
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            class="h-9 w-9"
-                            onclick={() => {
-                              handlePageJump();
-                              showPageJump = false;
-                            }}
-                          >
-                            <ChevronRight class="h-4 w-4" />
-                          </Button>
+                          {#if change > 0}
+                            <TrendingUp class="h-4 w-4 text-green-500" />
+                            <span class="text-green-500">
+                              +{formatNumber(change)} ({percentage >= 0
+                                ? '+'
+                                : ''}{percentage.toFixed(2)}%)
+                            </span>
+                          {:else}
+                            <TrendingDown class="h-4 w-4 text-red-500" />
+                            <span class="text-red-500">
+                              {formatNumber(change)} ({percentage.toFixed(2)}%)
+                            </span>
+                          {/if}
                         </div>
                       {:else}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          class="h-9 w-9"
-                          onclick={() => {
-                            showPageJump = true;
-                            pageJumpValue = '';
-                          }}
-                          title="Go to page..."
-                        >
-                          <span class="text-muted-foreground">...</span>
-                        </Button>
+                        <span class="text-muted-foreground">-</span>
                       {/if}
-                    </Pagination.Item>
-                  {:else}
-                    <!-- On mobile, only show current page and adjacent pages -->
-                    <Pagination.Item
-                      class={page.value !== currentPage &&
-                      Math.abs(page.value - currentPage) > 1 &&
-                      page.value !== 1 &&
-                      page.value !== data.pagination.totalPages
-                        ? 'hidden sm:block'
-                        : ''}
-                    >
-                      <Pagination.Link {page} isActive={currentPage === page.value} class="h-9 w-9">
-                        {page.value}
-                      </Pagination.Link>
-                    </Pagination.Item>
+                    </TableCell>
+                    <TableCell>{formatDate(tag.lastCheckedAt)}</TableCell>
+                  </TableRow>
+                  {#if expandedTagId === tag.id}
+                    <TableRow>
+                      <TableCell colspan={8} class="p-0">
+                        <div class="bg-muted/50 p-6">
+                          <TagHistory history={tag.history} />
+                        </div>
+                      </TableCell>
+                    </TableRow>
                   {/if}
                 {/each}
+              </TableBody>
+            </Table>
+          </div>
+        {/if}
 
-                <!-- Next -->
-                <Pagination.Item>
-                  <Pagination.NextButton class="h-9 px-3">
-                    <ChevronRight class="h-4 w-4" />
-                  </Pagination.NextButton>
-                </Pagination.Item>
+        {#if data.pagination.totalPages > 1}
+          <div class="flex justify-center">
+            <Pagination.Root
+              count={data.pagination.totalCount}
+              perPage={data.pagination.limit}
+              page={data.pagination.page}
+              onPageChange={(page) => handlePageChange(page)}
+              siblingCount={1}
+            >
+              {#snippet children({ pages, currentPage })}
+                <Pagination.Content class="flex items-center gap-1">
+                  <Pagination.Item class="hidden sm:block">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      class="h-9 w-9"
+                      disabled={currentPage <= 1}
+                      onclick={() => handlePageChange(1)}
+                      aria-label="Go to first page"
+                    >
+                      <ChevronsLeft class="h-4 w-4" />
+                    </Button>
+                  </Pagination.Item>
 
-                <!-- Last Page -->
-                <Pagination.Item class="hidden sm:block">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    class="h-9 w-9"
-                    disabled={currentPage >= data.pagination.totalPages}
-                    onclick={() => handlePageChange(data.pagination.totalPages)}
-                    aria-label="Go to last page"
-                  >
-                    <ChevronsRight class="h-4 w-4" />
-                  </Button>
-                </Pagination.Item>
-              </Pagination.Content>
-            {/snippet}
-          </Pagination.Root>
-        </div>
-      {/if}
+                  <Pagination.Item>
+                    <Pagination.PrevButton class="h-9 px-3">
+                      <ChevronLeft class="h-4 w-4" />
+                    </Pagination.PrevButton>
+                  </Pagination.Item>
+
+                  {#each pages as page (page.key)}
+                    {#if page.type === 'ellipsis'}
+                      <Pagination.Item>
+                        {#if showPageJump}
+                          <div class="flex items-center gap-1">
+                            <Input
+                              type="number"
+                              class="h-9 w-16"
+                              placeholder="..."
+                              bind:value={pageJumpValue}
+                              onkeydown={(e) => {
+                                if (e.key === 'Enter') {
+                                  handlePageJump();
+                                  showPageJump = false;
+                                } else if (e.key === 'Escape') {
+                                  showPageJump = false;
+                                  pageJumpValue = '';
+                                }
+                              }}
+                              onblur={() => {
+                                setTimeout(() => {
+                                  showPageJump = false;
+                                  pageJumpValue = '';
+                                }, 200);
+                              }}
+                              min="1"
+                              max={data.pagination.totalPages}
+                              autofocus
+                            />
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              class="h-9 w-9"
+                              onclick={() => {
+                                handlePageJump();
+                                showPageJump = false;
+                              }}
+                            >
+                              <ChevronRight class="h-4 w-4" />
+                            </Button>
+                          </div>
+                        {:else}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            class="h-9 w-9"
+                            onclick={() => {
+                              showPageJump = true;
+                              pageJumpValue = '';
+                            }}
+                            title="Go to page..."
+                          >
+                            <span class="text-muted-foreground">...</span>
+                          </Button>
+                        {/if}
+                      </Pagination.Item>
+                    {:else}
+                      <Pagination.Item
+                        class={page.value !== currentPage &&
+                        Math.abs(page.value - currentPage) > 1 &&
+                        page.value !== 1 &&
+                        page.value !== data.pagination.totalPages
+                          ? 'hidden sm:block'
+                          : ''}
+                      >
+                        <Pagination.Link
+                          {page}
+                          isActive={currentPage === page.value}
+                          class="h-9 w-9"
+                        >
+                          {page.value}
+                        </Pagination.Link>
+                      </Pagination.Item>
+                    {/if}
+                  {/each}
+
+                  <Pagination.Item>
+                    <Pagination.NextButton class="h-9 px-3">
+                      <ChevronRight class="h-4 w-4" />
+                    </Pagination.NextButton>
+                  </Pagination.Item>
+
+                  <Pagination.Item class="hidden sm:block">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      class="h-9 w-9"
+                      disabled={currentPage >= data.pagination.totalPages}
+                      onclick={() => handlePageChange(data.pagination.totalPages)}
+                      aria-label="Go to last page"
+                    >
+                      <ChevronsRight class="h-4 w-4" />
+                    </Button>
+                  </Pagination.Item>
+                </Pagination.Content>
+              {/snippet}
+            </Pagination.Root>
+          </div>
+        {/if}
+      </div>
     </CardContent>
   </Card>
 </div>
