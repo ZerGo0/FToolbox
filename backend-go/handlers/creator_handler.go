@@ -416,24 +416,30 @@ func (h *CreatorHandler) loadCreatorHistoryByCreator(
 		return historyByCreator, nil
 	}
 
-	histQuery := h.db.Model(&models.CreatorHistory{}).
-		Where("creator_id IN ?", creatorIDs).
-		Order("creator_id, created_at DESC")
+	const batchSize = 1000
+	for i := 0; i < len(creatorIDs); i += batchSize {
+		end := min(i+batchSize, len(creatorIDs))
+		batchIDs := creatorIDs[i:end]
 
-	if startDate != nil {
-		histQuery = histQuery.Where("created_at >= ?", *startDate)
-	}
-	if endDate != nil {
-		histQuery = histQuery.Where("created_at <= ?", *endDate)
-	}
+		histQuery := h.db.Model(&models.CreatorHistory{}).
+			Where("creator_id IN ?", batchIDs).
+			Order("creator_id, created_at DESC")
 
-	var allHistories []models.CreatorHistory
-	if err := histQuery.Find(&allHistories).Error; err != nil {
-		return nil, err
-	}
+		if startDate != nil {
+			histQuery = histQuery.Where("created_at >= ?", *startDate)
+		}
+		if endDate != nil {
+			histQuery = histQuery.Where("created_at <= ?", *endDate)
+		}
 
-	for _, history := range allHistories {
-		historyByCreator[history.CreatorID] = append(historyByCreator[history.CreatorID], history)
+		var batchHistories []models.CreatorHistory
+		if err := histQuery.Find(&batchHistories).Error; err != nil {
+			return nil, err
+		}
+
+		for _, history := range batchHistories {
+			historyByCreator[history.CreatorID] = append(historyByCreator[history.CreatorID], history)
+		}
 	}
 
 	return historyByCreator, nil
@@ -445,14 +451,11 @@ func loadCreatorSnapshots(db *gorm.DB, creatorIDs []string, endDate time.Time) (
 	}
 
 	var snapshots []models.CreatorHistory
-	if err := db.Table("creator_history AS ch").
+	if err := db.Table("creators AS c").
 		Select("ch.id, ch.creator_id, ch.media_likes, ch.post_likes, ch.followers, ch.image_count, ch.video_count, ch.created_at, ch.updated_at").
-		Joins("JOIN (?) AS latest ON latest.id = ch.id",
-			db.Model(&models.CreatorHistory{}).
-				Select("creator_id, MAX(id) AS id").
-				Where("created_at <= ? AND creator_id IN ?", endDate, creatorIDs).
-				Group("creator_id"),
-		).
+		Joins(latestCreatorSnapshotJoinClause(), endDate).
+		Where("c.id IN ?", creatorIDs).
+		Where("ch.id IS NOT NULL").
 		Scan(&snapshots).Error; err != nil {
 		return nil, err
 	}
@@ -463,4 +466,11 @@ func loadCreatorSnapshots(db *gorm.DB, creatorIDs []string, endDate time.Time) (
 	}
 
 	return snapshotByCreator, nil
+}
+
+func latestCreatorSnapshotJoinClause() string {
+	return "LEFT JOIN creator_history AS ch ON ch.id = (" +
+		"SELECT snapshot.id FROM creator_history AS snapshot FORCE INDEX (idx_creator_history_creator_created_id) " +
+		"WHERE snapshot.creator_id = c.id AND snapshot.created_at <= ? " +
+		"ORDER BY snapshot.created_at DESC, snapshot.id DESC LIMIT 1)"
 }

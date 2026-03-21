@@ -57,6 +57,44 @@ interface CreatorStatistics {
   calculatedAt: number | null;
 }
 
+function createDefaultCreatorStatistics(): CreatorStatistics {
+  return {
+    totalFollowers: 0,
+    followersChange24h: 0,
+    followersChangePercent24h: 0,
+    totalMediaLikes: 0,
+    mediaLikesChange24h: 0,
+    mediaLikesChangePercent24h: 0,
+    totalPostLikes: 0,
+    postLikesChange24h: 0,
+    postLikesChangePercent24h: 0,
+    calculatedAt: null
+  };
+}
+
+function createEmptyPagination() {
+  return {
+    page: 1,
+    limit: 20,
+    totalCount: 0,
+    totalPages: 0
+  };
+}
+
+async function fetchCreatorStatistics(fetchFn: typeof fetch): Promise<CreatorStatistics> {
+  try {
+    const response = await fetchFn(`${PUBLIC_API_URL}/api/creators/statistics`);
+    if (!response.ok) {
+      return createDefaultCreatorStatistics();
+    }
+
+    return response.json();
+  } catch (statsError) {
+    console.error('Error loading creator statistics:', statsError);
+    return createDefaultCreatorStatistics();
+  }
+}
+
 export const load: PageLoad = async ({ fetch, url }) => {
   const page = url.searchParams.get('page') || '1';
   const search = url.searchParams.get('search') || '';
@@ -89,38 +127,16 @@ export const load: PageLoad = async ({ fetch, url }) => {
       historyEndDate
     });
 
-    // Fetch creators data
-    const response = await fetch(`${PUBLIC_API_URL}/api/creators?${params}`);
+    const [response, statistics] = await Promise.all([
+      fetch(`${PUBLIC_API_URL}/api/creators?${params}`),
+      fetchCreatorStatistics(fetch)
+    ]);
 
     if (!response.ok) {
       throw new Error('Failed to fetch creators');
     }
 
     const data: CreatorsResponse = await response.json();
-
-    // Fetch statistics data
-    let statistics: CreatorStatistics = {
-      totalFollowers: 0,
-      followersChange24h: 0,
-      followersChangePercent24h: 0,
-      totalMediaLikes: 0,
-      mediaLikesChange24h: 0,
-      mediaLikesChangePercent24h: 0,
-      totalPostLikes: 0,
-      postLikesChange24h: 0,
-      postLikesChangePercent24h: 0,
-      calculatedAt: null
-    };
-
-    try {
-      const statsResponse = await fetch(`${PUBLIC_API_URL}/api/creators/statistics`);
-      if (statsResponse.ok) {
-        statistics = await statsResponse.json();
-      }
-    } catch (statsError) {
-      console.error('Error loading creator statistics:', statsError);
-      // Continue with default statistics values
-    }
 
     return {
       creators: data.creators,
@@ -137,24 +153,8 @@ export const load: PageLoad = async ({ fetch, url }) => {
     console.error('Error loading creators:', error);
     return {
       creators: [],
-      pagination: {
-        page: 1,
-        limit: 20,
-        totalCount: 0,
-        totalPages: 0
-      },
-      statistics: {
-        totalFollowers: 0,
-        followersChange24h: 0,
-        followersChangePercent24h: 0,
-        totalMediaLikes: 0,
-        mediaLikesChange24h: 0,
-        mediaLikesChangePercent24h: 0,
-        totalPostLikes: 0,
-        postLikesChange24h: 0,
-        postLikesChangePercent24h: 0,
-        calculatedAt: null
-      },
+      pagination: createEmptyPagination(),
+      statistics: createDefaultCreatorStatistics(),
       search,
       sortBy,
       sortOrder,

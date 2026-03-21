@@ -237,39 +237,12 @@ func (h *TagHandler) GetBannedTags(c *fiber.Ctx) error {
 	offset := (page - 1) * limit
 
 	var tags []models.Tag
-	query := h.db.Model(&models.Tag{}).
-		Where("is_deleted = ?", true).
-		Where("tag NOT LIKE ?", "%+%")
-
-	if hs := extractHashtags(search); len(hs) > 0 {
-		query = query.Where("tag IN ?", hs)
-	} else if strings.HasPrefix(strings.TrimSpace(search), "#") {
-		v := strings.TrimLeft(strings.TrimSpace(search), "#")
-		if v != "" {
-			query = query.Where("tag LIKE ?", "%"+v+"%")
-		}
-	} else if search != "" {
-		query = query.Where("tag LIKE ?", "%"+search+"%")
-	}
+	query := applyBannedTagSearch(buildBannedTagBaseQuery(h.db), search)
 
 	var total int64
 	query.Count(&total)
 
-	// Map frontend sortBy values to database columns
-	columnMap := map[string]string{
-		"tag":               "tag",
-		"deletedDetectedAt": "deleted_detected_at",
-		"viewCount":         "view_count",
-		"postCount":         "post_count",
-	}
-
-	dbColumn, ok := columnMap[sortBy]
-	if !ok {
-		dbColumn = "deleted_detected_at" // default
-	}
-
-	orderClause := dbColumn + " " + sortOrder
-	query = query.Order(orderClause)
+	query = query.Order(resolveBannedTagOrderClause(sortBy, sortOrder))
 
 	query = query.Limit(limit).Offset(offset)
 
@@ -292,31 +265,10 @@ func (h *TagHandler) GetBannedTags(c *fiber.Ctx) error {
 	}
 
 	// Total banned tags
-	h.db.Model(&models.Tag{}).
-		Where("is_deleted = ?", true).
-		Where("tag NOT LIKE ?", "%+%").
-		Count(&stats.TotalBanned)
-
-	// Banned in last 24 hours
-	oneDayAgo := time.Now().Add(-24 * time.Hour)
-	h.db.Model(&models.Tag{}).
-		Where("is_deleted = ? AND deleted_detected_at >= ?", true, oneDayAgo).
-		Where("tag NOT LIKE ?", "%+%").
-		Count(&stats.BannedLast24h)
-
-	// Banned in last 7 days
-	sevenDaysAgo := time.Now().Add(-7 * 24 * time.Hour)
-	h.db.Model(&models.Tag{}).
-		Where("is_deleted = ? AND deleted_detected_at >= ?", true, sevenDaysAgo).
-		Where("tag NOT LIKE ?", "%+%").
-		Count(&stats.BannedLast7d)
-
-	// Banned in last 30 days
-	thirtyDaysAgo := time.Now().Add(-30 * 24 * time.Hour)
-	h.db.Model(&models.Tag{}).
-		Where("is_deleted = ? AND deleted_detected_at >= ?", true, thirtyDaysAgo).
-		Where("tag NOT LIKE ?", "%+%").
-		Count(&stats.BannedLast30d)
+	if err := h.loadBannedTagStatistics(&stats); err != nil {
+		zap.L().Error("Failed to fetch banned tag statistics", zap.Error(err))
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch banned tag statistics"})
+	}
 
 	return c.JSON(fiber.Map{
 		"tags": tags,
@@ -328,6 +280,63 @@ func (h *TagHandler) GetBannedTags(c *fiber.Ctx) error {
 		},
 		"statistics": stats,
 	})
+}
+
+func buildBannedTagBaseQuery(db *gorm.DB) *gorm.DB {
+	return db.Model(&models.Tag{}).
+		Where("is_deleted = ?", true).
+		Where("tag NOT LIKE ?", "%+%")
+}
+
+func applyBannedTagSearch(query *gorm.DB, search string) *gorm.DB {
+	if hs := extractHashtags(search); len(hs) > 0 {
+		return query.Where("tag IN ?", hs)
+	}
+
+	trimmed := strings.TrimSpace(search)
+	if strings.HasPrefix(trimmed, "#") {
+		value := strings.TrimLeft(trimmed, "#")
+		if value != "" {
+			return query.Where("tag LIKE ?", "%"+value+"%")
+		}
+		return query
+	}
+
+	if search != "" {
+		return query.Where("tag LIKE ?", "%"+search+"%")
+	}
+
+	return query
+}
+
+func resolveBannedTagOrderClause(sortBy, sortOrder string) string {
+	columnMap := map[string]string{
+		"tag":               "tag",
+		"deletedDetectedAt": "deleted_detected_at",
+		"viewCount":         "view_count",
+		"postCount":         "post_count",
+	}
+
+	if dbColumn, ok := columnMap[sortBy]; ok {
+		return dbColumn + " " + sortOrder
+	}
+
+	return "deleted_detected_at " + sortOrder
+}
+
+func (h *TagHandler) loadBannedTagStatistics(stats any) error {
+	now := time.Now()
+	return buildBannedTagBaseQuery(h.db).
+		Select(
+			"COUNT(*) AS total_banned, "+
+				"SUM(CASE WHEN deleted_detected_at >= ? THEN 1 ELSE 0 END) AS banned_last24h, "+
+				"SUM(CASE WHEN deleted_detected_at >= ? THEN 1 ELSE 0 END) AS banned_last7d, "+
+				"SUM(CASE WHEN deleted_detected_at >= ? THEN 1 ELSE 0 END) AS banned_last30d",
+			now.Add(-24*time.Hour),
+			now.Add(-7*24*time.Hour),
+			now.Add(-30*24*time.Hour),
+		).
+		Scan(stats).Error
 }
 
 func (h *TagHandler) RequestTag(c *fiber.Ctx) error {
