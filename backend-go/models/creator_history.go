@@ -5,14 +5,14 @@ import (
 )
 
 type CreatorHistory struct {
-	ID         uint      `gorm:"primaryKey;autoIncrement;column:id" json:"id"`
-	CreatorID  string    `gorm:"not null;index;type:varchar(255);column:creator_id" json:"creatorId"`
+	ID         uint      `gorm:"primaryKey;autoIncrement;column:id;index:idx_creator_history_creator_created_id,priority:3,sort:desc" json:"id"`
+	CreatorID  string    `gorm:"not null;index;type:varchar(255);column:creator_id;index:idx_creator_history_creator_created,priority:1;index:idx_creator_history_creator_created_id,priority:1" json:"creatorId"`
 	MediaLikes int64     `gorm:"not null;column:media_likes" json:"mediaLikes"`
 	PostLikes  int64     `gorm:"not null;column:post_likes" json:"postLikes"`
 	Followers  int64     `gorm:"not null;column:followers" json:"followers"`
 	ImageCount int64     `gorm:"not null;column:image_count" json:"imageCount"`
 	VideoCount int64     `gorm:"not null;column:video_count" json:"videoCount"`
-	CreatedAt  time.Time `gorm:"not null;column:created_at;default:CURRENT_TIMESTAMP;index" json:"-"`
+	CreatedAt  time.Time `gorm:"not null;column:created_at;default:CURRENT_TIMESTAMP;index;index:idx_creator_history_creator_created,priority:2,sort:desc;index:idx_creator_history_creator_created_id,priority:2,sort:desc" json:"-"`
 	UpdatedAt  time.Time `gorm:"not null;column:updated_at;default:CURRENT_TIMESTAMP" json:"-"`
 }
 
