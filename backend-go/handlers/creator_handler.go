@@ -55,6 +55,14 @@ type CreatorWithHistory struct {
 	History           []CreatorHistoryPoint `json:"history,omitempty"`
 }
 
+type creatorMetrics struct {
+	MediaLikes int64
+	PostLikes  int64
+	Followers  int64
+	ImageCount int64
+	VideoCount int64
+}
+
 func (h *CreatorHandler) GetCreators(c *fiber.Ctx) error {
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	limit, _ := strconv.Atoi(c.Query("limit", "20"))
@@ -75,159 +83,46 @@ func (h *CreatorHandler) GetCreators(c *fiber.Ctx) error {
 	}
 
 	offset := (page - 1) * limit
+	startDate := parseHistoryDate(historyStartDate)
+	endDate := parseHistoryDate(historyEndDate)
 
 	var creators []models.Creator
-	query := h.db.Model(&models.Creator{})
-
-	if search != "" {
-		query = query.Where("username LIKE ? OR display_name LIKE ?", "%"+search+"%", "%"+search+"%")
-	}
-
-	query = query.Where("rank IS NOT NULL")
+	query := applyCreatorSearch(h.db.Model(&models.Creator{}), search).Where("rank IS NOT NULL")
 
 	var total int64
 	query.Count(&total)
 
-	// Handle sorting
 	needsHistory := includeHistory
-	orderClause := "rank " + sortOrder
-	query = query.Order(orderClause).Limit(limit).Offset(offset)
+	query = query.Order("rank " + sortOrder).Limit(limit).Offset(offset)
 
 	if err := query.Find(&creators).Error; err != nil {
 		zap.L().Error("Failed to fetch creators", zap.Error(err))
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch creators"})
 	}
 
-	// If we need history, fetch it for each creator
-	var creatorsWithHistory []CreatorWithHistory
+	creatorIDs := collectCreatorIDs(creators)
+	creatorSnapshots, err := h.loadCreatorSnapshotsForRange(creatorIDs, endDate)
+	if err != nil {
+		zap.L().Error("Failed to fetch creator snapshots", zap.Error(err))
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch creator snapshots"})
+	}
+
 	if needsHistory {
-		// Collect all creator IDs for batch loading
-		creatorIDs := make([]string, len(creators))
-		creatorMap := make(map[string]models.Creator)
-		for i, creator := range creators {
-			creatorIDs[i] = creator.ID
-			creatorMap[creator.ID] = creator
-		}
-
-		// Build base query for all histories
-		histQuery := h.db.Model(&models.CreatorHistory{}).
-			Where("creator_id IN ?", creatorIDs).
-			Order("creator_id, created_at DESC")
-
-		// Apply date filters if provided
-		if historyStartDate != "" && historyEndDate != "" {
-			// Try parsing as RFC3339 (ISO 8601) first, then fall back to date-only format
-			startDate, err := time.Parse(time.RFC3339, historyStartDate)
-			if err != nil {
-				startDate, _ = time.Parse("2006-01-02", historyStartDate)
-			}
-			endDate, err := time.Parse(time.RFC3339, historyEndDate)
-			if err != nil {
-				endDate, _ = time.Parse("2006-01-02", historyEndDate)
-			}
-			histQuery = histQuery.Where("created_at >= ? AND created_at <= ?", startDate, endDate)
-		}
-
-		// Fetch all histories in one query
-		var allHistories []models.CreatorHistory
-		if err := histQuery.Find(&allHistories).Error; err != nil {
+		historyByCreator, err := h.loadCreatorHistoryByCreator(creatorIDs, startDate, endDate)
+		if err != nil {
 			zap.L().Error("Failed to fetch creator histories", zap.Error(err))
 			return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch creator histories"})
 		}
 
-		// Group histories by creator ID
-		historyByCreator := make(map[string][]models.CreatorHistory)
-		for _, hist := range allHistories {
-			historyByCreator[hist.CreatorID] = append(historyByCreator[hist.CreatorID], hist)
-		}
-
-		// Process each creator with its history
-		for _, creator := range creators {
-			creatorWithHist := CreatorWithHistory{
-				ID:                creator.ID,
-				Username:          creator.Username,
-				DisplayName:       creator.DisplayName,
-				MediaLikes:        creator.MediaLikes,
-				PostLikes:         creator.PostLikes,
-				Followers:         creator.Followers,
-				ImageCount:        creator.ImageCount,
-				VideoCount:        creator.VideoCount,
-				Rank:              creator.Rank,
-				LastCheckedAt:     timeToUnixPtr(creator.LastCheckedAt),
-				IsDeleted:         creator.IsDeleted,
-				DeletedDetectedAt: timeToUnixPtr(creator.DeletedDetectedAt),
-				CreatedAt:         creator.CreatedAt.Unix(),
-				UpdatedAt:         creator.UpdatedAt.Unix(),
-			}
-
-			history := historyByCreator[creator.ID]
-
-			// Convert to CreatorHistoryPoint
-			historyPoints := make([]CreatorHistoryPoint, len(history))
-			for i, point := range history {
-				historyPoints[i] = CreatorHistoryPoint{
-					ID:         point.ID,
-					CreatorID:  point.CreatorID,
-					MediaLikes: point.MediaLikes,
-					PostLikes:  point.PostLikes,
-					Followers:  point.Followers,
-					ImageCount: point.ImageCount,
-					VideoCount: point.VideoCount,
-					CreatedAt:  point.CreatedAt.Unix(),
-					UpdatedAt:  point.UpdatedAt.Unix(),
-				}
-			}
-
-			if includeHistory {
-				creatorWithHist.History = historyPoints
-			}
-
-			creatorsWithHistory = append(creatorsWithHistory, creatorWithHist)
-		}
-	}
-
-	// Return response with consistent format
-	if needsHistory {
 		return c.JSON(fiber.Map{
-			"creators": creatorsWithHistory,
-			"pagination": fiber.Map{
-				"page":       page,
-				"limit":      limit,
-				"totalCount": total,
-				"totalPages": (total + int64(limit) - 1) / int64(limit),
-			},
+			"creators":   buildCreatorsWithHistory(creators, creatorSnapshots, historyByCreator),
+			"pagination": buildPagination(page, limit, total),
 		})
 	}
 
-	// For non-history responses, we need to convert creators to proper format
-	creatorsData := make([]map[string]any, len(creators))
-	for i, creator := range creators {
-		creatorsData[i] = map[string]any{
-			"id":                creator.ID,
-			"username":          creator.Username,
-			"displayName":       creator.DisplayName,
-			"mediaLikes":        creator.MediaLikes,
-			"postLikes":         creator.PostLikes,
-			"followers":         creator.Followers,
-			"imageCount":        creator.ImageCount,
-			"videoCount":        creator.VideoCount,
-			"rank":              creator.Rank,
-			"lastCheckedAt":     timeToUnixPtr(creator.LastCheckedAt),
-			"isDeleted":         creator.IsDeleted,
-			"deletedDetectedAt": timeToUnixPtr(creator.DeletedDetectedAt),
-			"createdAt":         creator.CreatedAt.Unix(),
-			"updatedAt":         creator.UpdatedAt.Unix(),
-		}
-	}
-
 	return c.JSON(fiber.Map{
-		"creators": creatorsData,
-		"pagination": fiber.Map{
-			"page":       page,
-			"limit":      limit,
-			"totalCount": total,
-			"totalPages": (total + int64(limit) - 1) / int64(limit),
-		},
+		"creators":   buildCreatorData(creators, creatorSnapshots),
+		"pagination": buildPagination(page, limit, total),
 	})
 }
 
@@ -358,4 +253,214 @@ func (h *CreatorHandler) RequestCreator(c *fiber.Ctx) error {
 		"message": "Creator added successfully",
 		"creator": creatorWithRank,
 	})
+}
+
+func applyCreatorSearch(query *gorm.DB, search string) *gorm.DB {
+	if search == "" {
+		return query
+	}
+
+	return query.Where("username LIKE ? OR display_name LIKE ?", "%"+search+"%", "%"+search+"%")
+}
+
+func collectCreatorIDs(creators []models.Creator) []string {
+	creatorIDs := make([]string, len(creators))
+	for i, creator := range creators {
+		creatorIDs[i] = creator.ID
+	}
+
+	return creatorIDs
+}
+
+func buildPagination(page, limit int, total int64) fiber.Map {
+	return fiber.Map{
+		"page":       page,
+		"limit":      limit,
+		"totalCount": total,
+		"totalPages": (total + int64(limit) - 1) / int64(limit),
+	}
+}
+
+func buildCreatorMetrics(creator models.Creator, snapshots map[string]models.CreatorHistory) creatorMetrics {
+	metrics := creatorMetrics{
+		MediaLikes: creator.MediaLikes,
+		PostLikes:  creator.PostLikes,
+		Followers:  creator.Followers,
+		ImageCount: creator.ImageCount,
+		VideoCount: creator.VideoCount,
+	}
+
+	if snapshot, ok := snapshots[creator.ID]; ok {
+		metrics.MediaLikes = snapshot.MediaLikes
+		metrics.PostLikes = snapshot.PostLikes
+		metrics.Followers = snapshot.Followers
+		metrics.ImageCount = snapshot.ImageCount
+		metrics.VideoCount = snapshot.VideoCount
+	}
+
+	return metrics
+}
+
+func buildCreatorHistoryPoints(history []models.CreatorHistory) []CreatorHistoryPoint {
+	historyPoints := make([]CreatorHistoryPoint, len(history))
+	for i, point := range history {
+		historyPoints[i] = CreatorHistoryPoint{
+			ID:         point.ID,
+			CreatorID:  point.CreatorID,
+			MediaLikes: point.MediaLikes,
+			PostLikes:  point.PostLikes,
+			Followers:  point.Followers,
+			ImageCount: point.ImageCount,
+			VideoCount: point.VideoCount,
+			CreatedAt:  point.CreatedAt.Unix(),
+			UpdatedAt:  point.UpdatedAt.Unix(),
+		}
+	}
+
+	return historyPoints
+}
+
+func buildCreatorWithHistory(
+	creator models.Creator,
+	snapshots map[string]models.CreatorHistory,
+	history []models.CreatorHistory,
+) CreatorWithHistory {
+	response := buildCreatorSummary(creator, snapshots)
+	response.History = buildCreatorHistoryPoints(history)
+	return response
+}
+
+func buildCreatorsWithHistory(
+	creators []models.Creator,
+	snapshots map[string]models.CreatorHistory,
+	historyByCreator map[string][]models.CreatorHistory,
+) []CreatorWithHistory {
+	creatorsWithHistory := make([]CreatorWithHistory, 0, len(creators))
+	for _, creator := range creators {
+		creatorsWithHistory = append(
+			creatorsWithHistory,
+			buildCreatorWithHistory(creator, snapshots, historyByCreator[creator.ID]),
+		)
+	}
+
+	return creatorsWithHistory
+}
+
+func buildCreatorData(creators []models.Creator, snapshots map[string]models.CreatorHistory) []map[string]any {
+	creatorsData := make([]map[string]any, len(creators))
+	for i, creator := range creators {
+		response := buildCreatorSummary(creator, snapshots)
+		creatorsData[i] = map[string]any{
+			"id":                response.ID,
+			"username":          response.Username,
+			"displayName":       response.DisplayName,
+			"mediaLikes":        response.MediaLikes,
+			"postLikes":         response.PostLikes,
+			"followers":         response.Followers,
+			"imageCount":        response.ImageCount,
+			"videoCount":        response.VideoCount,
+			"rank":              response.Rank,
+			"lastCheckedAt":     response.LastCheckedAt,
+			"isDeleted":         response.IsDeleted,
+			"deletedDetectedAt": response.DeletedDetectedAt,
+			"createdAt":         response.CreatedAt,
+			"updatedAt":         response.UpdatedAt,
+		}
+	}
+
+	return creatorsData
+}
+
+func buildCreatorSummary(
+	creator models.Creator,
+	snapshots map[string]models.CreatorHistory,
+) CreatorWithHistory {
+	metrics := buildCreatorMetrics(creator, snapshots)
+
+	return CreatorWithHistory{
+		ID:                creator.ID,
+		Username:          creator.Username,
+		DisplayName:       creator.DisplayName,
+		MediaLikes:        metrics.MediaLikes,
+		PostLikes:         metrics.PostLikes,
+		Followers:         metrics.Followers,
+		ImageCount:        metrics.ImageCount,
+		VideoCount:        metrics.VideoCount,
+		Rank:              creator.Rank,
+		LastCheckedAt:     timeToUnixPtr(creator.LastCheckedAt),
+		IsDeleted:         creator.IsDeleted,
+		DeletedDetectedAt: timeToUnixPtr(creator.DeletedDetectedAt),
+		CreatedAt:         creator.CreatedAt.Unix(),
+		UpdatedAt:         creator.UpdatedAt.Unix(),
+	}
+}
+
+func (h *CreatorHandler) loadCreatorSnapshotsForRange(
+	creatorIDs []string,
+	endDate *time.Time,
+) (map[string]models.CreatorHistory, error) {
+	if endDate == nil {
+		return map[string]models.CreatorHistory{}, nil
+	}
+
+	return loadCreatorSnapshots(h.db, creatorIDs, *endDate)
+}
+
+func (h *CreatorHandler) loadCreatorHistoryByCreator(
+	creatorIDs []string,
+	startDate *time.Time,
+	endDate *time.Time,
+) (map[string][]models.CreatorHistory, error) {
+	historyByCreator := make(map[string][]models.CreatorHistory)
+	if len(creatorIDs) == 0 {
+		return historyByCreator, nil
+	}
+
+	histQuery := h.db.Model(&models.CreatorHistory{}).
+		Where("creator_id IN ?", creatorIDs).
+		Order("creator_id, created_at DESC")
+
+	if startDate != nil {
+		histQuery = histQuery.Where("created_at >= ?", *startDate)
+	}
+	if endDate != nil {
+		histQuery = histQuery.Where("created_at <= ?", *endDate)
+	}
+
+	var allHistories []models.CreatorHistory
+	if err := histQuery.Find(&allHistories).Error; err != nil {
+		return nil, err
+	}
+
+	for _, history := range allHistories {
+		historyByCreator[history.CreatorID] = append(historyByCreator[history.CreatorID], history)
+	}
+
+	return historyByCreator, nil
+}
+
+func loadCreatorSnapshots(db *gorm.DB, creatorIDs []string, endDate time.Time) (map[string]models.CreatorHistory, error) {
+	if len(creatorIDs) == 0 {
+		return map[string]models.CreatorHistory{}, nil
+	}
+
+	var snapshots []models.CreatorHistory
+	if err := db.Table("creator_history AS ch").
+		Select("ch.id, ch.creator_id, ch.media_likes, ch.post_likes, ch.followers, ch.image_count, ch.video_count, ch.created_at, ch.updated_at").
+		Joins("JOIN (?) AS latest ON latest.id = ch.id",
+			db.Model(&models.CreatorHistory{}).
+				Select("creator_id, MAX(id) AS id").
+				Where("created_at <= ? AND creator_id IN ?", endDate, creatorIDs).
+				Group("creator_id"),
+		).
+		Scan(&snapshots).Error; err != nil {
+		return nil, err
+	}
+
+	snapshotByCreator := make(map[string]models.CreatorHistory, len(snapshots))
+	for _, snapshot := range snapshots {
+		snapshotByCreator[snapshot.CreatorID] = snapshot
+	}
+
+	return snapshotByCreator, nil
 }

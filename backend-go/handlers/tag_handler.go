@@ -34,6 +34,7 @@ type HistoryPoint struct {
 	ViewCount       int64   `json:"viewCount"`
 	Change          int64   `json:"change"`
 	PostCount       int64   `json:"postCount"`
+	Ratio           float64 `json:"ratio"`
 	PostCountChange int64   `json:"postCountChange"`
 	CreatedAt       int64   `json:"createdAt"`
 	UpdatedAt       int64   `json:"updatedAt"`
@@ -45,6 +46,7 @@ type TagWithHistory struct {
 	Tag                  string         `json:"tag"`
 	ViewCount            int64          `json:"viewCount"`
 	PostCount            int64          `json:"postCount"`
+	Ratio                float64        `json:"ratio"`
 	Rank                 *int           `json:"rank"`
 	Heat                 float64        `json:"heat"`
 	FanslyCreatedAt      *int64         `json:"fanslyCreatedAt"`
@@ -56,6 +58,28 @@ type TagWithHistory struct {
 	UpdatedAt            int64          `json:"updatedAt"`
 	History              []HistoryPoint `json:"history,omitempty"`
 	TotalChange          int64          `json:"totalChange"`
+}
+
+type tagMetrics struct {
+	ViewCount int64
+	PostCount int64
+	Ratio     float64
+}
+
+type relatedTagAggregate struct {
+	ID          string  `json:"id"`
+	Tag         string  `json:"tag"`
+	RPostCount  int64   `json:"rPostCount"`
+	NormSum     float64 `json:"normSum"`
+	CoverageCnt int64   `json:"coverageCnt"`
+}
+
+type relatedTagScore struct {
+	ID         string
+	Tag        string
+	NormAvg    float64
+	Coverage   float64
+	FinalScore float64
 }
 
 func extractHashtags(q string) []string {
@@ -86,38 +110,12 @@ func (h *TagHandler) GetTags(c *fiber.Ctx) error {
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	limit, _ := strconv.Atoi(c.Query("limit", "20"))
 	search := c.Query("search")
+	sortBy := strings.ToLower(c.Query("sortBy", "rank"))
 	sortOrder := strings.ToLower(c.Query("sortOrder", "asc"))
 	includeHistory := c.Query("includeHistory") == "true"
 	historyStartDate := c.Query("historyStartDate")
 	historyEndDate := c.Query("historyEndDate")
 	tagsParam := c.Query("tags")
-
-	// Parse tags parameter if provided
-	var targetTags []string
-	if tagsParam != "" {
-		// Split by comma and trim whitespace
-		targetTags = strings.Split(tagsParam, ",")
-		for i := range targetTags {
-			targetTags[i] = strings.TrimSpace(targetTags[i])
-		}
-		// Remove empty strings
-		filtered := targetTags[:0]
-		for _, tag := range targetTags {
-			if tag != "" {
-				filtered = append(filtered, tag)
-			}
-		}
-		targetTags = filtered
-	}
-
-	if len(targetTags) == 0 {
-		if hs := extractHashtags(search); len(hs) > 0 {
-			targetTags = hs
-			search = ""
-		} else if strings.HasPrefix(strings.TrimSpace(search), "#") {
-			search = strings.TrimLeft(strings.TrimSpace(search), "#")
-		}
-	}
 
 	if page < 1 {
 		page = 1
@@ -125,33 +123,24 @@ func (h *TagHandler) GetTags(c *fiber.Ctx) error {
 	if limit < 1 || limit > 100 {
 		limit = 20
 	}
-	if sortOrder != "asc" && sortOrder != "desc" {
-		sortOrder = "asc"
-	}
+	sortBy = sanitizeTagSortBy(sortBy)
+	sortOrder = sanitizeSortOrder(sortOrder)
 
 	offset := (page - 1) * limit
+	startDate := parseHistoryDate(historyStartDate)
+	endDate := parseHistoryDate(historyEndDate)
+	targetTags, requestedTagsFilteredOut := parseRequestedTags(tagsParam)
+	search, targetTags = resolveTagSearch(search, targetTags)
 
 	var tags []models.Tag
-	query := h.db.Model(&models.Tag{})
-
-	// If tags parameter is provided, filter by those specific tags
-	if len(targetTags) > 0 {
-		query = query.Where("tag IN ?", targetTags)
-	} else if search != "" {
-		// Only apply search filter if tags parameter is not provided
-		query = query.Where("tag LIKE ?", "%"+search+"%")
-	}
-
-	query = query.Where("rank IS NOT NULL")
+	query := applyTagFilters(h.db.Model(&models.Tag{}), search, targetTags, requestedTagsFilteredOut).
+		Where("rank IS NOT NULL")
 
 	var total int64
 	query.Count(&total)
 
-	// Handle sorting
 	needsHistory := includeHistory
-
-	orderClause := "rank " + sortOrder
-	query = query.Order(orderClause)
+	query = h.applyTagSort(query, sortBy, sortOrder, endDate)
 
 	if len(targetTags) == 0 {
 		query = query.Limit(limit).Offset(offset)
@@ -162,180 +151,29 @@ func (h *TagHandler) GetTags(c *fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch tags"})
 	}
 
-	// If we need history, fetch it for each tag
-	var tagsWithHistory []TagWithHistory
-	if needsHistory {
-		// Collect all tag IDs for batch loading
-		tagIDs := make([]string, len(tags))
-		tagMap := make(map[string]models.Tag)
-		for i, tag := range tags {
-			tagIDs[i] = tag.ID
-			tagMap[tag.ID] = tag
-		}
-
-		// Process in batches to avoid too many placeholders
-		const batchSize = 1000
-		var allHistories []models.TagHistory
-
-		for i := 0; i < len(tagIDs); i += batchSize {
-			end := min(i+batchSize, len(tagIDs))
-			batchIDs := tagIDs[i:end]
-
-			// Build base query for this batch
-			histQuery := h.db.Model(&models.TagHistory{}).
-				Where("tag_id IN ?", batchIDs).
-				Order("tag_id, created_at DESC")
-
-			// Apply date filters if provided
-			if historyStartDate != "" && historyEndDate != "" {
-				// Try parsing as RFC3339 (ISO 8601) first, then fall back to date-only format
-				startDate, err := time.Parse(time.RFC3339, historyStartDate)
-				if err != nil {
-					startDate, _ = time.Parse("2006-01-02", historyStartDate)
-				}
-				endDate, err := time.Parse(time.RFC3339, historyEndDate)
-				if err != nil {
-					endDate, _ = time.Parse("2006-01-02", historyEndDate)
-				}
-				histQuery = histQuery.Where("created_at >= ? AND created_at <= ?", startDate, endDate)
-			}
-
-			// Fetch histories for this batch
-			var batchHistories []models.TagHistory
-			if err := histQuery.Find(&batchHistories).Error; err != nil {
-				zap.L().Error("Failed to fetch tag histories", zap.Error(err))
-				return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch tag histories"})
-			}
-			allHistories = append(allHistories, batchHistories...)
-		}
-
-		// Group histories by tag ID
-		historyByTag := make(map[string][]models.TagHistory)
-		for _, hist := range allHistories {
-			historyByTag[hist.TagID] = append(historyByTag[hist.TagID], hist)
-		}
-
-		// Process each tag with its history
-		for _, tag := range tags {
-			// Show 0 view count for deleted tags
-			viewCount := tag.ViewCount
-			if tag.IsDeleted {
-				viewCount = 0
-			}
-
-			tagWithHist := TagWithHistory{
-				ID:                   tag.ID,
-				Tag:                  tag.Tag,
-				ViewCount:            viewCount,
-				PostCount:            tag.PostCount,
-				Rank:                 tag.Rank,
-				Heat:                 0,
-				FanslyCreatedAt:      new(timeToUnix(tag.FanslyCreatedAt)),
-				LastCheckedAt:        timeToUnixPtr(tag.LastCheckedAt),
-				LastUsedForDiscovery: timeToUnixPtr(tag.LastUsedForDiscovery),
-				IsDeleted:            tag.IsDeleted,
-				DeletedDetectedAt:    timeToUnixPtr(tag.DeletedDetectedAt),
-				CreatedAt:            tag.CreatedAt.Unix(),
-				UpdatedAt:            tag.UpdatedAt.Unix(),
-			}
-
-			history := historyByTag[tag.ID]
-
-			// Calculate changes and convert to HistoryPoint
-			historyPoints := make([]HistoryPoint, len(history))
-			for i, point := range history {
-				historyPoints[i] = HistoryPoint{
-					ID:              point.ID,
-					TagID:           point.TagID,
-					ViewCount:       point.ViewCount,
-					Change:          0,
-					PostCount:       point.PostCount,
-					PostCountChange: 0,
-					CreatedAt:       point.CreatedAt.Unix(),
-					UpdatedAt:       point.UpdatedAt.Unix(),
-					ChangePercent:   0,
-				}
-
-				// Calculate change from previous point based on view count
-				if i < len(history)-1 {
-					previousPoint := history[i+1]
-					// Calculate view count change as primary metric
-					viewChange := point.ViewCount - previousPoint.ViewCount
-					historyPoints[i].Change = viewChange
-
-					// Still track post count change for reference
-					postChange := point.PostCount - previousPoint.PostCount
-					historyPoints[i].PostCountChange = postChange
-					if previousPoint.ViewCount > 0 {
-						historyPoints[i].ChangePercent = float64(viewChange) / float64(previousPoint.ViewCount) * 100
-					}
-				}
-			}
-
-			// Calculate total change based on view count
-			if len(history) > 0 {
-				newest := history[0].ViewCount
-				oldest := history[len(history)-1].ViewCount
-				tagWithHist.TotalChange = newest - oldest
-			}
-
-			if includeHistory {
-				tagWithHist.History = historyPoints
-			}
-
-			tagsWithHistory = append(tagsWithHistory, tagWithHist)
-		}
-
+	tagIDs := collectTagIDs(tags)
+	tagSnapshots, err := h.loadTagSnapshotsForRange(tagIDs, endDate)
+	if err != nil {
+		zap.L().Error("Failed to fetch tag snapshots", zap.Error(err))
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch tag snapshots"})
 	}
 
-	// Return response with consistent format
 	if needsHistory {
+		historyByTag, err := h.loadTagHistoryByTag(tagIDs, startDate, endDate)
+		if err != nil {
+			zap.L().Error("Failed to fetch tag histories", zap.Error(err))
+			return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch tag histories"})
+		}
+
 		return c.JSON(fiber.Map{
-			"tags": tagsWithHistory,
-			"pagination": fiber.Map{
-				"page":       page,
-				"limit":      limit,
-				"totalCount": total,
-				"totalPages": (total + int64(limit) - 1) / int64(limit),
-			},
+			"tags":       buildTagsWithHistory(tags, tagSnapshots, historyByTag, endDate),
+			"pagination": buildPagination(page, limit, total),
 		})
 	}
 
-	// For non-history responses, we need to convert tags to proper format
-
-	tagsData := make([]map[string]any, len(tags))
-	for i, tag := range tags {
-		// Show 0 view count for deleted tags
-		viewCount := tag.ViewCount
-		if tag.IsDeleted {
-			viewCount = 0
-		}
-
-		tagsData[i] = map[string]any{
-			"id":                   tag.ID,
-			"tag":                  tag.Tag,
-			"viewCount":            viewCount,
-			"postCount":            tag.PostCount,
-			"rank":                 tag.Rank,
-			"heat":                 0,
-			"fanslyCreatedAt":      new(timeToUnix(tag.FanslyCreatedAt)),
-			"lastCheckedAt":        timeToUnixPtr(tag.LastCheckedAt),
-			"lastUsedForDiscovery": timeToUnixPtr(tag.LastUsedForDiscovery),
-			"isDeleted":            tag.IsDeleted,
-			"deletedDetectedAt":    timeToUnixPtr(tag.DeletedDetectedAt),
-			"createdAt":            tag.CreatedAt.Unix(),
-			"updatedAt":            tag.UpdatedAt.Unix(),
-		}
-	}
-
 	return c.JSON(fiber.Map{
-		"tags": tagsData,
-		"pagination": fiber.Map{
-			"page":       page,
-			"limit":      limit,
-			"totalCount": total,
-			"totalPages": (total + int64(limit) - 1) / int64(limit),
-		},
+		"tags":       buildTagData(tags, tagSnapshots, endDate),
+		"pagination": buildPagination(page, limit, total),
 	})
 }
 
@@ -389,7 +227,9 @@ func (h *TagHandler) GetBannedTags(c *fiber.Ctx) error {
 	offset := (page - 1) * limit
 
 	var tags []models.Tag
-	query := h.db.Model(&models.Tag{}).Where("is_deleted = ?", true)
+	query := h.db.Model(&models.Tag{}).
+		Where("is_deleted = ?", true).
+		Where("tag NOT LIKE ?", "%+%")
 
 	if hs := extractHashtags(search); len(hs) > 0 {
 		query = query.Where("tag IN ?", hs)
@@ -442,19 +282,31 @@ func (h *TagHandler) GetBannedTags(c *fiber.Ctx) error {
 	}
 
 	// Total banned tags
-	h.db.Model(&models.Tag{}).Where("is_deleted = ?", true).Count(&stats.TotalBanned)
+	h.db.Model(&models.Tag{}).
+		Where("is_deleted = ?", true).
+		Where("tag NOT LIKE ?", "%+%").
+		Count(&stats.TotalBanned)
 
 	// Banned in last 24 hours
 	oneDayAgo := time.Now().Add(-24 * time.Hour)
-	h.db.Model(&models.Tag{}).Where("is_deleted = ? AND deleted_detected_at >= ?", true, oneDayAgo).Count(&stats.BannedLast24h)
+	h.db.Model(&models.Tag{}).
+		Where("is_deleted = ? AND deleted_detected_at >= ?", true, oneDayAgo).
+		Where("tag NOT LIKE ?", "%+%").
+		Count(&stats.BannedLast24h)
 
 	// Banned in last 7 days
 	sevenDaysAgo := time.Now().Add(-7 * 24 * time.Hour)
-	h.db.Model(&models.Tag{}).Where("is_deleted = ? AND deleted_detected_at >= ?", true, sevenDaysAgo).Count(&stats.BannedLast7d)
+	h.db.Model(&models.Tag{}).
+		Where("is_deleted = ? AND deleted_detected_at >= ?", true, sevenDaysAgo).
+		Where("tag NOT LIKE ?", "%+%").
+		Count(&stats.BannedLast7d)
 
 	// Banned in last 30 days
 	thirtyDaysAgo := time.Now().Add(-30 * 24 * time.Hour)
-	h.db.Model(&models.Tag{}).Where("is_deleted = ? AND deleted_detected_at >= ?", true, thirtyDaysAgo).Count(&stats.BannedLast30d)
+	h.db.Model(&models.Tag{}).
+		Where("is_deleted = ? AND deleted_detected_at >= ?", true, thirtyDaysAgo).
+		Where("tag NOT LIKE ?", "%+%").
+		Count(&stats.BannedLast30d)
 
 	return c.JSON(fiber.Map{
 		"tags": tags,
@@ -476,9 +328,8 @@ func (h *TagHandler) RequestTag(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "Invalid request body"})
 	}
-
-	if req.Tag == "" {
-		return c.Status(400).JSON(fiber.Map{"error": "Tag is required"})
+	if validationError := validateRequestedTag(req.Tag); validationError != "" {
+		return c.Status(400).JSON(fiber.Map{"error": validationError})
 	}
 
 	// Check if tag already exists
@@ -598,7 +449,10 @@ func (h *TagHandler) GetRelatedTags(c *fiber.Ctx) error {
 
 	// Resolve to IDs
 	var srcTags []models.Tag
-	if err := h.db.Model(&models.Tag{}).Where("tag IN ?", inputs).Find(&srcTags).Error; err != nil {
+	if err := h.db.Model(&models.Tag{}).
+		Where("tag IN ?", inputs).
+		Where("tag NOT LIKE ?", "%+%").
+		Find(&srcTags).Error; err != nil {
 		zap.L().Error("Failed to resolve tags", zap.Error(err))
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to resolve tags"})
 	}
@@ -630,14 +484,7 @@ func (h *TagHandler) GetRelatedTags(c *fiber.Ctx) error {
 	}
 
 	// Query base aggregates; compute popularity shaping and final score in Go for portability
-	type smartRow struct {
-		ID          string  `json:"id"`
-		Tag         string  `json:"tag"`
-		RPostCount  int64   `json:"rPostCount"`
-		NormSum     float64 `json:"normSum"`
-		CoverageCnt int64   `json:"coverageCnt"`
-	}
-	var srows []smartRow
+	var srows []relatedTagAggregate
 
 	// Use CAST to float to ensure floating division across dialects
 	selectExpr := strings.Join([]string{
@@ -655,6 +502,7 @@ func (h *TagHandler) GetRelatedTags(c *fiber.Ctx) error {
 		Where("tr.tag_id IN ?", srcIDs).
 		Where("tr.bucket_date >= ?", cutoff).
 		Where("t.is_deleted = ?", false).
+		Where("t.tag NOT LIKE ?", "%+%").
 		Where("t.view_count >= ?", minViewCount).
 		Where("tr.related_tag_id NOT IN ?", srcIDs).
 		Group("t.id, t.tag, t.post_count").
@@ -665,49 +513,7 @@ func (h *TagHandler) GetRelatedTags(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch related tags"})
 	}
 
-	numInputs := float64(len(srcIDs))
-	// Compute final scores and sort
-	type scored struct {
-		ID         string
-		Tag        string
-		NormAvg    float64
-		Coverage   float64
-		FinalScore float64
-	}
-	scoredRows := make([]scored, 0, len(srows))
-	for _, r := range srows {
-		// Safety for division
-		na := 0.0
-		if numInputs > 0 {
-			na = r.NormSum / numInputs
-		}
-		cov := 0.0
-		if numInputs > 0 {
-			cov = float64(r.CoverageCnt) / numInputs
-		}
-		// Popularity shaping: gentle boost to avoid ultra-rare dominating
-		pc := float64(r.RPostCount)
-		if pc < 0 {
-			pc = 0
-		}
-		if pc > 50000 {
-			pc = 50000
-		}
-		popBoost := 1.0
-		// Avoid NaN if log1p(0) -> 0; keep boost >= 1 slightly for non-zero
-		logv := math.Log1p(pc)
-		if logv > 0 {
-			popBoost = math.Pow(logv, 0.2)
-		}
-		final := na * cov * popBoost
-		scoredRows = append(scoredRows, scored{
-			ID:         r.ID,
-			Tag:        r.Tag,
-			NormAvg:    na,
-			Coverage:   cov,
-			FinalScore: final,
-		})
-	}
+	scoredRows := scoreRelatedTags(srows, len(srcIDs))
 
 	sort.Slice(scoredRows, func(i, j int) bool {
 		return scoredRows[i].FinalScore > scoredRows[j].FinalScore
@@ -745,7 +551,371 @@ func timeToUnixPtr(t *time.Time) *int64 {
 	if t == nil {
 		return nil
 	}
-	return new(t.Unix())
+	return ptr(t.Unix())
+}
+
+func sanitizeTagSortBy(sortBy string) string {
+	if sortBy == "ratio" {
+		return "ratio"
+	}
+	return "rank"
+}
+
+func sanitizeSortOrder(sortOrder string) string {
+	if sortOrder == "desc" {
+		return "desc"
+	}
+	return "asc"
+}
+
+func parseRequestedTags(tagsParam string) ([]string, bool) {
+	if tagsParam == "" {
+		return nil, false
+	}
+
+	parts := strings.Split(tagsParam, ",")
+	filtered := make([]string, 0, len(parts))
+	for _, part := range parts {
+		tag := strings.TrimSpace(part)
+		if tag != "" && !utils.TagNameHasPlus(tag) {
+			filtered = append(filtered, tag)
+		}
+	}
+
+	return filtered, len(filtered) == 0
+}
+
+func validateRequestedTag(tag string) string {
+	if tag == "" {
+		return "Tag is required"
+	}
+	if utils.TagNameHasPlus(tag) {
+		return "Tags containing '+' are not supported"
+	}
+	return ""
+}
+
+func resolveTagSearch(search string, targetTags []string) (string, []string) {
+	if len(targetTags) > 0 {
+		return search, targetTags
+	}
+
+	if hashtags := extractHashtags(search); len(hashtags) > 0 {
+		return "", hashtags
+	}
+
+	trimmed := strings.TrimSpace(search)
+	if strings.HasPrefix(trimmed, "#") {
+		return strings.TrimLeft(trimmed, "#"), targetTags
+	}
+
+	return search, targetTags
+}
+
+func applyTagFilters(
+	query *gorm.DB,
+	search string,
+	targetTags []string,
+	requestedTagsFilteredOut bool,
+) *gorm.DB {
+	query = query.Where("tag NOT LIKE ?", "%+%")
+
+	if requestedTagsFilteredOut {
+		return query.Where("1 = 0")
+	}
+	if len(targetTags) > 0 {
+		return query.Where("tag IN ?", targetTags)
+	}
+	if search != "" {
+		return query.Where("tag LIKE ?", "%"+search+"%")
+	}
+
+	return query
+}
+
+func collectTagIDs(tags []models.Tag) []string {
+	tagIDs := make([]string, len(tags))
+	for i, tag := range tags {
+		tagIDs[i] = tag.ID
+	}
+
+	return tagIDs
+}
+
+func buildTagMetrics(tag models.Tag, snapshots map[string]models.TagHistory, endDate *time.Time) tagMetrics {
+	metrics := tagMetrics{
+		ViewCount: tag.ViewCount,
+		PostCount: tag.PostCount,
+	}
+
+	if snapshot, ok := snapshots[tag.ID]; ok {
+		metrics.ViewCount = snapshot.ViewCount
+		metrics.PostCount = snapshot.PostCount
+	}
+	if tagDeletedByRangeEnd(tag, endDate) {
+		metrics.ViewCount = 0
+	}
+
+	metrics.Ratio = utils.CalculateRatio(metrics.ViewCount, metrics.PostCount)
+	return metrics
+}
+
+func buildTagHistoryPoints(history []models.TagHistory) []HistoryPoint {
+	historyPoints := make([]HistoryPoint, len(history))
+	for i, point := range history {
+		historyPoint := HistoryPoint{
+			ID:              point.ID,
+			TagID:           point.TagID,
+			ViewCount:       point.ViewCount,
+			Change:          0,
+			PostCount:       point.PostCount,
+			Ratio:           utils.CalculateRatio(point.ViewCount, point.PostCount),
+			PostCountChange: 0,
+			CreatedAt:       point.CreatedAt.Unix(),
+			UpdatedAt:       point.UpdatedAt.Unix(),
+			ChangePercent:   0,
+		}
+
+		if i < len(history)-1 {
+			previousPoint := history[i+1]
+			viewChange := point.ViewCount - previousPoint.ViewCount
+			historyPoint.Change = viewChange
+			historyPoint.PostCountChange = point.PostCount - previousPoint.PostCount
+			if previousPoint.ViewCount > 0 {
+				historyPoint.ChangePercent = float64(viewChange) / float64(previousPoint.ViewCount) * 100
+			}
+		}
+
+		historyPoints[i] = historyPoint
+	}
+
+	return historyPoints
+}
+
+func buildTagWithHistory(
+	tag models.Tag,
+	snapshots map[string]models.TagHistory,
+	history []models.TagHistory,
+	endDate *time.Time,
+) TagWithHistory {
+	metrics := buildTagMetrics(tag, snapshots, endDate)
+	tagWithHistory := TagWithHistory{
+		ID:                   tag.ID,
+		Tag:                  tag.Tag,
+		ViewCount:            metrics.ViewCount,
+		PostCount:            metrics.PostCount,
+		Ratio:                metrics.Ratio,
+		Rank:                 tag.Rank,
+		Heat:                 0,
+		FanslyCreatedAt:      ptr(timeToUnix(tag.FanslyCreatedAt)),
+		LastCheckedAt:        timeToUnixPtr(tag.LastCheckedAt),
+		LastUsedForDiscovery: timeToUnixPtr(tag.LastUsedForDiscovery),
+		IsDeleted:            tag.IsDeleted,
+		DeletedDetectedAt:    timeToUnixPtr(tag.DeletedDetectedAt),
+		CreatedAt:            tag.CreatedAt.Unix(),
+		UpdatedAt:            tag.UpdatedAt.Unix(),
+		History:              buildTagHistoryPoints(history),
+	}
+
+	if len(history) > 0 {
+		tagWithHistory.TotalChange = history[0].ViewCount - history[len(history)-1].ViewCount
+	}
+
+	return tagWithHistory
+}
+
+func buildTagsWithHistory(
+	tags []models.Tag,
+	snapshots map[string]models.TagHistory,
+	historyByTag map[string][]models.TagHistory,
+	endDate *time.Time,
+) []TagWithHistory {
+	tagsWithHistory := make([]TagWithHistory, 0, len(tags))
+	for _, tag := range tags {
+		tagsWithHistory = append(
+			tagsWithHistory,
+			buildTagWithHistory(tag, snapshots, historyByTag[tag.ID], endDate),
+		)
+	}
+
+	return tagsWithHistory
+}
+
+func buildTagData(
+	tags []models.Tag,
+	snapshots map[string]models.TagHistory,
+	endDate *time.Time,
+) []map[string]any {
+	tagsData := make([]map[string]any, len(tags))
+	for i, tag := range tags {
+		metrics := buildTagMetrics(tag, snapshots, endDate)
+		tagsData[i] = map[string]any{
+			"id":                   tag.ID,
+			"tag":                  tag.Tag,
+			"viewCount":            metrics.ViewCount,
+			"postCount":            metrics.PostCount,
+			"ratio":                metrics.Ratio,
+			"rank":                 tag.Rank,
+			"heat":                 0,
+			"fanslyCreatedAt":      ptr(timeToUnix(tag.FanslyCreatedAt)),
+			"lastCheckedAt":        timeToUnixPtr(tag.LastCheckedAt),
+			"lastUsedForDiscovery": timeToUnixPtr(tag.LastUsedForDiscovery),
+			"isDeleted":            tag.IsDeleted,
+			"deletedDetectedAt":    timeToUnixPtr(tag.DeletedDetectedAt),
+			"createdAt":            tag.CreatedAt.Unix(),
+			"updatedAt":            tag.UpdatedAt.Unix(),
+		}
+	}
+
+	return tagsData
+}
+
+func (h *TagHandler) applyTagSort(
+	query *gorm.DB,
+	sortBy string,
+	sortOrder string,
+	endDate *time.Time,
+) *gorm.DB {
+	if sortBy != "ratio" {
+		return query.Order("rank " + sortOrder)
+	}
+
+	orderClause := "(CASE WHEN tags.post_count > 0 THEN tags.view_count / tags.post_count ELSE 0 END) " + sortOrder
+	if endDate != nil {
+		orderClause = "(CASE WHEN COALESCE(tag_snapshots.post_count, tags.post_count) > 0 THEN COALESCE(tag_snapshots.view_count, tags.view_count) / COALESCE(tag_snapshots.post_count, tags.post_count) ELSE 0 END) " + sortOrder
+		query = query.Joins("LEFT JOIN (?) AS tag_snapshots ON tag_snapshots.tag_id = tags.id", latestTagSnapshotQuery(h.db, *endDate))
+	}
+
+	return query.Order(orderClause).Order("rank ASC")
+}
+
+func (h *TagHandler) loadTagSnapshotsForRange(
+	tagIDs []string,
+	endDate *time.Time,
+) (map[string]models.TagHistory, error) {
+	if endDate == nil {
+		return map[string]models.TagHistory{}, nil
+	}
+
+	return loadTagSnapshots(h.db, tagIDs, *endDate)
+}
+
+func (h *TagHandler) loadTagHistoryByTag(
+	tagIDs []string,
+	startDate *time.Time,
+	endDate *time.Time,
+) (map[string][]models.TagHistory, error) {
+	historyByTag := make(map[string][]models.TagHistory)
+	if len(tagIDs) == 0 {
+		return historyByTag, nil
+	}
+
+	const batchSize = 1000
+	for i := 0; i < len(tagIDs); i += batchSize {
+		end := min(i+batchSize, len(tagIDs))
+		batchIDs := tagIDs[i:end]
+
+		histQuery := h.db.Model(&models.TagHistory{}).
+			Where("tag_id IN ?", batchIDs).
+			Order("tag_id, created_at DESC")
+
+		if startDate != nil {
+			histQuery = histQuery.Where("created_at >= ?", *startDate)
+		}
+		if endDate != nil {
+			histQuery = histQuery.Where("created_at <= ?", *endDate)
+		}
+
+		var batchHistories []models.TagHistory
+		if err := histQuery.Find(&batchHistories).Error; err != nil {
+			return nil, err
+		}
+
+		for _, history := range batchHistories {
+			historyByTag[history.TagID] = append(historyByTag[history.TagID], history)
+		}
+	}
+
+	return historyByTag, nil
+}
+
+func latestTagSnapshotQuery(db *gorm.DB, endDate time.Time) *gorm.DB {
+	latestIDs := db.Model(&models.TagHistory{}).
+		Select("tag_id, MAX(id) AS id").
+		Where("created_at <= ?", endDate).
+		Group("tag_id")
+
+	return db.Table("tag_history AS th").
+		Select("th.id, th.tag_id, th.view_count, th.change, th.post_count, th.post_count_change, th.created_at, th.updated_at").
+		Joins("JOIN (?) AS latest ON latest.id = th.id", latestIDs)
+}
+
+func loadTagSnapshots(db *gorm.DB, tagIDs []string, endDate time.Time) (map[string]models.TagHistory, error) {
+	if len(tagIDs) == 0 {
+		return map[string]models.TagHistory{}, nil
+	}
+
+	var snapshots []models.TagHistory
+	if err := db.Table("(?) AS tag_snapshots", latestTagSnapshotQuery(db, endDate)).
+		Where("tag_id IN ?", tagIDs).
+		Scan(&snapshots).Error; err != nil {
+		return nil, err
+	}
+
+	snapshotByTag := make(map[string]models.TagHistory, len(snapshots))
+	for _, snapshot := range snapshots {
+		snapshotByTag[snapshot.TagID] = snapshot
+	}
+
+	return snapshotByTag, nil
+}
+
+func scoreRelatedTags(rows []relatedTagAggregate, inputCount int) []relatedTagScore {
+	numInputs := float64(inputCount)
+	scoredRows := make([]relatedTagScore, 0, len(rows))
+
+	for _, row := range rows {
+		normAvg := 0.0
+		coverage := 0.0
+		if numInputs > 0 {
+			normAvg = row.NormSum / numInputs
+			coverage = float64(row.CoverageCnt) / numInputs
+		}
+
+		postCount := float64(row.RPostCount)
+		if postCount < 0 {
+			postCount = 0
+		}
+		if postCount > 50000 {
+			postCount = 50000
+		}
+
+		popBoost := 1.0
+		logValue := math.Log1p(postCount)
+		if logValue > 0 {
+			popBoost = math.Pow(logValue, 0.2)
+		}
+
+		scoredRows = append(scoredRows, relatedTagScore{
+			ID:         row.ID,
+			Tag:        row.Tag,
+			NormAvg:    normAvg,
+			Coverage:   coverage,
+			FinalScore: normAvg * coverage * popBoost,
+		})
+	}
+
+	return scoredRows
+}
+
+func tagDeletedByRangeEnd(tag models.Tag, endDate *time.Time) bool {
+	if !tag.IsDeleted {
+		return false
+	}
+	if endDate == nil || tag.DeletedDetectedAt == nil {
+		return true
+	}
+	return !tag.DeletedDetectedAt.After(*endDate)
 }
 
 func timeToUnix(t time.Time) int64 {
@@ -754,5 +924,5 @@ func timeToUnix(t time.Time) int64 {
 
 //go:fix inline
 func ptr[T any](v T) *T {
-	return new(v)
+	return &v
 }

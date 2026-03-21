@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card';
   import Chart from 'chart.js/auto';
+  import type { ChartConfiguration, ChartDataset } from 'chart.js';
   import 'chartjs-adapter-date-fns';
 
   interface HistoryPoint {
@@ -11,22 +12,29 @@
     change: number;
     changePercent: number;
     postCount: number;
+    ratio: number;
     postCountChange: number;
     createdAt: Date | string | number;
     updatedAt: Date | string | number;
+  }
+
+  interface HistoryPointWithDates extends Omit<HistoryPoint, 'createdAt' | 'updatedAt'> {
+    createdAt: Date;
+    updatedAt: Date;
   }
 
   interface Props {
     history?: HistoryPoint[];
   }
 
+  type ChartPoint = { x: Date; y: number };
+
   const { history = [] }: Props = $props();
   let chartCanvas = $state<HTMLCanvasElement>();
-  let chartInstance: Chart | null = null;
+  let chartInstance: Chart<'line', ChartPoint[]> | null = null;
   let chartInitialized = false;
 
-  // Convert dates in history to Date objects
-  const historyWithDates = $derived(
+  const historyWithDates = $derived<HistoryPointWithDates[]>(
     history.map((point) => ({
       ...point,
       createdAt:
@@ -40,12 +48,25 @@
     }))
   );
 
-  // Update chart when history changes
   $effect(() => {
-    if (historyWithDates.length > 0) {
+    if (chartCanvas) {
       setTimeout(() => updateChart(), 0);
     }
   });
+
+  function buildSeries(
+    metric: keyof Pick<
+      HistoryPointWithDates,
+      'viewCount' | 'change' | 'postCount' | 'ratio' | 'postCountChange'
+    >
+  ): ChartPoint[] {
+    return historyWithDates
+      .map((point) => ({
+        x: point.createdAt,
+        y: point[metric]
+      }))
+      .reverse();
+  }
 
   function updateChart() {
     if (!chartCanvas) {
@@ -57,286 +78,307 @@
       chartInstance = null;
     }
 
-    // Always create chart data, even if empty
-    const viewCountData =
-      historyWithDates.length > 0
-        ? historyWithDates
-            .map((point) => ({
-              x: point.createdAt,
-              y: point.viewCount
-            }))
-            .reverse()
-        : [];
+    const datasets: ChartDataset<'line', ChartPoint[]>[] = [
+      {
+        label: 'View Count',
+        data: buildSeries('viewCount'),
+        borderColor: 'rgb(99, 102, 241)',
+        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+        fill: true,
+        tension: 0.4,
+        pointRadius: 0,
+        pointHoverRadius: 6,
+        pointBackgroundColor: 'rgb(99, 102, 241)',
+        pointBorderColor: '#fff',
+        pointBorderWidth: 2,
+        pointHoverBackgroundColor: 'rgb(99, 102, 241)',
+        pointHoverBorderColor: '#fff',
+        pointHoverBorderWidth: 2,
+        yAxisID: 'y'
+      },
+      {
+        label: 'Views Change',
+        data: buildSeries('change'),
+        borderColor: 'rgb(52, 211, 153)',
+        backgroundColor: 'rgba(52, 211, 153, 0.15)',
+        fill: false,
+        tension: 0.4,
+        pointRadius: 0,
+        pointHoverRadius: 6,
+        pointBackgroundColor: 'rgb(52, 211, 153)',
+        pointBorderColor: '#fff',
+        pointBorderWidth: 2,
+        pointHoverBackgroundColor: 'rgb(52, 211, 153)',
+        pointHoverBorderColor: '#fff',
+        pointHoverBorderWidth: 2,
+        borderDash: [4, 4],
+        hidden: true,
+        yAxisID: 'y1'
+      },
+      {
+        label: 'Post Count',
+        data: buildSeries('postCount'),
+        borderColor: 'rgb(251, 146, 60)',
+        backgroundColor: 'rgba(251, 146, 60, 0.1)',
+        fill: true,
+        tension: 0.4,
+        pointRadius: 0,
+        pointHoverRadius: 6,
+        pointBackgroundColor: 'rgb(251, 146, 60)',
+        pointBorderColor: '#fff',
+        pointBorderWidth: 2,
+        pointHoverBackgroundColor: 'rgb(251, 146, 60)',
+        pointHoverBorderColor: '#fff',
+        pointHoverBorderWidth: 2,
+        yAxisID: 'y2'
+      },
+      {
+        label: 'Ratio',
+        data: buildSeries('ratio'),
+        borderColor: 'rgb(236, 72, 153)',
+        backgroundColor: 'rgba(236, 72, 153, 0.12)',
+        fill: false,
+        tension: 0.4,
+        pointRadius: 0,
+        pointHoverRadius: 6,
+        pointBackgroundColor: 'rgb(236, 72, 153)',
+        pointBorderColor: '#fff',
+        pointBorderWidth: 2,
+        pointHoverBackgroundColor: 'rgb(236, 72, 153)',
+        pointHoverBorderColor: '#fff',
+        pointHoverBorderWidth: 2,
+        yAxisID: 'y3'
+      },
+      {
+        label: 'Post Change',
+        data: buildSeries('postCountChange'),
+        borderColor: 'rgb(14, 165, 233)',
+        backgroundColor: 'rgba(14, 165, 233, 0.12)',
+        fill: false,
+        tension: 0.4,
+        pointRadius: 0,
+        pointHoverRadius: 6,
+        pointBackgroundColor: 'rgb(14, 165, 233)',
+        pointBorderColor: '#fff',
+        pointBorderWidth: 2,
+        pointHoverBackgroundColor: 'rgb(14, 165, 233)',
+        pointHoverBorderColor: '#fff',
+        pointHoverBorderWidth: 2,
+        borderDash: [8, 4],
+        hidden: true,
+        yAxisID: 'y1'
+      }
+    ];
 
-    // Create change data for secondary axis
-    const changeData =
-      historyWithDates.length > 0
-        ? historyWithDates
-            .map((point) => ({
-              x: point.createdAt,
-              y: point.change
-            }))
-            .reverse()
-        : [];
-
-    // Create post count data
-    const postCountData =
-      historyWithDates.length > 0
-        ? historyWithDates
-            .map((point) => ({
-              x: point.createdAt,
-              y: point.postCount
-            }))
-            .reverse()
-        : [];
-
-    // Check if we have any non-zero change values
-    const hasChangeData = changeData.some((d) => d.y !== 0);
-
-    try {
-      chartInstance = new Chart(chartCanvas, {
-        type: 'line',
-        data: {
-          datasets: [
-            {
-              label: 'View Count',
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              data: viewCountData as any,
-              borderColor: 'rgb(99, 102, 241)',
-              backgroundColor: 'rgba(99, 102, 241, 0.1)',
-              fill: true,
-              tension: 0.4,
-              pointRadius: 0,
-              pointHoverRadius: 6,
-              pointBackgroundColor: 'rgb(99, 102, 241)',
-              pointBorderColor: '#fff',
-              pointBorderWidth: 2,
-              pointHoverBackgroundColor: 'rgb(99, 102, 241)',
-              pointHoverBorderColor: '#fff',
-              pointHoverBorderWidth: 2,
-              yAxisID: 'y'
-            },
-            ...(hasChangeData
-              ? [
-                  {
-                    label: 'Change',
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    data: changeData as any,
-                    borderColor: 'var(--chart-2, rgb(52, 211, 153))',
-                    backgroundColor: 'rgba(52, 211, 153, 0.15)',
-                    fill: false,
-                    tension: 0.4,
-                    pointRadius: 0,
-                    pointHoverRadius: 6,
-                    pointBackgroundColor: 'var(--chart-2, rgb(52, 211, 153))',
-                    pointBorderColor: '#fff',
-                    pointBorderWidth: 2,
-                    pointHoverBackgroundColor: 'var(--chart-2, rgb(52, 211, 153))',
-                    pointHoverBorderColor: '#fff',
-                    pointHoverBorderWidth: 2,
-                    borderDash: [4, 4],
-                    yAxisID: 'y1'
-                  }
-                ]
-              : []),
-            {
-              label: 'Post Count',
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              data: postCountData as any,
-              borderColor: 'rgb(251, 146, 60)',
-              backgroundColor: 'rgba(251, 146, 60, 0.1)',
-              fill: true,
-              tension: 0.4,
-              pointRadius: 0,
-              pointHoverRadius: 6,
-              pointBackgroundColor: 'rgb(251, 146, 60)',
-              pointBorderColor: '#fff',
-              pointBorderWidth: 2,
-              pointHoverBackgroundColor: 'rgb(251, 146, 60)',
-              pointHoverBorderColor: '#fff',
-              pointHoverBorderWidth: 2,
-              yAxisID: 'y2'
-            }
-          ]
+    const chartConfig: ChartConfiguration<'line', ChartPoint[]> = {
+      type: 'line',
+      data: {
+        datasets
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+          mode: 'index',
+          intersect: false
         },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          interaction: {
-            mode: 'index',
-            intersect: false
-          },
-          plugins: {
-            legend: {
-              display: true,
-              position: 'top' as const,
-              labels: {
-                usePointStyle: true,
-                padding: 20,
-                font: {
-                  size: 12
-                }
-              }
-            },
-            tooltip: {
-              backgroundColor: 'rgba(0, 0, 0, 0.8)',
-              titleColor: '#fff',
-              bodyColor: '#fff',
-              borderColor: 'rgb(99, 102, 241)',
-              borderWidth: 1,
-              padding: 12,
-              displayColors: true,
-              callbacks: {
-                label: function (context) {
-                  const label = context.dataset.label || '';
-                  const value = context.parsed.y;
-                  if (value === null) {
-                    return label + ': N/A';
-                  }
-                  if (label === 'Change') {
-                    const formatted = new Intl.NumberFormat('en-US', {
-                      signDisplay: 'exceptZero'
-                    }).format(value);
-                    return label + ': ' + formatted;
-                  }
-                  return label + ': ' + new Intl.NumberFormat().format(value);
-                }
+        plugins: {
+          legend: {
+            display: true,
+            position: 'top',
+            labels: {
+              usePointStyle: true,
+              padding: 20,
+              font: {
+                size: 12
               }
             }
           },
-          scales: {
-            x: {
-              type: 'time',
-              time: {
-                unit: 'day',
-                displayFormats: {
-                  day: 'MMM d'
+          tooltip: {
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            titleColor: '#fff',
+            bodyColor: '#fff',
+            borderColor: 'rgb(99, 102, 241)',
+            borderWidth: 1,
+            padding: 12,
+            displayColors: true,
+            callbacks: {
+              label: (context) => {
+                const label = context.dataset.label || '';
+                const value = context.parsed.y;
+                if (value === null) {
+                  return `${label}: N/A`;
                 }
-              },
-              grid: {
-                color: 'rgba(0, 0, 0, 0.05)',
-                display: true
-              },
-              border: {
-                display: false
-              },
-              ticks: {
-                color: 'rgb(107, 114, 128)',
-                font: {
-                  size: 11
+                if (label === 'Ratio') {
+                  return `${label}: ${value.toFixed(2)}`;
                 }
+                if (label === 'Views Change' || label === 'Post Change') {
+                  const formatted = new Intl.NumberFormat('en-US', {
+                    signDisplay: 'exceptZero'
+                  }).format(value);
+                  return `${label}: ${formatted}`;
+                }
+                return `${label}: ${new Intl.NumberFormat().format(value)}`;
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            type: 'time',
+            time: {
+              unit: 'day',
+              displayFormats: {
+                day: 'MMM d'
               }
             },
-            y: {
-              type: 'linear',
-              display: true,
-              position: 'left',
-              beginAtZero: false,
-              grid: {
-                color: 'rgba(0, 0, 0, 0.05)',
-                display: true
-              },
-              border: {
-                display: false
-              },
-              ticks: {
-                color: 'rgb(107, 114, 128)',
-                font: {
-                  size: 11
-                },
-                callback: function (value) {
-                  return new Intl.NumberFormat('en-US', {
-                    notation: 'compact',
-                    compactDisplay: 'short'
-                  }).format(value as number);
-                }
-              },
-              title: {
-                display: true,
-                text: 'View Count',
-                color: 'rgb(107, 114, 128)',
-                font: {
-                  size: 12
-                }
-              }
+            grid: {
+              color: 'rgba(0, 0, 0, 0.05)',
+              display: true
             },
-            ...(hasChangeData
-              ? {
-                  y1: {
-                    type: 'linear',
-                    display: true,
-                    position: 'right',
-                    beginAtZero: false,
-                    grid: {
-                      drawOnChartArea: false
-                    },
-                    border: {
-                      display: false
-                    },
-                    ticks: {
-                      color: 'rgb(107, 114, 128)',
-                      font: {
-                        size: 11
-                      },
-                      callback: function (value) {
-                        return new Intl.NumberFormat('en-US', {
-                          signDisplay: 'exceptZero'
-                        }).format(value as number);
-                      }
-                    },
-                    title: {
-                      display: true,
-                      text: 'Views Change',
-                      color: 'rgb(107, 114, 128)',
-                      font: {
-                        size: 12
-                      }
-                    }
-                  }
-                }
-              : {}),
-            y2: {
-              type: 'linear',
+            border: {
+              display: false
+            },
+            ticks: {
+              color: 'rgb(107, 114, 128)',
+              font: {
+                size: 11
+              }
+            }
+          },
+          y: {
+            type: 'linear',
+            display: true,
+            position: 'left',
+            beginAtZero: false,
+            grid: {
+              color: 'rgba(0, 0, 0, 0.05)',
+              display: true
+            },
+            border: {
+              display: false
+            },
+            ticks: {
+              color: 'rgb(107, 114, 128)',
+              font: {
+                size: 11
+              },
+              callback: (value) =>
+                new Intl.NumberFormat('en-US', {
+                  notation: 'compact',
+                  compactDisplay: 'short'
+                }).format(Number(value))
+            },
+            title: {
               display: true,
-              position: 'right',
-              beginAtZero: false,
-              grid: {
-                drawOnChartArea: false
+              text: 'View Count',
+              color: 'rgb(107, 114, 128)',
+              font: {
+                size: 12
+              }
+            }
+          },
+          y1: {
+            type: 'linear',
+            display: true,
+            position: 'right',
+            beginAtZero: false,
+            grid: {
+              drawOnChartArea: false
+            },
+            border: {
+              display: false
+            },
+            ticks: {
+              color: 'rgb(52, 211, 153)',
+              font: {
+                size: 11
               },
-              border: {
-                display: false
+              callback: (value) =>
+                new Intl.NumberFormat('en-US', {
+                  signDisplay: 'exceptZero'
+                }).format(Number(value))
+            },
+            title: {
+              display: true,
+              text: 'Changes',
+              color: 'rgb(52, 211, 153)',
+              font: {
+                size: 12
+              }
+            }
+          },
+          y2: {
+            type: 'linear',
+            display: true,
+            position: 'right',
+            beginAtZero: false,
+            grid: {
+              drawOnChartArea: false
+            },
+            border: {
+              display: false
+            },
+            ticks: {
+              color: 'rgb(251, 146, 60)',
+              font: {
+                size: 11
               },
-              ticks: {
-                color: 'rgb(251, 146, 60)',
-                font: {
-                  size: 11
-                },
-                callback: function (value) {
-                  return new Intl.NumberFormat('en-US', {
-                    notation: 'compact',
-                    compactDisplay: 'short'
-                  }).format(value as number);
-                }
+              callback: (value) =>
+                new Intl.NumberFormat('en-US', {
+                  notation: 'compact',
+                  compactDisplay: 'short'
+                }).format(Number(value))
+            },
+            title: {
+              display: true,
+              text: 'Post Count',
+              color: 'rgb(251, 146, 60)',
+              font: {
+                size: 12
+              }
+            }
+          },
+          y3: {
+            type: 'linear',
+            display: true,
+            position: 'right',
+            offset: true,
+            beginAtZero: false,
+            grid: {
+              drawOnChartArea: false
+            },
+            border: {
+              display: false
+            },
+            ticks: {
+              color: 'rgb(236, 72, 153)',
+              font: {
+                size: 11
               },
-              title: {
-                display: true,
-                text: 'Post Count',
-                color: 'rgb(251, 146, 60)',
-                font: {
-                  size: 12
-                }
+              callback: (value) => Number(value).toFixed(2)
+            },
+            title: {
+              display: true,
+              text: 'Ratio',
+              color: 'rgb(236, 72, 153)',
+              font: {
+                size: 12
               }
             }
           }
         }
-      });
+      }
+    };
+
+    try {
+      chartInstance = new Chart(chartCanvas, chartConfig);
       chartInitialized = true;
     } catch (error) {
       console.error('Failed to create chart:', error);
     }
   }
 
-  // Watch for canvas element to be available
   $effect(() => {
     if (chartCanvas && !chartInitialized) {
       chartInitialized = true;
@@ -364,6 +406,14 @@
 
   function formatNumber(num: number): string {
     return new Intl.NumberFormat().format(num);
+  }
+
+  function formatRatio(ratio: number, postCount: number): string {
+    if (postCount <= 0) {
+      return '-';
+    }
+
+    return ratio.toFixed(2);
   }
 </script>
 
@@ -393,6 +443,7 @@
                   <th class="py-2 text-right">View Count</th>
                   <th class="py-2 text-right">Views Change</th>
                   <th class="py-2 text-right">Post Count</th>
+                  <th class="py-2 text-right">Ratio</th>
                   <th class="py-2 text-right">Post Change</th>
                 </tr>
               </thead>
@@ -417,6 +468,7 @@
                       {/if}
                     </td>
                     <td class="py-2 text-right">{formatNumber(point.postCount)}</td>
+                    <td class="py-2 text-right">{formatRatio(point.ratio, point.postCount)}</td>
                     <td class="py-2 text-right">
                       {#if point.postCountChange !== 0}
                         <span

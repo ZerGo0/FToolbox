@@ -16,11 +16,17 @@ func CalculateTagRanks(db *gorm.DB) error {
 				id,
 				DENSE_RANK() OVER (ORDER BY CASE WHEN is_deleted THEN 0 ELSE view_count END DESC, created_at ASC) as new_rank
 			FROM tags
+			WHERE tag NOT LIKE '%+%'
 		) t2 ON t1.id = t2.id
 		SET t1.rank = t2.new_rank
 	`
 
-	return db.Exec(sql).Error
+	if err := db.Exec(sql).Error; err != nil {
+		return err
+	}
+
+	clearSQL := `UPDATE tags SET rank = NULL WHERE tag LIKE '%+%'`
+	return db.Exec(clearSQL).Error
 }
 
 // CalculateCreatorRanks recalculates ranks for all creators

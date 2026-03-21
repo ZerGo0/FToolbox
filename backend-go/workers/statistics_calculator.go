@@ -60,6 +60,7 @@ func (w *StatisticsCalculatorWorker) calculateTagStatistics(ctx context.Context)
 	var totalViewCount, totalPostCount int64
 	if err := tx.Model(&models.Tag{}).
 		Where("is_deleted = ?", false).
+		Where("tag NOT LIKE ?", "%+%").
 		Select("COALESCE(SUM(view_count), 0), COALESCE(SUM(post_count), 0)").
 		Row().Scan(&totalViewCount, &totalPostCount); err != nil {
 		tx.Rollback()
