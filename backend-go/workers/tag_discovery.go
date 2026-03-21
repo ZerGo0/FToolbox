@@ -7,6 +7,7 @@ import (
 	"ftoolbox/config"
 	"ftoolbox/fansly"
 	"ftoolbox/models"
+	"ftoolbox/utils"
 	"strings"
 	"time"
 
@@ -157,6 +158,7 @@ func (w *TagDiscoveryWorker) getTagForDiscovery() (string, error) {
 	// Get multiple tags that haven't been used recently and aren't deleted, ordered by rank
 	if err := w.db.Where("(last_used_for_discovery IS NULL OR last_used_for_discovery < ?) AND is_deleted = ?", hoursAgo, false).
 		Where("tag NOT LIKE ?", "%&%").
+		Where("tag NOT LIKE ?", "%+%").
 		Order("rank ASC").
 		Limit(10).
 		Find(&tags).Error; err == nil && len(tags) > 0 {
@@ -181,10 +183,8 @@ func (w *TagDiscoveryWorker) extractTagsFromSuggestions(suggestions []fansly.Med
 
 	for _, suggestion := range suggestions {
 		for _, tag := range suggestion.PostTags {
-			// Use the tag name as key to ensure uniqueness
 			tagName := strings.ToLower(strings.TrimSpace(tag.Tag))
-			// Ignore tags that contain '&' as Fansly truncates them before '&'
-			if tagName != "" && !strings.Contains(tagName, "&") {
+			if !shouldSkipDiscoveredTagName(tagName) {
 				tagMap[tagName] = tag
 			}
 		}
@@ -200,8 +200,7 @@ func (w *TagDiscoveryWorker) extractTagsFromSuggestions(suggestions []fansly.Med
 }
 
 func (w *TagDiscoveryWorker) processDiscoveredTag(tag fansly.FanslyTag) error {
-	// Ignore tags that contain '&' as Fansly truncates them before '&'
-	if strings.Contains(tag.Tag, "&") {
+	if shouldSkipDiscoveredTagName(tag.Tag) {
 		return nil
 	}
 	// Check if tag already exists
@@ -252,8 +251,8 @@ func (w *TagDiscoveryWorker) updateTagRelationsFromSuggestions(ctx context.Conte
 		// Build a unique set of tag IDs observed in this suggestion
 		seen := make(map[string]struct{})
 		for _, t := range s.PostTags {
-			// Skip tags that contain '&' to avoid polluted relations
-			if strings.Contains(strings.ToLower(strings.TrimSpace(t.Tag)), "&") {
+			tagName := strings.ToLower(strings.TrimSpace(t.Tag))
+			if shouldSkipDiscoveredTagName(tagName) {
 				continue
 			}
 			id := strings.TrimSpace(t.ID)
@@ -327,4 +326,8 @@ func (w *TagDiscoveryWorker) purgeOldTagRelations(windowDays int) error {
 	}
 	// Recalculate tag ranks/heat only if needed; not required for relations
 	return nil
+}
+
+func shouldSkipDiscoveredTagName(tagName string) bool {
+	return tagName == "" || strings.Contains(tagName, "&") || utils.TagNameHasPlus(tagName)
 }

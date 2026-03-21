@@ -49,7 +49,7 @@ func (w *TagCleanupWorker) Run(ctx context.Context) error {
 
 		var tagIDs []string
 		if err := w.db.Model(&models.Tag{}).
-			Where("view_count < ?", w.minViews).
+			Where("view_count < ? OR tag LIKE ?", w.minViews, "%+%").
 			Order("id").
 			Limit(w.batchSize).
 			Pluck("id", &tagIDs).Error; err != nil {

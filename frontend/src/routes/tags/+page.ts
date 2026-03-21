@@ -8,6 +8,7 @@ interface TagHistory {
   change: number;
   changePercent: number;
   postCount: number;
+  ratio: number;
   postCountChange: number;
   createdAt: Date;
   updatedAt: Date;
@@ -18,6 +19,7 @@ interface Tag {
   tag: string;
   viewCount: number;
   postCount: number;
+  ratio: number;
   fanslyCreatedAt: Date;
   lastCheckedAt: Date | null;
   createdAt: Date;
@@ -48,26 +50,116 @@ interface TagStatistics {
   calculatedAt: number | null;
 }
 
-export const load: PageLoad = async ({ fetch, url }) => {
-  const page = url.searchParams.get('page') || '1';
-  const search = url.searchParams.get('search') || '';
-  const tags = url.searchParams.get('tags') || '';
-  const sortBy = 'rank';
-  const sortOrderParam = url.searchParams.get('sortOrder') || 'asc';
-  const sortOrder = sortOrderParam === 'desc' ? 'desc' : 'asc';
-  const includeHistory = url.searchParams.get('includeHistory') || 'true';
+interface TagLoadPayload {
+  tags: Tag[];
+  pagination: TagsResponse['pagination'];
+  statistics: TagStatistics;
+}
 
-  // Default to last 7 days if no dates provided
+function createDefaultTagStatistics(): TagStatistics {
+  return {
+    totalViewCount: 0,
+    totalPostCount: 0,
+    change24h: 0,
+    changePercent24h: 0,
+    postChange24h: 0,
+    postChangePercent24h: 0,
+    calculatedAt: null
+  };
+}
+
+function createEmptyPagination() {
+  return {
+    page: 1,
+    limit: 20,
+    totalCount: 0,
+    totalPages: 0
+  };
+}
+
+function getDefaultHistoryRange(url: URL) {
   const now = new Date();
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-  // Set end date to end of day
   const endOfDay = new Date(now);
   endOfDay.setHours(23, 59, 59, 999);
 
-  const historyStartDate = url.searchParams.get('historyStartDate') || sevenDaysAgo.toISOString();
-  const historyEndDate = url.searchParams.get('historyEndDate') || endOfDay.toISOString();
+  return {
+    historyStartDate: url.searchParams.get('historyStartDate') || sevenDaysAgo.toISOString(),
+    historyEndDate: url.searchParams.get('historyEndDate') || endOfDay.toISOString()
+  };
+}
+
+function createLoadResult(input: {
+  tags: Tag[];
+  pagination: TagsResponse['pagination'];
+  statistics: TagStatistics;
+  search: string;
+  sortBy: 'rank' | 'ratio';
+  sortOrder: 'asc' | 'desc';
+  includeHistory: string;
+  historyStartDate: string;
+  historyEndDate: string;
+}) {
+  return {
+    tags: input.tags,
+    pagination: input.pagination,
+    statistics: input.statistics,
+    search: input.search,
+    sortBy: input.sortBy,
+    sortOrder: input.sortOrder,
+    includeHistory: input.includeHistory === 'true',
+    historyStartDate: input.historyStartDate,
+    historyEndDate: input.historyEndDate
+  };
+}
+
+async function fetchTagStatistics(fetchFn: typeof fetch): Promise<TagStatistics> {
+  try {
+    const response = await fetchFn(`${PUBLIC_API_URL}/api/tags/statistics`);
+    if (!response.ok) {
+      return createDefaultTagStatistics();
+    }
+
+    return response.json();
+  } catch (statsError) {
+    console.error('Error loading tag statistics:', statsError);
+    return createDefaultTagStatistics();
+  }
+}
+
+async function fetchTagLoadPayload(
+  fetchFn: typeof fetch,
+  params: URLSearchParams
+): Promise<TagLoadPayload> {
+  const [tagsResponse, statistics] = await Promise.all([
+    fetchFn(`${PUBLIC_API_URL}/api/tags?${params}`),
+    fetchTagStatistics(fetchFn)
+  ]);
+
+  if (!tagsResponse.ok) {
+    throw new Error('Failed to fetch tags');
+  }
+
+  const data: TagsResponse = await tagsResponse.json();
+  return {
+    tags: data.tags,
+    pagination: data.pagination,
+    statistics
+  };
+}
+
+export const load: PageLoad = async ({ fetch, url }) => {
+  const page = url.searchParams.get('page') || '1';
+  const search = url.searchParams.get('search') || '';
+  const tags = url.searchParams.get('tags') || '';
+  const sortByParam = url.searchParams.get('sortBy') || 'rank';
+  const sortBy = sortByParam === 'ratio' ? 'ratio' : 'rank';
+  const sortOrderParam = url.searchParams.get('sortOrder') || 'asc';
+  const sortOrder = sortOrderParam === 'desc' ? 'desc' : 'asc';
+  const includeHistory = url.searchParams.get('includeHistory') || 'true';
+  const { historyStartDate, historyEndDate } = getDefaultHistoryRange(url);
 
   try {
     const params = new URLSearchParams({
@@ -82,72 +174,31 @@ export const load: PageLoad = async ({ fetch, url }) => {
       historyEndDate
     });
 
-    // Fetch tags data
-    const response = await fetch(`${PUBLIC_API_URL}/api/tags?${params}`);
+    const payload = await fetchTagLoadPayload(fetch, params);
 
-    if (!response.ok) {
-      throw new Error('Failed to fetch tags');
-    }
-
-    const data: TagsResponse = await response.json();
-
-    // Fetch statistics data
-    let statistics: TagStatistics = {
-      totalViewCount: 0,
-      totalPostCount: 0,
-      change24h: 0,
-      changePercent24h: 0,
-      postChange24h: 0,
-      postChangePercent24h: 0,
-      calculatedAt: null
-    };
-
-    try {
-      const statsResponse = await fetch(`${PUBLIC_API_URL}/api/tags/statistics`);
-      if (statsResponse.ok) {
-        statistics = await statsResponse.json();
-      }
-    } catch (statsError) {
-      console.error('Error loading tag statistics:', statsError);
-      // Continue with default statistics values
-    }
-
-    return {
-      tags: data.tags,
-      pagination: data.pagination,
-      statistics,
+    return createLoadResult({
+      tags: payload.tags,
+      pagination: payload.pagination,
+      statistics: payload.statistics,
       search,
       sortBy,
       sortOrder,
-      includeHistory: includeHistory === 'true',
+      includeHistory,
       historyStartDate,
       historyEndDate
-    };
+    });
   } catch (error) {
     console.error('Error loading tags:', error);
-    return {
+    return createLoadResult({
       tags: [],
-      pagination: {
-        page: 1,
-        limit: 20,
-        totalCount: 0,
-        totalPages: 0
-      },
-      statistics: {
-        totalViewCount: 0,
-        totalPostCount: 0,
-        change24h: 0,
-        changePercent24h: 0,
-        postChange24h: 0,
-        postChangePercent24h: 0,
-        calculatedAt: null
-      },
+      pagination: createEmptyPagination(),
+      statistics: createDefaultTagStatistics(),
       search,
       sortBy,
       sortOrder,
-      includeHistory: includeHistory === 'true',
+      includeHistory,
       historyStartDate,
       historyEndDate
-    };
+    });
   }
 };

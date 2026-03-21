@@ -143,11 +143,15 @@
     goto(`?${params}`);
   }
 
-  function toggleRankSort() {
+  function toggleSort(sortBy: 'rank' | 'ratio') {
     const params = new SvelteURLSearchParams($page.url.searchParams);
     const currentSortOrder = params.get('sortOrder') || 'asc';
-    params.set('sortBy', 'rank');
-    params.set('sortOrder', currentSortOrder === 'desc' ? 'asc' : 'desc');
+    const currentSortBy = params.get('sortBy') || 'rank';
+    params.set('sortBy', sortBy);
+    params.set(
+      'sortOrder',
+      currentSortBy === sortBy && currentSortOrder === 'desc' ? 'asc' : 'desc'
+    );
     params.set('page', '1');
     goto(`?${params}`);
   }
@@ -172,6 +176,14 @@
 
   function formatNumber(num: number): string {
     return new Intl.NumberFormat().format(num);
+  }
+
+  function formatRatio(ratio: number, postCount: number): string {
+    if (postCount <= 0) {
+      return '-';
+    }
+
+    return ratio.toFixed(2);
   }
 
   function formatDate(date: Date | string | number | null | undefined): string {
@@ -387,19 +399,36 @@
                 <TableHead class="w-16">
                   <button
                     class="hover:text-foreground flex items-center gap-1 transition-colors"
-                    onclick={toggleRankSort}
+                    onclick={() => toggleSort('rank')}
                   >
                     Rank
-                    {#if data.sortOrder === 'desc'}
-                      <ArrowDown class="h-4 w-4" />
-                    {:else}
-                      <ArrowUp class="h-4 w-4" />
+                    {#if data.sortBy === 'rank'}
+                      {#if data.sortOrder === 'desc'}
+                        <ArrowDown class="h-4 w-4" />
+                      {:else}
+                        <ArrowUp class="h-4 w-4" />
+                      {/if}
                     {/if}
                   </button>
                 </TableHead>
                 <TableHead>Tag</TableHead>
                 <TableHead>View Count</TableHead>
                 <TableHead>Post Count</TableHead>
+                <TableHead>
+                  <button
+                    class="hover:text-foreground flex items-center gap-1 transition-colors"
+                    onclick={() => toggleSort('ratio')}
+                  >
+                    Ratio
+                    {#if data.sortBy === 'ratio'}
+                      {#if data.sortOrder === 'desc'}
+                        <ArrowDown class="h-4 w-4" />
+                      {:else}
+                        <ArrowUp class="h-4 w-4" />
+                      {/if}
+                    {/if}
+                  </button>
+                </TableHead>
                 <TableHead>Views Change</TableHead>
                 <TableHead>Last Updated</TableHead>
               </TableRow>
@@ -444,6 +473,7 @@
                   </TableCell>
                   <TableCell>{formatNumber(tag.viewCount)}</TableCell>
                   <TableCell>{formatNumber(tag.postCount || 0)}</TableCell>
+                  <TableCell>{formatRatio(tag.ratio || 0, tag.postCount || 0)}</TableCell>
                   <TableCell>
                     {#if change !== 0}
                       <div class="flex items-center gap-1">
@@ -469,7 +499,7 @@
                 </TableRow>
                 {#if expandedTagId === tag.id}
                   <TableRow>
-                    <TableCell colspan={7} class="p-0">
+                    <TableCell colspan={8} class="p-0">
                       <div class="bg-muted/50 p-6">
                         <TagHistory history={tag.history} />
                       </div>

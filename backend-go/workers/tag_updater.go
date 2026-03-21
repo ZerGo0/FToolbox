@@ -37,6 +37,7 @@ func (w *TagUpdaterWorker) Run(ctx context.Context) error {
 
 	var tags []models.Tag
 	if err := w.db.Where("last_checked_at IS NULL OR last_checked_at < ?", twentyFourHoursAgo).
+		Where("tag NOT LIKE ?", "%+%").
 		Order("view_count DESC").
 		Limit(20).
 		Find(&tags).Error; err != nil {
