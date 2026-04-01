@@ -12,7 +12,7 @@ This file provides guidance to Codex CLI when working in this part of the reposi
 
 ## Local Rules
 - ALWAYS load environment-backed settings through `config.Load()` and thread the resulting config through backend setup.
-- ALWAYS make schema changes in `models` and rely on `database.AutoMigrate`; this repo does not maintain a separate handwritten migration layer.
+- ALWAYS make schema changes in `models`, and update `database/migrate.go` when a new model needs to be included in `database.AutoMigrate`.
 - ALWAYS route Fansly API access through `fansly.Client` so auth, retries, and global rate limiting stay centralized.
 - ALWAYS return route-level failures in `{ "error": string }` shape.
 - Register recurring background work through `workers.WorkerManager`; do not introduce separate ad-hoc worker orchestration.
@@ -20,6 +20,7 @@ This file provides guidance to Codex CLI when working in this part of the reposi
 ## Checks
 - `go fmt ./...`
 - `go vet ./...`
+- `go build ./...`
 - **ALWAYS** run these after you are done making changes
 
 ## Local Patterns
@@ -33,6 +34,8 @@ This file provides guidance to Codex CLI when working in this part of the reposi
 - `config/config.go`
 - `database/connection.go`
 - `database/migrate.go`
+- `.env.example`
+- `Dockerfile`
 - `models`
 - `routes/routes.go`
 - `fansly/client.go`
