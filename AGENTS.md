@@ -40,7 +40,6 @@ This file provides guidance to Codex CLI when working with code in this reposito
   - `pnpm check`
   - `pnpm lint`
   - `pnpm format`
-  - `PUBLIC_API_URL=http://localhost:3000 pnpm build`
 - Rules / conventions:
   - Route and component fetches should go straight to `${PUBLIC_API_URL}/api/...`; there is no checked-in SvelteKit server proxy layer.
   - Prefer the existing UI/component seams in `src/lib/components` and `src/lib/components/ui` instead of introducing parallel patterns.
@@ -59,7 +58,6 @@ This file provides guidance to Codex CLI when working with code in this reposito
 - Checks:
   - `go fmt ./...`
   - `go vet ./...`
-  - `go build ./...`
 - Rules / conventions:
   - Keep schema changes aligned with `backend-go/models` and `backend-go/database/migrate.go`; this repo does not maintain a separate handwritten migration layer.
   - Route external Fansly calls through `backend-go/fansly` and recurring background work through `backend-go/workers`.

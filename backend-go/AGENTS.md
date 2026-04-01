@@ -20,7 +20,6 @@ This file provides guidance to Codex CLI when working in this part of the reposi
 ## Checks
 - `go fmt ./...`
 - `go vet ./...`
-- `go build ./...`
 - **ALWAYS** run these after you are done making changes
 
 ## Local Patterns

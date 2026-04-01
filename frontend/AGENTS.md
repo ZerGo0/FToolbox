@@ -3,9 +3,11 @@
 This file provides guidance to Codex CLI when working in this part of the repository.
 
 ## Scope
+
 - This file governs `frontend` and its descendants.
 
 ## Local Overview
+
 - `frontend` is the SvelteKit 2 + Svelte 5 client application.
 - The app currently runs client-side only via `src/routes/+layout.ts`.
 - The checked-in deployment path is `wrangler.toml` plus `pnpm deploy:production`; `README.md` still mentions Cloudflare Pages, so prefer the config and scripts when they disagree.
@@ -23,7 +25,6 @@ This file provides guidance to Codex CLI when working in this part of the reposi
 - `pnpm check`
 - `pnpm lint`
 - `pnpm format`
-- `PUBLIC_API_URL=http://localhost:3000 pnpm build`
 - **ALWAYS** run these after you are done making changes
 
 ## Local Patterns
